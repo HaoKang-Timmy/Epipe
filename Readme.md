@@ -35,3 +35,47 @@ Here are some important points, when acc suddenly decrease. For top pruning, whe
 Now here are some details about compress ratio and accuracy at validation datasets
 
 ![image-20220206213637526](./pic/image-20220206213637526.png)
+
+# code
+
+```python
+class TopkFunction(autograd.Function):
+    @staticmethod
+    def forward(ctx,input,ratio):
+        shape = input.shape
+        input =input.view(-1)
+        src, index = torch.topk(torch.abs(input),int(ratio*input.shape[0]))
+        mask = torch.zeros(input.shape).to(input.get_device())
+        mask.index_fill_(0,index,1.0)
+        input =input * mask
+        mask =mask.view(shape)
+        ctx.mask =mask
+        input = input.view(shape)
+        return input
+    @staticmethod
+    def backward(ctx,grad_output):
+        return grad_output * ctx.mask, None
+class TopkAbs(nn.Module):
+    def __init__(self,compress_ratio):
+        super(TopkAbs,self).__init__()
+        self.ratio = compress_ratio
+    def forward(self,x):
+        return TopkFunction.apply(x,self.ratio)
+
+
+
+class Quantfunction(autograd.Function):
+    @staticmethod
+    def forward(ctx,input,floatpoint):
+        ctx.floatpoint = floatpoint
+        return input - input%floatpoint
+    def backward(ctx,grad_output):
+        return grad_output - grad_output%ctx.floatpoint,None
+class Quant(nn.Module):
+    def __init__(self,remain_float):
+        super(Quant,self).__init__()  
+        self.remain_float = remain_float
+    def forward(self,x):
+        return Quantfunction.apply(x,self.remain_float)
+```
+
