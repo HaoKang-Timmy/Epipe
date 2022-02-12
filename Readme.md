@@ -79,3 +79,5 @@ class Quant(nn.Module):
         return Quantfunction.apply(x,self.remain_float)
 ```
 
+# different layers
+
