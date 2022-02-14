@@ -28,13 +28,11 @@ Here is a test about some compression tests.
 
 ## Results
 
-![image-20220206204907151](./pic/image-20220206204907151.png)
 
-Here are some important points, when acc suddenly decrease. For top pruning, when only 10% of output are sent, accuracy decrease about 2%. However, quantization will help it decrease, which is inferred at the paper. For downsample, when the compress ratio is 16(which means output is 8*8), accuracy decrease by about 3%.
 
-Now here are some details about compress ratio and accuracy at validation datasets
+pruning rate(input_pruning/input_before_pruning) vs validation_acc1
 
-![image-20220206213637526](./pic/image-20220206213637526.png)
+![image-20220215015840995](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220215015840995.png)
 
 # code
 
