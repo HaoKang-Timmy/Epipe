@@ -32,7 +32,7 @@ Here is a test about some compression tests.
 
 pruning rate(input_pruning/input_before_pruning) vs validation_acc1
 
-![image-20220215015840995](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220215015840995.png)
+![image-20220215015840995](./pic/image-20220215015840995.png)
 
 # code
 
