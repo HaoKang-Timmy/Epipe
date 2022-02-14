@@ -4,8 +4,18 @@ from queue import Queue
 import sys
 from threading import Thread
 from types import TracebackType
-from typing import (TYPE_CHECKING, Callable, Dict, Generator, List, Optional, Tuple, Type, Union,
-                    cast)
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 
 import torch
 
@@ -20,8 +30,8 @@ ExcInfo = Tuple[Type[BaseException], BaseException, TracebackType]
 # Queue is generic only in stubs.
 # https://mypy.readthedocs.io/en/latest/common_issues.html#using-classes-that-are-generic-in-stubs-but-not-at-runtime
 if TYPE_CHECKING:
-    InQueue = Queue[Optional['Task']]
-    OutQueue = Queue[Tuple[bool, Union[Tuple['Task', Batch], ExcInfo, None]]]
+    InQueue = Queue[Optional["Task"]]
+    OutQueue = Queue[Tuple[bool, Union[Tuple["Task", Batch], ExcInfo, None]]]
 else:
     InQueue = Queue
     OutQueue = Queue
@@ -42,12 +52,13 @@ class Task:
 
     """
 
-    def __init__(self,
-                 stream: AbstractStream,
-                 *,
-                 compute: Callable[[], Batch],
-                 finalize: Optional[Callable[[Batch], None]],
-                 ) -> None:
+    def __init__(
+        self,
+        stream: AbstractStream,
+        *,
+        compute: Callable[[], Batch],
+        finalize: Optional[Callable[[Batch], None]],
+    ) -> None:
         self.stream = stream
         self._compute = compute
         self._finalize = finalize
@@ -63,11 +74,9 @@ class Task:
             self._finalize(batch)
 
 
-def worker(in_queue: InQueue,
-           out_queue: OutQueue,
-           device: torch.device,
-           grad_mode: bool,
-           ) -> None:
+def worker(
+    in_queue: InQueue, out_queue: OutQueue, device: torch.device, grad_mode: bool,
+) -> None:
     """The main loop of a worker thread."""
     torch.set_grad_enabled(grad_mode)
 
@@ -93,8 +102,9 @@ def worker(in_queue: InQueue,
 
 
 @contextmanager
-def spawn_workers(devices: List[torch.device],
-                  ) -> Generator[Tuple[List[InQueue], List[OutQueue]], None, None]:
+def spawn_workers(
+    devices: List[torch.device],
+) -> Generator[Tuple[List[InQueue], List[OutQueue]], None, None]:
     """Spawns worker threads. A worker thread is bound to a device."""
     in_queues: List[InQueue] = []
     out_queues: List[OutQueue] = []
@@ -103,11 +113,11 @@ def spawn_workers(devices: List[torch.device],
     workers: Dict[torch.device, Tuple[InQueue, OutQueue]] = {}
 
     def normalize_device(device: torch.device) -> torch.device:
-        if device.type == 'cuda' and device.index is None:
-            return torch.device('cuda', index=torch.cuda.current_device())
+        if device.type == "cuda" and device.index is None:
+            return torch.device("cuda", index=torch.cuda.current_device())
 
-        if device.type == 'cpu' and device.index is not None:
-            return torch.device('cpu')
+        if device.type == "cpu" and device.index is not None:
+            return torch.device("cpu")
 
         return device
 

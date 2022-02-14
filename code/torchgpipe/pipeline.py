@@ -26,8 +26,8 @@ ExcInfo = Tuple[Type[BaseException], BaseException, TracebackType]
 # Queue is generic only in stubs.
 # https://mypy.readthedocs.io/en/latest/common_issues.html#using-classes-that-are-generic-in-stubs-but-not-at-runtime
 if TYPE_CHECKING:
-    InQueue = Queue[Optional['Task']]
-    OutQueue = Queue[Tuple[bool, Union[Tuple['Task', Batch], ExcInfo, None]]]
+    InQueue = Queue[Optional["Task"]]
+    OutQueue = Queue[Tuple[bool, Union[Tuple["Task", Batch], ExcInfo, None]]]
 else:
     InQueue = Queue
     OutQueue = Queue
@@ -38,11 +38,15 @@ def depend(fork_from: Batch, join_to: Batch) -> None:
     join_to[0] = join(join_to[0], phony)
 
 
-def copy(batch: Batch, prev_stream: AbstractStream, next_stream: AbstractStream) -> None:
+def copy(
+    batch: Batch, prev_stream: AbstractStream, next_stream: AbstractStream
+) -> None:
     batch[:] = Copy.apply(prev_stream, next_stream, *batch)
 
 
-def wait(batch: Batch, prev_stream: AbstractStream, next_stream: AbstractStream) -> None:
+def wait(
+    batch: Batch, prev_stream: AbstractStream, next_stream: AbstractStream
+) -> None:
     batch[:] = Wait.apply(prev_stream, next_stream, *batch)
 
 
@@ -61,26 +65,27 @@ def clock_cycles(m: int, n: int) -> Iterable[List[Tuple[int, int]]]:
     # 2 (2,0) (1,1) (0,2)
     # 3       (2,1) (1,2)
     # 4             (2,2)
-    for k in range(m+n-1):
-        yield [(k-j, j) for j in range(max(1+k-m, 0), min(1+k, n))]
+    for k in range(m + n - 1):
+        yield [(k - j, j) for j in range(max(1 + k - m, 0), min(1 + k, n))]
 
 
 class Pipeline:
     """The pipeline parallelism for GPipe."""
 
-    def __init__(self,
-                 batches: List[Batch],
-                 partitions: List[nn.Sequential],
-                 devices: Optional[List[torch.device]] = None,
-                 copy_streams: Optional[List[List[AbstractStream]]] = None,
-                 skip_layout: Optional[SkipLayout] = None,
-                 checkpoint_stop: int = 0,
-                 ) -> None:
+    def __init__(
+        self,
+        batches: List[Batch],
+        partitions: List[nn.Sequential],
+        devices: Optional[List[torch.device]] = None,
+        copy_streams: Optional[List[List[AbstractStream]]] = None,
+        skip_layout: Optional[SkipLayout] = None,
+        checkpoint_stop: int = 0,
+    ) -> None:
         self.batches = batches
         self.partitions = partitions
 
         if devices is None:
-            devices = [torch.device('cpu') for _ in partitions]
+            devices = [torch.device("cpu") for _ in partitions]
         self.devices = devices
         if copy_streams is None:
             copy_streams = [[current_stream(d)] * len(batches) for d in devices]
@@ -114,10 +119,11 @@ class Pipeline:
                 self.fence(schedule, skip_trackers)
                 self.compute(schedule, skip_trackers, in_queues, out_queues)
 
-    def fence(self,
-              schedule: List[Tuple[int, int]],
-              skip_trackers: List[SkipTrackerThroughPotals],
-              ) -> None:
+    def fence(
+        self,
+        schedule: List[Tuple[int, int]],
+        skip_trackers: List[SkipTrackerThroughPotals],
+    ) -> None:
         """Copies micro-batches after computation for the previous
         micro-batches.
         """
@@ -129,7 +135,7 @@ class Pipeline:
             # Ensure that batches[i-1] is executed after batches[i] in
             # backpropagation by an explicit dependency.
             if i != 0:
-                depend(batches[i-1], batches[i])
+                depend(batches[i - 1], batches[i])
 
             next_stream = copy_streams[j][i]
 
@@ -138,15 +144,16 @@ class Pipeline:
                 skip_trackers[i].copy(batches[i], prev_stream, next_stream, ns, name)
 
             if j != 0:
-                prev_stream = copy_streams[j-1][i]
+                prev_stream = copy_streams[j - 1][i]
                 copy(batches[i], prev_stream, next_stream)
 
-    def compute(self,
-                schedule: List[Tuple[int, int]],
-                skip_trackers: List[SkipTrackerThroughPotals],
-                in_queues: List[InQueue],
-                out_queues: List[OutQueue],
-                ) -> None:
+    def compute(
+        self,
+        schedule: List[Tuple[int, int]],
+        skip_trackers: List[SkipTrackerThroughPotals],
+        in_queues: List[InQueue],
+        out_queues: List[OutQueue],
+    ) -> None:
         """Runs tasks with synchronization to copy streams."""
         batches = self.batches
         partitions = self.partitions
@@ -192,12 +199,14 @@ class Pipeline:
                 wait(batch, copy_streams[j][i], streams[j])
 
             # Determine whether checkpointing or not.
-            checkpoint = (i < checkpoint_stop)
+            checkpoint = i < checkpoint_stop
             if checkpoint:
-                def function(input: TensorOrTensors,
-                             partition: nn.Sequential = partition,
-                             skip_tracker: SkipTrackerThroughPotals = skip_trackers[i],
-                             ) -> TensorOrTensors:
+
+                def function(
+                    input: TensorOrTensors,
+                    partition: nn.Sequential = partition,
+                    skip_tracker: SkipTrackerThroughPotals = skip_trackers[i],
+                ) -> TensorOrTensors:
                     with use_skip_tracker(skip_tracker):
                         return partition(input)
 
@@ -206,10 +215,12 @@ class Pipeline:
                 del function, chk
 
             else:
-                def compute(batch: Batch = batch,
-                            partition: nn.Sequential = partition,
-                            skip_tracker: SkipTrackerThroughPotals = skip_trackers[i],
-                            ) -> Batch:
+
+                def compute(
+                    batch: Batch = batch,
+                    partition: nn.Sequential = partition,
+                    skip_tracker: SkipTrackerThroughPotals = skip_trackers[i],
+                ) -> Batch:
                     with use_skip_tracker(skip_tracker):
                         return batch.call(partition)
 
@@ -233,7 +244,7 @@ class Pipeline:
 
             # The copy stream synchronizes to copy the output. ([3] in the
             # diagram)
-            if j != n-1:
+            if j != n - 1:
                 wait(batch, streams[j], copy_streams[j][i])
 
             # Finalize tasks. If checkpointing is enabled, here the

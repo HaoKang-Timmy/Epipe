@@ -21,7 +21,7 @@ import torch.nn as nn
 from torchgpipe.balance import blockpartition
 from torchgpipe.balance.profile import profile_sizes, profile_times
 
-__all__ = ['balance_by_time', 'balance_by_size']
+__all__ = ["balance_by_time", "balance_by_size"]
 
 
 Device = Union[torch.device, int, str]
@@ -35,13 +35,14 @@ def balance_cost(cost: List[int], partitions: int) -> List[int]:
     return [len(p) for p in partitioned]
 
 
-def balance_by_time(partitions: int,
-                    module: nn.Sequential,
-                    sample: TensorOrTensors,
-                    *,
-                    timeout: float = 1.0,
-                    device: Device = torch.device('cuda'),
-                    ) -> List[int]:
+def balance_by_time(
+    partitions: int,
+    module: nn.Sequential,
+    sample: TensorOrTensors,
+    *,
+    timeout: float = 1.0,
+    device: Device = torch.device("cuda"),
+) -> List[int]:
     """Naive automatic balancing by elapsed time per layer.
     ::
 
@@ -77,14 +78,15 @@ def balance_by_time(partitions: int,
     return balance_cost(times, partitions)
 
 
-def balance_by_size(partitions: int,
-                    module: nn.Sequential,
-                    input: TensorOrTensors,
-                    *,
-                    chunks: int = 1,
-                    param_scale: float = 2.0,
-                    device: Device = torch.device('cuda'),
-                    ) -> List[int]:
+def balance_by_size(
+    partitions: int,
+    module: nn.Sequential,
+    input: TensorOrTensors,
+    *,
+    chunks: int = 1,
+    param_scale: float = 2.0,
+    device: Device = torch.device("cuda"),
+) -> List[int]:
     """Naive automatic balancing by CUDA memory usage per layer.
 
     During training, required memory for parameters depends on which optimizer

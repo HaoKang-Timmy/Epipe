@@ -14,7 +14,7 @@ from torchgpipe.skip.layout import inspect_skip_layout
 from torchgpipe.skip.skippable import verify_skippables
 from torchgpipe.stream import AbstractStream, new_stream
 
-__all__ = ['GPipe']
+__all__ = ["GPipe"]
 
 
 Device = Union[torch.device, int, str]
@@ -33,7 +33,7 @@ else:
 
 def recommend_auto_balance(message: str) -> str:
     """Expands a message with recommendation to :mod:`torchgpipe.balance`."""
-    return f'''{message}
+    return f"""{message}
 
 If your model is still under development, its optimal balance would change
 frequently. In this case, we highly recommend 'torchgpipe.balance' for naive
@@ -47,31 +47,34 @@ automatic balancing:
   balance = balance_by_time(partitions, model, sample)
 
   model = GPipe(model, balance, ...)
-'''
+"""
 
 
 def verify_module(module: nn.Sequential) -> None:
     if not isinstance(module, nn.Sequential):
-        raise TypeError('module must be nn.Sequential to be partitioned')
+        raise TypeError("module must be nn.Sequential to be partitioned")
 
     named_children = list(module.named_children())
     if len(named_children) != len(module):
-        raise ValueError('module with duplicate children is not supported')
+        raise ValueError("module with duplicate children is not supported")
 
     num_parameters = len(list(module.parameters()))
-    num_child_parameters = sum(len(list(child.parameters())) for child in module.children())
+    num_child_parameters = sum(
+        len(list(child.parameters())) for child in module.children()
+    )
     if num_parameters != num_child_parameters:
-        raise ValueError('module with duplicate parameters in distinct children is not supported')
+        raise ValueError(
+            "module with duplicate parameters in distinct children is not supported"
+        )
 
 
 class BalanceError(ValueError):
     pass
 
 
-def split_module(module: nn.Sequential,
-                 balance: Iterable[int],
-                 devices: List[torch.device],
-                 ) -> Tuple[List[nn.Sequential], List[int], List[torch.device]]:
+def split_module(
+    module: nn.Sequential, balance: Iterable[int], devices: List[torch.device],
+) -> Tuple[List[nn.Sequential], List[int], List[torch.device]]:
     """Splits a module into multiple partitions.
 
     Returns:
@@ -91,15 +94,21 @@ def split_module(module: nn.Sequential,
     balance = list(balance)
 
     if len(module) != sum(balance):
-        raise BalanceError('module and sum of balance have different length '
-                           f'(module: {len(module)}, sum of balance: {sum(balance)})')
+        raise BalanceError(
+            "module and sum of balance have different length "
+            f"(module: {len(module)}, sum of balance: {sum(balance)})"
+        )
 
     if any(x <= 0 for x in balance):
-        raise BalanceError(f'all balance numbers must be positive integer (balance: {balance})')
+        raise BalanceError(
+            f"all balance numbers must be positive integer (balance: {balance})"
+        )
 
     if len(balance) > len(devices):
-        raise IndexError('too few devices to hold given partitions '
-                         f'(devices: {len(devices)}, partitions: {len(balance)})')
+        raise IndexError(
+            "too few devices to hold given partitions "
+            f"(devices: {len(devices)}, partitions: {len(balance)})"
+        )
 
     j = 0
     partitions = []
@@ -127,8 +136,10 @@ def split_module(module: nn.Sequential,
     return partitions, balance, devices
 
 
-MOVING_DENIED = TypeError('denied to move parameters and buffers, '
-                          'because GPipe should manage device placement')
+MOVING_DENIED = TypeError(
+    "denied to move parameters and buffers, "
+    "because GPipe should manage device placement"
+)
 
 
 class GPipe(Module):
@@ -206,18 +217,19 @@ class GPipe(Module):
 
     #: The checkpoint mode to determine when to enable checkpointing. It is one
     #: of ``'always'``, ``'except_last'``, or ``'never'``.
-    checkpoint: str = 'except_last'
+    checkpoint: str = "except_last"
 
-    def __init__(self,
-                 module: nn.Sequential,
-                 balance: Optional[Iterable[int]] = None,
-                 *,
-                 devices: Optional[Devices] = None,
-                 chunks: int = chunks,
-                 checkpoint: str = checkpoint,
-                 deferred_batch_norm: bool = True,
-                 partition = None
-                 ) -> None:
+    def __init__(
+        self,
+        module: nn.Sequential,
+        balance: Optional[Iterable[int]] = None,
+        *,
+        devices: Optional[Devices] = None,
+        chunks: int = chunks,
+        checkpoint: str = checkpoint,
+        deferred_batch_norm: bool = True,
+        partition=None,
+    ) -> None:
         super().__init__()
         print("modify Gpipe")
         chunks = int(chunks)
@@ -226,9 +238,11 @@ class GPipe(Module):
         # if balance is None:
         #     raise ValueError(recommend_auto_balance('balance is required'))
         if chunks <= 0:
-            raise ValueError('number of chunks must be positive integer')
-        if checkpoint not in ['always', 'except_last', 'never']:
-            raise ValueError("checkpoint is not one of 'always', 'except_last', or 'never'")
+            raise ValueError("number of chunks must be positive integer")
+        if checkpoint not in ["always", "except_last", "never"]:
+            raise ValueError(
+                "checkpoint is not one of 'always', 'except_last', or 'never'"
+            )
 
         # verify_module(module)
 
@@ -291,13 +305,13 @@ class GPipe(Module):
 
     # GPipe should manage the device of each partition.
     # Deny cuda(), cpu(), and to() with device, by TypeError.
-    def cuda(self, device: Optional[Device] = None) -> 'GPipe':
+    def cuda(self, device: Optional[Device] = None) -> "GPipe":
         raise MOVING_DENIED
 
-    def cpu(self) -> 'GPipe':
+    def cpu(self) -> "GPipe":
         raise MOVING_DENIED
 
-    def to(self, *args: Any, **kwargs: Any) -> 'GPipe':
+    def to(self, *args: Any, **kwargs: Any) -> "GPipe":
         # Deny these usages:
         #
         # - to(device[, dtype, non_blocking])
@@ -307,7 +321,7 @@ class GPipe(Module):
         #
         # - to(dtype[, non_blocking])
         #
-        if 'device' in kwargs or 'tensor' in kwargs:
+        if "device" in kwargs or "tensor" in kwargs:
             raise MOVING_DENIED
 
         if args:
@@ -328,7 +342,9 @@ class GPipe(Module):
         """
         if not self._copy_streams:
             for device in self.devices:
-                self._copy_streams.append([new_stream(device) for _ in range(self.chunks)])
+                self._copy_streams.append(
+                    [new_stream(device) for _ in range(self.chunks)]
+                )
         return self._copy_streams
 
     def forward(self, input: TensorOrTensors) -> TensorOrTensors:  # type: ignore
@@ -349,7 +365,7 @@ class GPipe(Module):
 
         """
         microbatch.check(input)
-        
+
         if not self.devices:
             # Empty sequential module is not illegal.
             return input
@@ -363,19 +379,21 @@ class GPipe(Module):
         # The micro-batch index where the checkpointing stops.
         if self.training:
             checkpoint_stop = {
-                'always': self.chunks,
-                'except_last': self.chunks-1,
-                'never': 0,
+                "always": self.chunks,
+                "except_last": self.chunks - 1,
+                "never": 0,
             }[self.checkpoint]
         else:
             checkpoint_stop = 0
         # Run pipeline parallelism.
-        pipeline = Pipeline(batches,
-                            self.partitions,
-                            self.devices,
-                            copy_streams,
-                            self._skip_layout,
-                            checkpoint_stop)
+        pipeline = Pipeline(
+            batches,
+            self.partitions,
+            self.devices,
+            copy_streams,
+            self._skip_layout,
+            checkpoint_stop,
+        )
         pipeline.run()
 
         # Merge the micro-batches into one mini-batch.

@@ -18,9 +18,9 @@ Tensors = Tuple[Tensor, ...]
 TensorOrTensors = Union[Tensor, Tensors]
 
 
-def layerwise_sandbox(module: nn.Sequential,
-                      device: torch.device,
-                      ) -> Generator[nn.Module, None, None]:
+def layerwise_sandbox(
+    module: nn.Sequential, device: torch.device,
+) -> Generator[nn.Module, None, None]:
     """Copies layers for ease to profile. It doesn't modify the given
     module.
     """
@@ -37,14 +37,15 @@ def detach(batch: Batch) -> None:
         batch[i] = x.detach().requires_grad_(x.requires_grad)
 
 
-def profile_times(module: nn.Sequential,
-                  sample: TensorOrTensors,
-                  timeout: float,
-                  device: torch.device,
-                  ) -> List[int]:
+def profile_times(
+    module: nn.Sequential,
+    sample: TensorOrTensors,
+    timeout: float,
+    device: torch.device,
+) -> List[int]:
     """Profiles elapsed times per layer."""
     if any(p.grad is not None for p in module.parameters()):
-        raise ValueError('some parameter already has gradient')
+        raise ValueError("some parameter already has gradient")
 
     _batch = Batch(sample)
     for i, x in enumerate(_batch):
@@ -59,7 +60,7 @@ def profile_times(module: nn.Sequential,
         for i, layer in enumerate(layerwise_sandbox(module, device)):
             detach(batch)
 
-            if device.type == 'cuda':
+            if device.type == "cuda":
                 torch.cuda.synchronize(device)
             tick = time.time()
 
@@ -71,25 +72,26 @@ def profile_times(module: nn.Sequential,
             if backward_tensors:
                 torch.autograd.backward(backward_tensors, backward_tensors)
 
-            if device.type == 'cuda':
+            if device.type == "cuda":
                 torch.cuda.synchronize(device)
             tock = time.time()
 
             time_bufs[i].append(tock - tick)
 
     us = 1_000_000
-    return [sum(int(t*us) for t in buf) for buf in time_bufs]
+    return [sum(int(t * us) for t in buf) for buf in time_bufs]
 
 
-def profile_sizes(module: nn.Sequential,
-                  input: TensorOrTensors,
-                  chunks: int,
-                  param_scale: float,
-                  device: torch.device,
-                  ) -> List[int]:
+def profile_sizes(
+    module: nn.Sequential,
+    input: TensorOrTensors,
+    chunks: int,
+    param_scale: float,
+    device: torch.device,
+) -> List[int]:
     """Profiles CUDA memory usage per layer."""
-    if device.type != 'cuda':
-        raise ValueError('size profiler supports only CUDA device')
+    if device.type != "cuda":
+        raise ValueError("size profiler supports only CUDA device")
 
     batch = Batch(input)
     sizes: List[int] = []
@@ -108,11 +110,12 @@ def profile_sizes(module: nn.Sequential,
         latent_size = memory_after - memory_before
 
         # Analyze size of parameters.
-        param_size = sum(p.storage().size() * p.storage().element_size()
-                         for p in layer.parameters())
+        param_size = sum(
+            p.storage().size() * p.storage().element_size() for p in layer.parameters()
+        )
 
         # Combine size of parameters and activations with normalize scales.
-        size = latent_size*latent_scale + param_size*param_scale
+        size = latent_size * latent_scale + param_size * param_scale
         sizes.append(int(size))
 
     return sizes

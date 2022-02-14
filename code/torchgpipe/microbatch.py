@@ -42,14 +42,14 @@ class Batch:
     def tensor(self) -> Tensor:
         """Retrieves the underlying tensor."""
         if not self.atomic:
-            raise AttributeError('not atomic batch')
+            raise AttributeError("not atomic batch")
         return cast(Tensor, self.value)
 
     @property
     def tensors(self) -> Tensors:
         """Retrieves the underlying tensors."""
         if self.atomic:
-            raise AttributeError('batch is atomic')
+            raise AttributeError("batch is atomic")
         return cast(Tensors, self.value)
 
     @property
@@ -57,14 +57,14 @@ class Batch:
         """Retrieves the underlying tensor or tensors regardless of type."""
         return self.value
 
-    def call(self, function: Function) -> 'Batch':
+    def call(self, function: Function) -> "Batch":
         """Calls a function by the underlying tensor or tensors. It also wraps
         the output with :class:`Batch`.
         """
         return Batch(function(self.value))
 
     def __repr__(self) -> str:
-        return f'Batch[atomic={self.atomic!r}]({self.value!r})'
+        return f"Batch[atomic={self.atomic!r}]({self.value!r})"
 
     def __iter__(self) -> Iterator[Tensor]:
         if self.atomic:
@@ -80,16 +80,18 @@ class Batch:
             return self.tensors[index]
 
         if index != 0:
-            raise IndexError('atomic batch allows index 0 only')
+            raise IndexError("atomic batch allows index 0 only")
 
         return self.tensor
 
     # NOTE(sublee): pyflakes can't detect "overload" instead of "typing.overload".
     @typing.overload
-    def __setitem__(self, index: int, value: Tensor) -> None: ...
+    def __setitem__(self, index: int, value: Tensor) -> None:
+        ...
 
     @typing.overload
-    def __setitem__(self, index: slice, value: Tensors) -> None: ...
+    def __setitem__(self, index: slice, value: Tensors) -> None:
+        ...
 
     def __setitem__(self, index: Union[int, slice], value: TensorOrTensors) -> None:
         if isinstance(index, int):
@@ -102,24 +104,24 @@ class Batch:
     def _setitem_by_index(self, index: int, value: Tensor) -> None:
         if not self.atomic:
             i = index
-            self.value = self.value[:i] + (value,) + self.value[i+1:]
+            self.value = self.value[:i] + (value,) + self.value[i + 1 :]
             return
 
         if index != 0:
-            raise IndexError('atomic batch allows index 0 only')
+            raise IndexError("atomic batch allows index 0 only")
 
         self.value = value
 
     def _setitem_by_slice(self, index: slice, value: Tensors) -> None:
         if not (index.start is index.stop is index.step is None):
-            raise NotImplementedError('only slice [:] supported')
+            raise NotImplementedError("only slice [:] supported")
 
         if not self.atomic:
             self.value = value
             return
 
         if len(value) != 1:
-            raise IndexError('atomic batch cannot be replaced with multiple tensors')
+            raise IndexError("atomic batch cannot be replaced with multiple tensors")
 
         self.value = value[0]
 
@@ -137,7 +139,7 @@ def check(input: TensorOrTensors) -> None:
         return
 
     if not isinstance(input, Tensor):
-        raise TypeError(f'expected Tensor, but got {input.__class__.__name__}')
+        raise TypeError(f"expected Tensor, but got {input.__class__.__name__}")
 
 
 def scatter(input: TensorOrTensors, chunks: int) -> List[Batch]:

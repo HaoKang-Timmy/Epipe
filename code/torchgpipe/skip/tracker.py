@@ -31,20 +31,23 @@ class SkipTracker:
     def __init__(self) -> None:
         self.tensors: Dict[Tuple[Namespace, str], Optional[Tensor]] = {}
 
-    def save(self, batch: Batch, ns: Namespace, name: str, tensor: Optional[Tensor]) -> None:
+    def save(
+        self, batch: Batch, ns: Namespace, name: str, tensor: Optional[Tensor]
+    ) -> None:
         self.tensors[(ns, name)] = tensor
 
     def load(self, batch: Batch, ns: Namespace, name: str) -> Optional[Tensor]:
         return self.tensors.pop((ns, name))
 
-    def copy(self,
-             batch: Batch,
-             prev_stream: AbstractStream,
-             next_stream: AbstractStream,
-             ns: Namespace,
-             name: str,
-             ) -> None:
-        raise TypeError('copy is not supported for non-portal skip tensors')
+    def copy(
+        self,
+        batch: Batch,
+        prev_stream: AbstractStream,
+        next_stream: AbstractStream,
+        ns: Namespace,
+        name: str,
+    ) -> None:
+        raise TypeError("copy is not supported for non-portal skip tensors")
 
 
 class SkipTrackerThroughPotals(SkipTracker):
@@ -61,7 +64,9 @@ class SkipTrackerThroughPotals(SkipTracker):
         self.skip_layout = skip_layout
         self.portals: Dict[Tuple[Namespace, str], Portal] = {}
 
-    def save(self, batch: Batch, ns: Namespace, name: str, tensor: Optional[Tensor]) -> None:
+    def save(
+        self, batch: Batch, ns: Namespace, name: str, tensor: Optional[Tensor]
+    ) -> None:
         """Saves the stashed skip tensor in a portal. The portal is then
         connected to the given micro-batch with :class:`Join`.
         """
@@ -120,13 +125,14 @@ class SkipTrackerThroughPotals(SkipTracker):
         tensor = portal.orange(phony)
         return tensor
 
-    def copy(self,
-             batch: Batch,
-             prev_stream: AbstractStream,
-             next_stream: AbstractStream,
-             ns: Namespace,
-             name: str,
-             ) -> None:
+    def copy(
+        self,
+        batch: Batch,
+        prev_stream: AbstractStream,
+        next_stream: AbstractStream,
+        ns: Namespace,
+        name: str,
+    ) -> None:
         """Copies the skip tensor in the corresponding portal. The given
         micro-batch and the portal will be tied with :class:`Fork` and
         :class:`Join`.

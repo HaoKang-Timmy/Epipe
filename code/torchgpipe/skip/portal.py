@@ -41,7 +41,7 @@ class Portal:
         tensor = self.use_tensor()
 
         if tensor is None:
-            return get_phony(torch.device('cpu'), requires_grad=False)
+            return get_phony(torch.device("cpu"), requires_grad=False)
 
         return PortalBlue.apply(self, tensor)
 
@@ -63,11 +63,9 @@ class Portal:
 
         return PortalOrange.apply(self, phony)
 
-    def copy(self,
-             prev_stream: AbstractStream,
-             next_stream: AbstractStream,
-             phony: Tensor,
-             ) -> Tensor:
+    def copy(
+        self, prev_stream: AbstractStream, next_stream: AbstractStream, phony: Tensor,
+    ) -> Tensor:
         """Copies the hidden tensor by a :class:`PortalCopy`.
 
         Give a phony and use the returning phony to keep backpropagation::
@@ -78,13 +76,13 @@ class Portal:
 
         """
         if self.tensor is None:
-            return get_phony(torch.device('cpu'), requires_grad=False)
+            return get_phony(torch.device("cpu"), requires_grad=False)
 
         return PortalCopy.apply(self, prev_stream, next_stream, phony)
 
     def check_tensor_life(self) -> None:
         if self.tensor_life <= 0:
-            raise RuntimeError('tensor in portal has been removed')
+            raise RuntimeError("tensor in portal has been removed")
 
     def put_tensor(self, tensor: Optional[Tensor], tensor_life: int) -> None:
         """Stores a tensor into this portal."""
@@ -143,7 +141,7 @@ class Portal:
         always ephemeral.
         """
         if self.grad is None:
-            raise RuntimeError('grad in portal has been removed or never set')
+            raise RuntimeError("grad in portal has been removed or never set")
 
         grad = self.grad
         self.grad = None
@@ -158,21 +156,24 @@ class Context(CopyContext):
 
 class PortalBlue(torch.autograd.Function):
     """Hides a tensor from the autograd engine by a :class:`Portal`."""
+
     @staticmethod
-    def forward(ctx: Context,  # type: ignore
-                portal: Portal,
-                # This tensor must be retrieved by portal.use_tensor().
-                tensor: Tensor,
-                ) -> Tensor:
+    def forward(
+        ctx: Context,  # type: ignore
+        portal: Portal,
+        # This tensor must be retrieved by portal.use_tensor().
+        tensor: Tensor,
+    ) -> Tensor:
         ctx.portal = portal
 
         phony = get_phony(tensor.device, requires_grad=False)
         return phony.detach()
 
     @staticmethod
-    def backward(ctx: Context,  # type: ignore
-                 grad_phony: Tensor,
-                 ) -> Tuple[None, Tensor]:
+    def backward(
+        ctx: Context,  # type: ignore
+        grad_phony: Tensor,
+    ) -> Tuple[None, Tensor]:
         # The paired PortalOrange should keep the gradient.
         grad = ctx.portal.use_grad()
         return None, grad
@@ -180,6 +181,7 @@ class PortalBlue(torch.autograd.Function):
 
 class PortalOrange(torch.autograd.Function):
     """Retrieves the hidden tensor from a :class:`Portal`."""
+
     @staticmethod
     def forward(ctx: Context, portal: Portal, phony: Tensor) -> Tensor:  # type: ignore
         ctx.portal = portal
@@ -200,25 +202,28 @@ class PortalCopy(torch.autograd.Function):
     """Copies the hidden tensor in a :class:`Portal`. It replaces the hidden
     tensor with copied one.
     """
+
     @staticmethod
-    def forward(ctx: Context,  # type: ignore
-                portal: Portal,
-                prev_stream: AbstractStream,
-                next_stream: AbstractStream,
-                phony: Tensor,
-                ) -> Tensor:
+    def forward(
+        ctx: Context,  # type: ignore
+        portal: Portal,
+        prev_stream: AbstractStream,
+        next_stream: AbstractStream,
+        phony: Tensor,
+    ) -> Tensor:
         ctx.portal = portal
 
         assert portal.tensor is not None
-        portal.tensor, = Copy.forward(ctx, prev_stream, next_stream, portal.tensor)
+        (portal.tensor,) = Copy.forward(ctx, prev_stream, next_stream, portal.tensor)
 
         phony = get_phony(get_device(next_stream), requires_grad=False)
         return phony.detach()
 
     @staticmethod
-    def backward(ctx: Context,  # type: ignore
-                 grad_phony: Tensor,
-                 ) -> Tuple[None, None, None, None]:
+    def backward(
+        ctx: Context,  # type: ignore
+        grad_phony: Tensor,
+    ) -> Tuple[None, None, None, None]:
         portal = ctx.portal
 
         assert portal.grad is not None
