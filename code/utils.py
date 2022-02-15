@@ -175,11 +175,17 @@ def train_last(rank, model, optimizer, iter_time, args):
     data_time_avg = 0.0
     start = time.time()
     for i in range(iter_time):
+        # print("rank:",rank,"i:",i,"begin")
+        # target = generate_recv(0,rank)
+        # target = ForwardReceive_BackwardSend.apply(target,0,0,rank)
+        # target = target.type(torch.int64)
         data_time = time.time() - start
         input = generate_recv(rank - 1, rank)
         input = ForwardReceive_BackwardSend.apply(input, rank - 1, rank - 1, rank)
         output = model(input)
         output = ForwardSend_BackwardReceive.apply(output, 0, 0, rank)
+        # loss = criterion(output,target)
+        # acc1, acc5 = accuracy(output, target, topk=(1, 5))
         recv = output.clone().detach()
         optimizer.zero_grad()
         output.backward(recv)
@@ -187,6 +193,9 @@ def train_last(rank, model, optimizer, iter_time, args):
         batch_time = time.time() - start
         batch_time_avg = batch_time_avg + batch_time
         data_time_avg = data_time_avg + data_time
+        # acc1_avg = acc1 + acc1_avg
+        # if i% 30 == 0:
+        #     print("loss:",loss,"acc1",acc1)
         start = time.time()
     batch_time_avg = batch_time_avg / iter_time
     data_time_avg = data_time_avg / iter_time
@@ -289,6 +298,7 @@ def validate(model, val_loader, criterion, args):
 
 
 def train_gpipe_header(rank, model, optimizer, train_loader, criterion, args):
+    # print("Use GPU",rank, "as the first part")
     model.train()
     batch_time_avg = 0.0
     data_time_avg = 0.0
@@ -296,11 +306,19 @@ def train_gpipe_header(rank, model, optimizer, train_loader, criterion, args):
     loss_avg = 0.0
     start = time.time()
     for i, (images, targets) in enumerate(train_loader):
+        # print("rank:",rank,"i:",i,"begin")
+        # for j in range(args.world_size):
+        #     dist.send(torch.tensor(targets[0]))
         targets = targets.cuda(rank, non_blocking=True)
+        # targets = ForwardSend_BackwardReceive.apply(targets,args.world_size-1,args.world_size-1,rank)
         data_time = time.time() - start
         images = images.cuda(rank, non_blocking=True)
         output = model(images)
         output = ForwardSend_BackwardReceive.apply(output, rank + 1, rank + 1, rank)
+        # optimizer.zero_grad()
+        # recv_size = output.clone().detach()
+        # output.backward(recv_size)
+        # optimizer.step()
         label = generate_recv(args.world_size - 1, rank)
         label = ForwardReceive_BackwardSend.apply(
             label, args.world_size - 1, args.world_size - 1, rank
@@ -345,6 +363,23 @@ def make_partition(model, num, type: str, pruning=None, scale_bits=None):
             layer4 = [model.layers[14:]]
             layer5 = [model.conv2, model.bn2, Reshape1(), model.linear]
             print("edge")
+        if type.find("lastoned") != -1:
+            layer1 = [model.conv1, model.bn1]
+            layer2 = [model.layers[0:7]]
+            layer3 = [model.layers[7:14]]
+            layer4 = [model.layers[14:]]
+            layer5 = [model.conv2, model.bn2, Reshape1(), model.linear]
+            print("lastoned")
+        if type.find("firstoned") != -1:
+            layer1 = [model.conv1, model.bn1, model.layers[0]]
+            layer2 = [model.layers[1:7]]
+            layer3 = [model.layers[7:14]]
+            layer4 = [
+                model.layers[14:],
+                model.conv2,
+            ]
+            layer5 = [model.bn2, Reshape1(), model.linear]
+            print("firstoned")
         if type.find("pruning") != -1:
             layer1.append(TopkAbs(pruning))
             layer4.append(TopkAbs(pruning))

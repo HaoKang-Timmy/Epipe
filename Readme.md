@@ -34,48 +34,41 @@ pruning rate(input_pruning/input_before_pruning) vs validation_acc1
 
 ![image-20220215015840995](./pic/image-20220215015840995.png)
 
+
+
+It shows that, when at same pruning rate(compression rate), using both pruning and quantization is better than any other choices provided.
+
+Also, there are some interesting phenomenons.
+
+First, quantization may increase accuracy when using pruning.In the graph we could see that when at pruning 0.1 and pruning 0.05, using quantization 8 and quantization 16 are better than origin pruning 0.1 or pruning 0.05. However, this only happens in the condition that pruning rate is high. For pruning 0.2 or pruning 0.4, it does not happen.
+
+
+
+Second,only using quantization will cause huge overfit during training.
+
+
+
+![image-20220215102351169](./pic/image-20220215102351169.png)
+
+However, when using topk pruning together, the curve does not temble that much. 
+
+
+
+
+
 # code
 
-```python
-class TopkFunction(autograd.Function):
-    @staticmethod
-    def forward(ctx,input,ratio):
-        shape = input.shape
-        input =input.view(-1)
-        src, index = torch.topk(torch.abs(input),int(ratio*input.shape[0]))
-        mask = torch.zeros(input.shape).to(input.get_device())
-        mask.index_fill_(0,index,1.0)
-        input =input * mask
-        mask =mask.view(shape)
-        ctx.mask =mask
-        input = input.view(shape)
-        return input
-    @staticmethod
-    def backward(ctx,grad_output):
-        return grad_output * ctx.mask, None
-class TopkAbs(nn.Module):
-    def __init__(self,compress_ratio):
-        super(TopkAbs,self).__init__()
-        self.ratio = compress_ratio
-    def forward(self,x):
-        return TopkFunction.apply(x,self.ratio)
+### quantization
 
+https://github.com/timmywanttolearn/gpipe_test/blob/master/code/distributed_layers.py#:~:text=class%20QuantFunction(autograd.-,Function,-)%3A
 
+### topk_pruning
 
-class Quantfunction(autograd.Function):
-    @staticmethod
-    def forward(ctx,input,floatpoint):
-        ctx.floatpoint = floatpoint
-        return input - input%floatpoint
-    def backward(ctx,grad_output):
-        return grad_output - grad_output%ctx.floatpoint,None
-class Quant(nn.Module):
-    def __init__(self,remain_float):
-        super(Quant,self).__init__()  
-        self.remain_float = remain_float
-    def forward(self,x):
-        return Quantfunction.apply(x,self.remain_float)
-```
+https://github.com/timmywanttolearn/gpipe_test/blob/master/code/distributed_layers.py#:~:text=class-,TopkFunction,-(autograd.Function)%3A
+
+### training code
+
+https://github.com/timmywanttolearn/gpipe_test/blob/master/code/train.py#:~:text=for%20epoch%20in,file_save1.close()
 
 # different layers
 
