@@ -60,15 +60,15 @@ However, when using topk pruning together, the curve does not tremble that much.
 
 ### quantization
 
-https://github.com/timmywanttolearn/gpipe_test/blob/master/code/distributed_layers.py#:~:text=class%20QuantFunction(autograd.-,Function,-)%3A
+https://github.com/timmywanttolearn/gpipe_test/blob/master/code/distributed_layers.py#:~:text=class%20QuantFunction(autograd,return%20output%2C%20None
 
 ### topk_pruning
 
-https://github.com/timmywanttolearn/gpipe_test/blob/master/code/distributed_layers.py#:~:text=class-,TopkFunction,-(autograd.Function)%3A
+https://github.com/timmywanttolearn/gpipe_test/blob/master/code/distributed_layers.py#:~:text=class%20Topk(nn,grad_output%20*%20self.mask
 
-### training code
+### partition method
 
-https://github.com/timmywanttolearn/gpipe_test/blob/master/code/train.py#:~:text=for%20epoch%20in,file_save1.close()
+https://github.com/timmywanttolearn/gpipe_test/blob/master/code/utils.py#:~:text=def%20make_partition(model,return%20partition
 
 # different layers
 
