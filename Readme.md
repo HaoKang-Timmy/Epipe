@@ -81,3 +81,9 @@ Accuracy about different separation
 | 2:-1 | 93.06      | 91.72                    |
 | 1:-2 | 92.57      | 90.95                    |
 
+# Usage
+
+```bash
+python train.py ./data -logdir ./log/xxx.txt
+```
+
