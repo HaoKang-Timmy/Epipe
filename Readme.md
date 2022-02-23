@@ -59,7 +59,7 @@ Last week I found that in big learning rate conditions, quantization performs re
 
 The picture shows above. 
 
-However, when I try to decrease the learning rate to the half of the origin one(0.2 for 1024 images per batch), this condition gets better.
+However, when I try to decrease the learning rate to half of the origin settings(0.2 for 1024 images per batch), this condition gets better.
 
 ![image-20220223002245350](./pic/image-20220223002245350.png)
 
