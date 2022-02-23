@@ -39,7 +39,7 @@ I use gpipe to test different layers at the edge side.
 | first 2 + last3 layers  | 91.72     |
 | first 3 +last 3 layers  | 92.85     |
 
-It shows that the more front layers are at the edge, the more accuracy of the model gets. Also, when we put more posterior layers at the edge, the accuracy seems to get lower(since the posterior layers suffers compression two times).
+It shows that the more front layers are at the edge, the more accuracy the model gets. Also, when we put more posterior layers at the edge, the accuracy seems to get lower(since the posterior layers suffer compression two times).
 
 ## code
 
@@ -53,15 +53,47 @@ The same as above.
 
 ## Result and discussion
 
-Last week I found that in big learning rate conditions, quantization performs really bad.
+Last week I found that in big learning rate conditions, quantization performs bad.
 
 ![image-20220215102351169](./pic/image-20220215102351169.png)
 
 The picture shows above. 
 
-However, when I try to decrease the learning rate to half of the origin settings(0.2 for 1024 images per batch), this condition gets better.
+However, when I try to decrease the learning rate to half of the original settings(0.2 for 1024 images per batch), this condition gets better.
 
 ![image-20220223002245350](./pic/image-20220223002245350.png)
 
 Things get better.
+
+Also when I change the learning rate to 0.1,quantization4 and quantization8 validation curve thresh only a little.
+
+![image-20220223160623554](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220223160623554.png)
+
+# A dist-gpipe test
+
+## Settings
+
+| Model             | MobileNetV2                                  |
+| ----------------- | -------------------------------------------- |
+| Dataset           | CIFAR10                                      |
+| Training_strategy | train from scratch                           |
+| lr_init           | 0.4                                          |
+| Batch_size        | 1024                                         |
+| Chunk             | 4(every batch is splited to 4 micro-batches) |
+| Optimizer         | SGD                                          |
+| Momentum          | 0.9                                          |
+| Weight_decay      | 1e-4                                         |
+| Epochs            | 100                                          |
+| Scheduler         | cosannealing with linear warp up(20 epochs)  |
+| Pruning methods   | No                                           |
+
+I have implemented a dist-gpipe and tested it. It could get the same accuracy as Gpipe(to_device type). However, it costs too much both on memory(almost 1.5 times) and efficiency(almost 1.2 times). I am trying to correct it.
+
+## Result
+
+
+
+
+
+ 
 
