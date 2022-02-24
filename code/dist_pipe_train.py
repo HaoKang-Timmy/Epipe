@@ -10,7 +10,7 @@ import torch.backends.cudnn as cudnn
 from utils_gpipe import *
 from distributed_layers import Reshape
 import pytorch_warmup as warmup
-from ..models import *
+from model import *
 import torchvision
 from torchgpipe.batchnorm import DeferredBatchNorm
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -41,7 +41,7 @@ parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     dest='weight_decay')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
-parser.add_argument('--chunks',default = 4, type = int)
+parser.add_argument('--chunks',default = 1, type = int)
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group['lr']
@@ -124,7 +124,7 @@ def main_worker(rank,world_size,args):
             warmup_schduler.dampen()
             save_path = "./log/dist_gpipe_test.txt"
             file_save1 = open(save_path, mode='a')
-            file_save1.write('\n'+'step:'+str(epoch)+'  loss_train:'+str(loss_avg.item())+'  acc1_train:'+str(
+            file_save1.write('\n'+'step:'+str(epoch)+'  loss_train:'+str(loss_avg)+'  acc1_train:'+str(
                 acc1_avg.item())+'  loss_val:'+str(val_loss.item())+'  acc1_val:'+str(val_acc1.item())+'  time_per_batch:'+str(train_batch_time_avg)+'  time_load_perbatch:'+str(train_data_time_avg))
             print(get_lr(optimizer))
             file_save1.close()
@@ -151,7 +151,7 @@ def main_worker(rank,world_size,args):
             warmup_schduler.dampen()
     elif rank == args.world_size-1:
         model = MobileNetV2()
-        model = nn.Sequential(model.layers[7:],model.conv2,model.bn2,Reshape1(),model.linear)
+        model = nn.Sequential(model.layers[7:],model.conv2,model.bn2,Reshape1())
         DeferredBatchNorm.convert_deferred_batch_norm(model,args.chunks)
         model.cuda(rank)
         optimizer = torch.optim.SGD(model.parameters(), args.lr, weight_decay= args.weight_decay,momentum=args.momentum)

@@ -75,11 +75,11 @@ def train_header(rank,model1,model2,optimizer,train_loader,criterion,args):
             acc1 = acc + acc1
             # print("forward,part:",4,"device:",rank,"chunk:",i)
 
-
+        optimizer.zero_grad()
         for i in range(args.chunks):
             loss[i].backward()
             # print("backward,part:",4,"device:",rank,"chunk:",i)
-            optimizer.zero_grad()
+            
             if i == 0:
                 recv_size = batches[i].clone().detach()
             batches[i].backward(recv_size)
@@ -90,12 +90,12 @@ def train_header(rank,model1,model2,optimizer,train_loader,criterion,args):
         batch_time_avg = batch_time_avg + batch_time
         data_time_avg = data_time_avg + data_time
         loss_sum = 0.
-        for j in range(len(loss)):
+        for j in range(args.chunks):
             loss_sum = loss_sum + loss[j].item()
-        loss_avg = loss_avg + loss_sum
+        loss_avg = loss_avg + loss_sum/args.chunks
         if k % 30 == 0:
-            print("train_loss:",loss_sum.item()/args.chunks,"train_acc1",acc1.item()/args.chunks)
-        acc1_avg = acc1 + acc1_avg
+            print("train_loss:",loss_sum/args.chunks,"train_acc1",acc1.item()/args.chunks)
+        acc1_avg = acc1/args.chunks + acc1_avg
         start = time.time()
     batch_time_avg = batch_time_avg / len(train_loader)
     data_time_avg =data_time_avg / len(train_loader)
@@ -169,10 +169,10 @@ def train_medium(rank,model,optimizer,iter_time,args):
             output = ForwardSend_BackwardReceive.apply(output,rank+1,rank+1,rank)
             batches.append(output)
             # print("forward,part:",rank,"device:",rank,"chunk:",i,"send")
-
+        optimizer.zero_grad()
         for i in range(args.chunks):
 
-            optimizer.zero_grad()
+            
             recv_size = batches[i].clone().detach()
             batches[i].backward(recv_size)
             # print("backward,part:",rank,"device:",rank,"chunk:",i)
@@ -236,10 +236,11 @@ def train_last(rank,model,optimizer,iter_time,args):
             # print("forward,part:",rank,"device:",rank,"chunk:",i)
         # loss = criterion(output,target)
         # acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        optimizer.zero_grad()
         for i in range(args.chunks):
             output = batches[i]
             recv = output.clone().detach()
-            optimizer.zero_grad()
+            
             # print(output.shape)
             # print(recv.shape)
             # print(batches[i])
