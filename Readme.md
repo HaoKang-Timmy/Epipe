@@ -67,7 +67,7 @@ Things get better.
 
 Also when I change the learning rate to 0.1,quantization4 and quantization8 validation curve thresh only a little.
 
-![image-20220223160623554](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220223160623554.png)
+![image-20220223160623554](./pic/image-20220223160623554.png)
 
 # A dist-gpipe test
 
@@ -91,7 +91,21 @@ I have implemented a dist-gpipe and tested it. It could get the same accuracy as
 
 ## Result
 
+![image-20220224185252499](./pic/image-20220224185252499.png)
 
+|               | Naive  | To_device | Dist   |
+| ------------- | ------ | --------- | ------ |
+| Val_acc1%     | 93.24  | 92.85     | 93.11  |
+| Time(4chunks) | 2.53s  | 1.03s     | 2.09s  |
+| Memory(peak)  | 13.27G | 9.32G     | 13.44G |
+
+
+
+## Code
+
+https://github.com/timmywanttolearn/gpipe_test/blob/fd4db565f1e7b49ffa412037f883c676fcd851f9/code/my_pipe/utils_gpipe.py#L36
+
+still not a api，because I want to do some optimization about it.
 
 
 
