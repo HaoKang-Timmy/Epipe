@@ -111,11 +111,11 @@ still not a api，because I want to do some optimization about it.
 
 please download dataset first!
 
-dist_pipe_train.py is in .code/dist_pipe_train.py
+gpipe_train.py is in .code/gpipe_train.py
 
 ```
-python3 dist_pipe_train.py ./data -logdir /gpipe_quant8_1024_4chunks_lr0.1.txt --train-type cloud+quantization --scalar 8 --lr 0.1;
-python3 dist_pipe_train.py ./data -logdir /gpipe_quant4_1024_4chunks_lr0.1.txt --train-type cloud+quantization --scalar 4 --lr 0.1;
+python3 gpipe_train.py ./data -logdir /gpipe_quant8_1024_4chunks_lr0.1.txt --train-type cloud+quantization --scalar 8 --lr 0.1;
+python3 gpipe_train.py ./data -logdir /gpipe_quant4_1024_4chunks_lr0.1.txt --train-type cloud+quantization --scalar 4 --lr 0.1;
 ```
 
 These two could reproduce quantization results
@@ -123,7 +123,7 @@ These two could reproduce quantization results
 ## usage
 
 ```
-python3 dist_pipe_train.py [dataset_dir(already download)] -logdir [log_dir(save log)] --train-type [see partition function] --lr
+python3 gpipe_train.py [dataset_dir(already download)] -logdir [log_dir(save log)] --train-type [see partition function] --lr
 ```
 
  
