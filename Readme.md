@@ -111,6 +111,8 @@ still not a api，because I want to do some optimization about it.
 
 please download dataset first!
 
+dist_pipe_train.py is in .code/dist_pipe_train.py
+
 ```
 python3 dist_pipe_train.py ./data -logdir /gpipe_quant8_1024_4chunks_lr0.1.txt --train-type cloud+quantization --scalar 8 --lr 0.1;
 python3 dist_pipe_train.py ./data -logdir /gpipe_quant4_1024_4chunks_lr0.1.txt --train-type cloud+quantization --scalar 4 --lr 0.1;
