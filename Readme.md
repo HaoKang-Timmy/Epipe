@@ -107,7 +107,22 @@ https://github.com/timmywanttolearn/gpipe_test/blob/fd4db565f1e7b49ffa412037f883
 
 still not a api，because I want to do some optimization about it.
 
+## How to use
 
+please download dataset first!
+
+```
+python3 dist_pipe_train.py ./data -logdir /gpipe_quant8_1024_4chunks_lr0.1.txt --train-type cloud+quantization --scalar 8 --lr 0.1;
+python3 dist_pipe_train.py ./data -logdir /gpipe_quant4_1024_4chunks_lr0.1.txt --train-type cloud+quantization --scalar 4 --lr 0.1;
+```
+
+These two could reproduce quantization results
+
+## usage
+
+```
+python3 dist_pipe_train.py [dataset_dir(already download)] -logdir [log_dir(save log)] --train-type [see partition function] --lr
+```
 
  
 
