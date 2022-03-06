@@ -6,7 +6,7 @@ from torch import Tensor, nn
 import torch.nn.functional as F
 from torch.nn.modules.batchnorm import _BatchNorm
 
-from torchgpipe.checkpoint import is_recomputing
+# from torchgpipe.checkpoint import is_recomputing
 
 __all__ = ["DeferredBatchNorm"]
 
@@ -100,15 +100,15 @@ class DeferredBatchNorm(_BatchNorm):
                 eps=self.eps,
             )
 
-        if not is_recomputing():
+        # if not is_recomputing():
             # Track a micro-batch on the training mode
             # but not under a recomputation.
-            tracked_enough = self._track(input)
+        tracked_enough = self._track(input)
 
-            # Update the running statistics for a mini-batch
-            # if it has tracked enough micro-batches.
-            if tracked_enough:
-                self._commit()
+        # Update the running statistics for a mini-batch
+        # if it has tracked enough micro-batches.
+        if tracked_enough:
+            self._commit()
 
         # Normalize a micro-batch and train the parameters.
         return F.batch_norm(
