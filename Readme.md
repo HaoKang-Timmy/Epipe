@@ -16,7 +16,7 @@ I use gpipe to test different models and chunks.
 | Dataset           | CIFAR10                                      |
 | Training_strategy | train from scratch                           |
 | lr_init           | 0.2                                          |
-| Batch_size        | 1512                                         |
+| Batch_size        | 512                                          |
 | Chunk             | 4(every batch is splited to 4 micro-batches) |
 | Optimizer         | SGD                                          |
 | Momentum          | 0.9                                          |
@@ -48,31 +48,31 @@ I use gpipe to test different models and chunks.
 
 # Quantization
 
-![image-20220307190338571](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220307190338571.png)
+![image-20220307190338571](./pic/image-20220307190338571.png)
 
 | Quantization_scalar | 4    |
 | ------------------- | ---- |
 | learning rate       | 0.1  |
 
-![image-20220307190944980](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220307190944980.png)
+![image-20220307190944980](./pic/image-20220307190944980.png)
 
 | Quantization_scalar | 8    |
 | ------------------- | ---- |
 | learning rate       | 0.1  |
 
-![image-20220307191045073](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220307191045073.png)
+![image-20220307191045073](./pic/image-20220307191045073.png)
 
 | Quantization_scalar | 4    |
 | ------------------- | ---- |
 | learning rate       | 0.2  |
 
-![image-20220307191133807](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220307191133807.png)
+![image-20220307191133807](./pic/image-20220307191133807.png)
 
 | Quantization_scalar | 8    |
 | ------------------- | ---- |
 | learning rate       | 0.2  |
 
-![image-20220307191316805](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220307191316805.png)
+![image-20220307191316805](./pic/image-20220307191316805.png)
 
 | Quantization_scalar | 8    |
 | ------------------- | ---- |
@@ -82,7 +82,9 @@ Quantization_scalar = 4, lr = 0.4 got nan
 
 Still don't know why.
 
-![image-20220307192145126](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220307192145126.png)
+![image-20220307192145126](./pic/image-20220307192145126.png)
+
+![image-20220307192803279](./pic/image-20220307192803279.png)
 
 ## usage
 
