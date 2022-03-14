@@ -1,9 +1,3 @@
-'''
-Author: kh
-Date: 2022-03-07 19:31:22
-LastEditTime: 2022-03-07 19:31:22
-'''
-
 import torch
 import time
 import torch.nn as nn
@@ -18,33 +12,37 @@ import pytorch_warmup as warmup
 from utils import accuracy
 import torchvision
 import torchvision.transforms as transforms
-def worker_header(rank, device, models, chunks, criterion, backend, dist_url, world_size,recev_size,epochs,optimizer,scheduler,savepth,warm_up):
+def get_lr(optimizer):
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
+
+def worker_header(rank, device, models, chunks, criterion, backend, dist_url, world_size,recev_size,epochs,optimizer,scheduler,savepth,warm_up,train_loader,val_loader):
     # header and holds the last layer
     torch.multiprocessing.set_sharing_strategy('file_system')
     print("process begin: ", rank)
     dist.init_process_group(backend=backend, init_method=dist_url,
                             world_size=world_size, rank=rank)
-    transform_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
+    # transform_train = transforms.Compose([
+    # transforms.RandomCrop(32, padding=4),
+    # transforms.RandomHorizontalFlip(),
+    # transforms.ToTensor(),
+    # transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    # ])
 
-    transform_test = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
+    # transform_test = transforms.Compose([
+    # transforms.ToTensor(),
+    # transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    # ])
 
-    trainset = torchvision.datasets.CIFAR10(
-    root='./data', train=True, download=True, transform=transform_train)
-    train_loader = torch.utils.data.DataLoader(
-    trainset, batch_size=512, shuffle=True, num_workers=12,drop_last = True)
+    # trainset = torchvision.datasets.CIFAR10(
+    # root='./data', train=True, download=True, transform=transform_train)
+    # train_loader = torch.utils.data.DataLoader(
+    # trainset, batch_size=512, shuffle=True, num_workers=12,drop_last = True)
 
-    testset = torchvision.datasets.CIFAR10(
-    root='./data', train=False, download=True, transform=transform_test)
-    val_loader = torch.utils.data.DataLoader(
-    testset, batch_size=512, shuffle=False, num_workers=12,drop_last = True)
+    # testset = torchvision.datasets.CIFAR10(
+    # root='./data', train=False, download=True, transform=transform_test)
+    # val_loader = torch.utils.data.DataLoader(
+    # testset, batch_size=512, shuffle=False, num_workers=12,drop_last = True)
     
     for model in models:
         model = model.to(device,non_blocking = True)
@@ -337,7 +335,7 @@ class dist_gpipe:
                 warmup_schduler =warmup.LinearWarmup(optimizer,warmup_period= 20)
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
                 p = mp.Process(target=worker_header, args=(
-                    i, self.num_devices[i], self.model_list[i], self.chunks, self.criterion, self.backend, self.init_method, self.world_size,self.output_perdevice[-1],epochs,optimizer,scheduler,self.save_path,warmup_schduler))
+                    i, self.num_devices[i], self.model_list[i], self.chunks, self.criterion, self.backend, self.init_method, self.world_size,self.output_perdevice[-1],epochs,optimizer,scheduler,self.save_path,warmup_schduler,train_loader,val_loader))
                 
             else:
                 optimizer = torch.optim.SGD(param_list,settings['lr'],weight_decay= settings['wd'],momentum= settings['momentum'])
@@ -345,7 +343,7 @@ class dist_gpipe:
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
                 p = mp.Process(target=worker, args=(
-                    i, self.num_devices[i], self.model_list[i], self.chunks, self.output_perdevice[i-1], self.backend, self.init_method, self.world_size,epochs,optimizer,scheduler,train_loader,val_loader,warmup_schduler))
+                    i, self.num_devices[i], self.model_list[i], self.chunks, self.output_perdevice[i-1], self.backend, self.init_method, self.world_size,epochs,optimizer,scheduler,len(train_loader),len(val_loader),warmup_schduler))
             # if i == 3:
             #     while(1):
                     # pass
@@ -353,6 +351,7 @@ class dist_gpipe:
 
                     
             processes.append(p)
+        del train_loader, val_loader
         for process in processes:
             process.join()
         

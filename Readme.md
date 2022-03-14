@@ -94,3 +94,6 @@ python3 gpipe_train.py [dataset_dir(already download)] -logdir [log_dir(save log
 
  
 
+![image-20220307213831881](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220307213831881.png)
+
+![image-20220307214015228](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220307214015228.png)
