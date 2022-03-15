@@ -20,30 +20,52 @@ class Reshape1(nn.Module):
 
 class ForwardSend_BackwardReceive(autograd.Function):
     @staticmethod
-    def forward(ctx, input: torch.tensor,size: tuple, from_rank: int, to_rank: int, self_rank: int):
-        ctx.from_rank,ctx.to_rank,ctx.self_rank,ctx.size =from_rank,to_rank,self_rank,size
+    def forward(
+        ctx,
+        input: torch.tensor,
+        size: tuple,
+        from_rank: int,
+        to_rank: int,
+        self_rank: int,
+    ):
+        ctx.from_rank, ctx.to_rank, ctx.self_rank, ctx.size = (
+            from_rank,
+            to_rank,
+            self_rank,
+            size,
+        )
         dist.isend(input, to_rank)
         # print("forward send",input.shape,"from",self_rank,"to",to_rank)
         return input
 
     @staticmethod
     def backward(ctx, grad_output):
-        from_rank,to_rank,self_rank, size = ctx.from_rank,ctx.to_rank,ctx.self_rank,ctx.size
+        from_rank, to_rank, self_rank, size = (
+            ctx.from_rank,
+            ctx.to_rank,
+            ctx.self_rank,
+            ctx.size,
+        )
         output = torch.rand(size).cuda(int(self_rank))
         dist.recv(output, int(from_rank))
         # print("backward recv",output.shape,"from",from_rank,"to",self_rank)
-        return output, None, None, None,None
+        return output, None, None, None, None
 
 
 class ForwardSendLayers(nn.Module):
-    def __init__(self,size:tuple,from_rank:int,to_rank:int,self_rank:int) -> None:
-        super(ForwardSendLayers,self).__init__()
+    def __init__(
+        self, size: tuple, from_rank: int, to_rank: int, self_rank: int
+    ) -> None:
+        super(ForwardSendLayers, self).__init__()
         self.size = size
         self.from_rank = from_rank
         self.to_rank = to_rank
         self.self_rank = self_rank
-    def forward(self,input):
-        return ForwardSend_BackwardReceive.apply(input,self.size,self.from_rank,self.to_rank,self.self_rank)
+
+    def forward(self, input):
+        return ForwardSend_BackwardReceive.apply(
+            input, self.size, self.from_rank, self.to_rank, self.self_rank
+        )
 
 
 class ForwardReceive_BackwardSend(autograd.Function):
@@ -67,12 +89,14 @@ class ForwardReceive_BackwardSend(autograd.Function):
 
 
 class ForwardReceiveLayers(nn.Module):
-    def __init__(self,from_rank:int,to_rank:int) -> None:
-        super(ForwardReceiveLayers,self).__init__()
+    def __init__(self, from_rank: int, to_rank: int) -> None:
+        super(ForwardReceiveLayers, self).__init__()
         self.from_rank = from_rank
         self.to_rank = to_rank
-    def forward(self,input):
-        return ForwardReceive_BackwardSend.apply(input,self.from_rank,self.to_rank)
+
+    def forward(self, input):
+        return ForwardReceive_BackwardSend.apply(input, self.from_rank, self.to_rank)
+
 
 class Reshape(nn.Module):
     def __init__(self, *args):

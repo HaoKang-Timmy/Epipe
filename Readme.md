@@ -1,99 +1,54 @@
----
+# Training results
 
-typora-copy-images-to: ./pic
----
+## settings
 
-# Test of different models using diet-gpipe
+| Model              | MobileNetV2(tfs from kuangliu and fintune from torchvision) |
+| ------------------ | ----------------------------------------------------------- |
+| Dataset            | CIFAR10                                                     |
+| Optimizer          | SGD with 0.9 momentum                                       |
+| Scheduler          | Coslinear with 20 epochs of liner warmup                    |
+| train method       | train from scratch and fintune                              |
+| gpipe chunk        | 4 (which does not affect the accuracy)                      |
+| compression method | Pruning,quantization,None                                   |
+| pic size           | 224\*224(fintune) and 32\*32(tfs)                           |
+| Epochs             | 100                                                         |
+| Batch size         | 256(fintune) and 1024(tfs)                                  |
 
-# Introductions and settings
+## Fintune
 
-I use gpipe to test different models and chunks.
+| compression                     | learning rate | Validation acc %         |
+| ------------------------------- | ------------- | ------------------------ |
+| quantization12(running)+prun0.8 | 0.001         | 91.93                    |
+| quantization12(running)+prun0.8 | 0.01          | 79.45(with huge tremble) |
+| quantization12(running)+prun0.8 | 0.005         | 95.13                    |
+| quantization12(running)+prun0.6 | 0.001         | 92.10                    |
+| quantization12(running)+prun0.6 | 0.01          | 95.58                    |
+| quantization12(running)+prun0.4 | 0.01          | 95.65                    |
+| quantization12(running)+prun0.4 | 0.001         | 91.31                    |
+| No                              | 0.01          | 95.94                    |
+| No                              | 0.001         | 92.54                    |
 
-## Settings
+Quantization8 is still training.
 
-| Model             | MobileNetV2                                  |
-| ----------------- | -------------------------------------------- |
-| Dataset           | CIFAR10                                      |
-| Training_strategy | train from scratch                           |
-| lr_init           | 0.2                                          |
-| Batch_size        | 512                                          |
-| Chunk             | 4(every batch is splited to 4 micro-batches) |
-| Optimizer         | SGD                                          |
-| Momentum          | 0.9                                          |
-| Weight_decay      | 1e-4                                         |
-| Epochs            | 100                                          |
-| Scheduler         | cosannealing with linear warp up(20 epochs)  |
-| Pruning methods   | None                                         |
+## tfs
 
-## Results
+| compression     | learning rate | Validation acc % |
+| --------------- | ------------- | ---------------- |
+| Quant4(running) | 0.4           | 88.79            |
+| Quant4          | 0.4           | 88.41            |
+|                 |               |                  |
 
-| models      | chunks | accuracy | time per batch |
-| ----------- | ------ | -------- | -------------- |
-| MobileNetV2 | 1      | 92.79    | 0.52           |
-| MobileNetV2 | 2      | 93.14    | 0.37           |
-| MobileNetV2 | 4      | 93.09    | 0.29           |
-| MobileNetV2 | 8      | 92.94    | 0.26           |
-| Resnet18    | 1      | 92.87    | 0.37           |
-| Resnet18    | 2      | 92.43    | 0.28           |
-| Resnet18    | 4      | 92.78    | 0.25           |
-| Resnet18    | 8      | 92.92    | 0.22           |
-| VGG11       | 1      | 89.11    | 0.161          |
-| VGG11       | 2      | 90.03    | 0.158          |
-| VGG11       | 4      | 88.82    | 0.147          |
-| VGG11       | 8      | 88.50    | 0.100          |
+# How to run
 
-
-
-## code
-
-# Quantization
-
-![image-20220307190338571](./pic/image-20220307190338571.png)
-
-| Quantization_scalar | 4    |
-| ------------------- | ---- |
-| learning rate       | 0.1  |
-
-![image-20220307190944980](./pic/image-20220307190944980.png)
-
-| Quantization_scalar | 8    |
-| ------------------- | ---- |
-| learning rate       | 0.1  |
-
-![image-20220307191045073](./pic/image-20220307191045073.png)
-
-| Quantization_scalar | 4    |
-| ------------------- | ---- |
-| learning rate       | 0.2  |
-
-![image-20220307191133807](./pic/image-20220307191133807.png)
-
-| Quantization_scalar | 8    |
-| ------------------- | ---- |
-| learning rate       | 0.2  |
-
-![image-20220307191316805](./pic/image-20220307191316805.png)
-
-| Quantization_scalar | 8    |
-| ------------------- | ---- |
-| learning rate       | 0.4  |
-
-Quantization_scalar = 4, lr = 0.4 got nan
-
-Still don't know why.
-
-![image-20220307192145126](./pic/image-20220307192145126.png)
-
-![image-20220307192803279](./pic/image-20220307192803279.png)
-
-## usage
+Fintune full network with self-defined training log dir, pruning rate(could be ignored, then pruning layer won't be added to the network), and quantization bits.
 
 ```
-python3 gpipe_train.py [dataset_dir(already download)] -logdir [log_dir(save log)] --train-type [see partition function] --lr
+python3 test.py --log-dir ./mygpipe_log/torchvision_mobilenet/pruning/quant8.txt --prun 0.6 --quant 8 --pretrained --lr 0.005
 ```
 
- 
+Train form scratch,with self define epochs, batch_size, whether warmup, quantization bits and pruning rate and learning rate
 
-![image-20220307213831881](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220307213831881.png)
+```
+python3 test.py --log-dir ./mygpipe_log/mobilenet/quant8_1024_lr0.2.txt --quant 8 --lr 0.2 --epoches 100 --batches 1024 --warmup
+```
 
-![image-20220307214015228](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220307214015228.png)

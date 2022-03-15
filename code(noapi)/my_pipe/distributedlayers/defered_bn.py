@@ -101,8 +101,8 @@ class DeferredBatchNorm(_BatchNorm):
             )
 
         # if not is_recomputing():
-            # Track a micro-batch on the training mode
-            # but not under a recomputation.
+        # Track a micro-batch on the training mode
+        # but not under a recomputation.
         tracked_enough = self._track(input)
 
         # Update the running statistics for a mini-batch

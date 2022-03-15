@@ -1,8 +1,3 @@
-'''
-Author: kh
-Date: 2022-03-07 19:34:48
-LastEditTime: 2022-03-07 19:34:48
-'''
 """Tracks the running statistics per mini-batch instead of micro-batch."""
 from typing import Optional, TypeVar, cast
 
@@ -106,8 +101,8 @@ class DeferredBatchNorm(_BatchNorm):
             )
 
         # if not is_recomputing():
-            # Track a micro-batch on the training mode
-            # but not under a recomputation.
+        # Track a micro-batch on the training mode
+        # but not under a recomputation.
         tracked_enough = self._track(input)
 
         # Update the running statistics for a mini-batch

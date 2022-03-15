@@ -121,7 +121,7 @@ class RemoteQuantization(autograd.Function):
         output = torch.round((input - min) / step - pow(2, bits - 1)).type(
             torch.cuda.HalfTensor
         )  # 16
-        
+
         dist.isend(torch.tensor(min.item()).to(input.get_device()), to_rank)
         dist.isend(torch.tensor(step.item()).to(input.get_device()), to_rank)
         dist.isend(output, to_rank)
@@ -175,22 +175,26 @@ class RemoteQuantizationLayer(nn.Module):
                     self.running_step * (1 - self.momentum)
                     + step.item() * self.momentum
                 )
-            output = RemoteQuantization.apply(x, min, step, self.bits,self.from_rank,self.to_rank)
+            output = RemoteQuantization.apply(
+                x, min, step, self.bits, self.from_rank, self.to_rank
+            )
             return output
         else:
             # self.time = 0
 
             output = RemoteQuantization.apply(
-                x, self.running_min, self.running_step, self.bits,self.from_rank,self.to_rank
+                x,
+                self.running_min,
+                self.running_step,
+                self.bits,
+                self.from_rank,
+                self.to_rank,
             )
             return output
 
 
-
-
 ##TODO
 class RemoteDeQuantization(autograd.Function):
-
     @staticmethod
     def forward(
         ctx,
@@ -268,7 +272,7 @@ class RemoteDeQuantization(autograd.Function):
         dist.isend(min, to_rank)
         dist.isend(step, to_rank)
         dist.isend(output, to_rank)
-        return output,None,None,None,None,None,None,None,None
+        return output, None, None, None, None, None, None, None, None
 
 
 class RemoteDeQuantizationLayer(nn.Module):
@@ -365,4 +369,3 @@ class RemoteDeQuantizationLayer(nn.Module):
 # x.backward()
 # x.backward()
 # x.backward()
-
