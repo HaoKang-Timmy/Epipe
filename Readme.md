@@ -52,3 +52,11 @@ Train form scratch,with self define epochs, batch_size, whether warmup, quantiza
 python3 test.py --log-dir ./mygpipe_log/mobilenet/quant8_1024_lr0.2.txt --quant 8 --lr 0.2 --epoches 100 --batches 1024 --warmup --datasetdr ./data
 ```
 
+# without warm up
+
+| Compression    | Acc_val |
+| -------------- | ------- |
+| Quant4         | 84%     |
+| quant8         | 90.39%  |
+| quant4+prun0.6 | 85.42%  |
+
