@@ -28,6 +28,7 @@ parser.add_argument("--epoches", default=100, type=int)
 parser.add_argument("--batches", default=256, type=int)
 parser.add_argument("--quant", default=12, type=int)
 parser.add_argument("--prun", default=0.0, type=float)
+parser.add_argument("--dataset-dr", default='./data', type=str)
 
 
 def main():
@@ -127,14 +128,14 @@ def main():
         )
         input_size = [args.batches, 3, 32, 32]
     trainset = torchvision.datasets.CIFAR10(
-        root="./data", train=True, download=True, transform=transform_train
+        root=args.dataset_dr, train=True, download=True, transform=transform_train
     )
     train_loader = torch.utils.data.DataLoader(
         trainset, batch_size=args.batches, shuffle=True, num_workers=12, drop_last=True
     )
 
     testset = torchvision.datasets.CIFAR10(
-        root="./data", train=False, download=True, transform=transform_test
+        root=args.dataset_dr, train=False, download=True, transform=transform_test
     )
     val_loader = torch.utils.data.DataLoader(
         testset, batch_size=args.batches, shuffle=False, num_workers=12, drop_last=True
