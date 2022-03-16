@@ -40,15 +40,15 @@ Quantization8 is still training.
 
 # How to run
 
-Fintune full network with self-defined training log dir, pruning rate(could be ignored, then pruning layer won't be added to the network), and quantization bits.
+Fintune full network with self-defined training log dir, pruning rate(could be ignored, then pruning layer won't be added to the network), and quantization bits. Also we can choose where is dataset by using --datasetdr 
 
 ```
-python3 test.py --log-dir ./mygpipe_log/torchvision_mobilenet/pruning/quant8.txt --prun 0.6 --quant 8 --pretrained --lr 0.005
+python3 test.py --log-dir ./mygpipe_log/torchvision_mobilenet/pruning/quant8.txt --prun 0.6 --quant 8 --pretrained --lr 0.005 --datasetdr ./data
 ```
 
 Train form scratch,with self define epochs, batch_size, whether warmup, quantization bits and pruning rate and learning rate
 
 ```
-python3 test.py --log-dir ./mygpipe_log/mobilenet/quant8_1024_lr0.2.txt --quant 8 --lr 0.2 --epoches 100 --batches 1024 --warmup
+python3 test.py --log-dir ./mygpipe_log/mobilenet/quant8_1024_lr0.2.txt --quant 8 --lr 0.2 --epoches 100 --batches 1024 --warmup --datasetdr ./data
 ```
 
