@@ -115,6 +115,7 @@ def worker_header(
                         # input = ForwardReceive_BackwardSend.apply(input,3,3,rank)
                         # print("forward","rank",rank,"part",i,"finish")
                         output = model(input)
+                        # print(output)
                         # print("output target shape",output.shape,targets[j].shape)
                         acc, _ = accuracy(output, targets[j], topk=(1, 5))
                         output = criterion(output, targets[j])
@@ -365,29 +366,48 @@ class dist_gpipe:
                 #     shape, devices[i+1], devices[i+1], devices[i]))
                 if settings["prun"] is not None:
                     model.add_module("pruning", TopkLayer(settings["prun"]))
-                model.add_module(
-                    "Quantization",
-                    RemoteQuantizationLayer(
-                        settings["quantization"], devices[i + 1], devices[i + 1]
-                    ),
-                )
-            elif i == len(devices) - 1:
-                receivelayer = nn.Sequential(
-                    RemoteDeQuantizationLayer(
-                        settings["quantization"], devices[i - 1], devices[i - 1]
+                if settings["quantization"] != 0:
+                    model.add_module(
+                        "Quantization",
+                        RemoteQuantizationLayer(
+                            settings["quantization"], devices[i + 1], devices[i + 1]
+                        ),
                     )
-                )
-                receivelayer.add_module("layer", model)
-                model = receivelayer
-
-            else:
-                if i == 1:
-
+                else:
+                    model.add_module(
+                        "sendlayer",
+                        ForwardSendLayers(shape,devices[i + 1], devices[i + 1],devices[i])
+                    )
+            elif i == len(devices) - 1:
+                if settings["quantization"] != 0:
                     receivelayer = nn.Sequential(
                         RemoteDeQuantizationLayer(
                             settings["quantization"], devices[i - 1], devices[i - 1]
                         )
                     )
+                else:
+                    receivelayer = nn.Sequential(
+                        ForwardReceiveLayers(
+                             devices[i - 1], devices[i - 1],devices[i]
+                        )
+                    )
+                receivelayer.add_module("layer", model)
+                model = receivelayer
+
+            else:
+                if i == 1:
+                    if settings["quantization"] != 0:
+                        receivelayer = nn.Sequential(
+                            RemoteDeQuantizationLayer(
+                                settings["quantization"], devices[i - 1], devices[i - 1]
+                            )
+                        )
+                    else:
+                        receivelayer = nn.Sequential(
+                            ForwardReceiveLayers(
+                                 devices[i - 1], devices[i - 1],devices[i]
+                            )
+                        )
                     receivelayer.add_module("layer", model)
                     model = receivelayer
                     model.add_module(
@@ -398,21 +418,27 @@ class dist_gpipe:
                     )
                 elif i == len(devices) - 2:
                     receivelayer = nn.Sequential(
-                        ForwardReceiveLayers(devices[i - 1], devices[i - 1], devices[i])
+                        ForwardReceiveLayers( devices[i - 1], devices[i - 1], devices[i])
                     )
                     receivelayer.add_module("layer", model)
                     model = receivelayer
                     if settings["prun"] is not None:
                         model.add_module("pruning", TopkLayer(settings["prun"]))
-                    model.add_module(
-                        "SendLayers",
-                        RemoteQuantizationLayer(
-                            settings["quantization"], devices[i + 1], devices[i + 1]
-                        ),
-                    )
+                    if settings['quantization'] != 0:
+                        model.add_module(
+                            "SendLayers",
+                            RemoteQuantizationLayer(
+                                settings["quantization"], devices[i + 1], devices[i + 1]
+                            ),
+                        )
+                    else:
+                        model.add_module(
+                            "Sendlayers",
+                            ForwardSendLayers(shape, devices[i + 1], devices[i + 1],devices[i])
+                        )
                 else:
                     receivelayer = nn.Sequential(
-                        ForwardReceiveLayers(devices[i - 1], devices[i - 1], devices[i])
+                        ForwardReceiveLayers( devices[i - 1], devices[i - 1], devices[i])
                     )
                     receivelayer.add_module("layer", model)
                     model = receivelayer
@@ -552,7 +578,3 @@ class dist_gpipe:
         del train_loader, val_loader
         for process in processes:
             process.join()
-
-
-## 目前的问题是，如何确定接受tensor的大小，解决方式为前移outputsize
-## 问题出现在client的最后一部分
