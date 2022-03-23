@@ -1,3 +1,7 @@
+---
+typora-copy-images-to: ./pic
+---
+
 # Some conclusion
 
 ## What I have tested
@@ -53,7 +57,9 @@ I have tried lr = 2e-5,2e-6,2e-4 on pruning rate = 0.5 and 0.4s which are all un
 
 4. pruning rate at 0.4 or below **could get a good train acc but not Val acc**
 
-![image-20220323011535271](/Users/catbeta/Library/Application Support/typora-user-images/image-20220323011535271.png)
+
+
+![image-20220323131353755](./pic/image-20220323131353755.png)
 
 ## quantization
 
