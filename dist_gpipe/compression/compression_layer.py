@@ -61,10 +61,10 @@ class Quantization(autograd.Function):
         #         torch.cuda.CharTensor
         #     )
         # else:
-        
+
         output = torch.round((input - min) / step - pow(2, bits - 1)).type(
             torch.cuda.HalfTensor
-            )  # 16
+        )  # 16
         # pass
         return output
 
@@ -78,7 +78,7 @@ class Quantization(autograd.Function):
 
 
 class QuantizationLayer(nn.Module):
-    def __init__(self, bits, momentum=0.1, dynamic = 0):
+    def __init__(self, bits, momentum=0.1, dynamic=0):
         super(QuantizationLayer, self).__init__()
         self.running_min = 0.0
         self.time = 0
@@ -86,6 +86,7 @@ class QuantizationLayer(nn.Module):
         self.momentum = momentum
         self.bits = bits
         self.dynamic = dynamic
+
     def forward(self, x):
         min, max = x.min(), x.max()
         step = torch.tensor((max - min) / (pow(2, self.bits) - 1))
@@ -105,10 +106,14 @@ class QuantizationLayer(nn.Module):
                     self.running_step * (1 - self.momentum)
                     + step.item() * self.momentum
                 )
-            return Quantization.apply(x, min, step, self.bits),min,step
+            return Quantization.apply(x, min, step, self.bits), min, step
         else:
             # self.time = 0
-            return Quantization.apply(x, self.running_min, self.running_step, self.bits),min,step
+            return (
+                Quantization.apply(x, self.running_min, self.running_step, self.bits),
+                min,
+                step,
+            )
 
 
 class RemoteQuantization(autograd.Function):
@@ -124,9 +129,8 @@ class RemoteQuantization(autograd.Function):
         output1 = torch.round((input - min) / step - pow(2, bits - 1)).type(
             torch.cuda.IntTensor
         )
-            # can not send torch.cuda.CharTensor and torch.cuda
-        
-        
+        # can not send torch.cuda.CharTensor and torch.cuda
+
         dist.isend(torch.tensor(min.item()).to(input.get_device()), to_rank)
         dist.isend(torch.tensor(step.item()).to(input.get_device()), to_rank)
         dist.isend(output1, to_rank)
@@ -153,7 +157,7 @@ class RemoteQuantization(autograd.Function):
 
 
 class RemoteQuantizationLayer(nn.Module):
-    def __init__(self, bits, from_rank: int, to_rank: int, momentum=0.1,dynamic = 0):
+    def __init__(self, bits, from_rank: int, to_rank: int, momentum=0.1, dynamic=0):
         super(RemoteQuantizationLayer, self).__init__()
         self.running_min = torch.tensor(0.0)
         self.time = 0
@@ -163,6 +167,7 @@ class RemoteQuantizationLayer(nn.Module):
         self.from_rank = from_rank
         self.to_rank = to_rank
         self.dynamic = dynamic
+
     def forward(self, x):
         if self.training or self.dynamic == 0:
             min, max = x.min(), x.max()
@@ -176,45 +181,71 @@ class RemoteQuantizationLayer(nn.Module):
                     )  # need to change to CPU?
                 else:
                     self.running_min = (
-                        self.running_min * (1 - self.momentum) + min.item() * self.momentum
+                        self.running_min * (1 - self.momentum)
+                        + min.item() * self.momentum
                     )
                     self.running_step = (
                         self.running_step * (1 - self.momentum)
                         + step.item() * self.momentum
                     )
-            output = RemoteQuantization.apply(x, min, step, self.bits,self.from_rank,self.to_rank)
+            output = RemoteQuantization.apply(
+                x, min, step, self.bits, self.from_rank, self.to_rank
+            )
             return output
         else:
             # self.time = 0
 
             output = RemoteQuantization.apply(
-                x, self.running_min, self.running_step, self.bits,self.from_rank,self.to_rank
+                x,
+                self.running_min,
+                self.running_step,
+                self.bits,
+                self.from_rank,
+                self.to_rank,
             )
             return output
+
 
 class Dequantization(autograd.Function):
     @staticmethod
     def forward(
-        ctx,
-        input,
-        bits,
-        min,
-        max,
-        step
+        ctx, input, bits, min, max, step, backward_min, backward_step,
     ):
-        ctx.bits = bits
+        ctx.bits, ctx.backward_min, ctx.backward_step = (
+            bits,
+            backward_min,
+            backward_step,
+        )
+
         output = (input + pow(2, bits - 1)) * step + min
         return output
+
     @staticmethod
     def backward(ctx, grad_output):
-        bits = ctx.bits
-        min, max = grad_output.min(), grad_output.max()
-        step = (max - min) / (pow(2, bits) - 1)
-        output1 = torch.round((grad_output - min) / step - pow(2, bits - 1))
+        bits, backward_min, backward_step = (
+            ctx.bits,
+            ctx.backward_min[0],
+            ctx.backward_step[0],
+        )
+        # min, max = grad_output.min(), grad_output.max()
+        # step = (max - min) / (pow(2, bits) - 1)
+        output1 = torch.round(
+            (grad_output - backward_min) / backward_step - pow(2, bits - 1)
+        )
+        return output1
+
+
+class DequantizationLayer(nn.Module):
+    def __init__(self, bits):
+        super(DequantizationLayer, self).__init__()
+        self.bits = bits
+
+    def forward(self, input, min, step):
+        return
+
 
 ##TODO
 class RemoteDeQuantization(autograd.Function):
-
     @staticmethod
     def forward(
         ctx,
@@ -301,11 +332,11 @@ class RemoteDeQuantization(autograd.Function):
         dist.isend(min, to_rank)
         dist.isend(step, to_rank)
         dist.isend(output1, to_rank)
-        return grad_output * 1.0,None,None,None,None,None,None,None,None
+        return grad_output * 1.0, None, None, None, None, None, None, None, None
 
 
 class RemoteDeQuantizationLayer(nn.Module):
-    def __init__(self, bits, from_rank: int, to_rank: int, momentum=0.1,dynamic = 0):
+    def __init__(self, bits, from_rank: int, to_rank: int, momentum=0.1, dynamic=0):
         super(RemoteDeQuantizationLayer, self).__init__()
         self.bits = bits
         self.from_rank = from_rank
@@ -399,4 +430,3 @@ class RemoteDeQuantizationLayer(nn.Module):
 # x.backward()
 # x.backward()
 # x.backward()
-
