@@ -87,6 +87,15 @@ def worker_header(
                     weight_decay=settings["wd"],
                     momentum=settings["momentum"],
                 )
+    if settings["prun"] !=0:
+        topk_layer = TopkLayer(settings["prun"])
+    if settings["quantization"] != 0:
+        quant_16bit_layer = RemoteQuantizationLayer(16,rank+1,rank+1)
+        quant_8bit_layer = RemoteQuantizationLayer(8,rank+1,rank+1)
+        dequant_16bit_layer = RemoteDeQuantizationLayer(16,3,3)
+        dequant_8bit_layer = RemoteDeQuantizationLayer(8,3,3)
+    forwardsend = ForwardSendLayers(None,rank+1,rank+1,rank)
+    frowardreceive = ForwardReceiveLayers(3,3,0)
     warm_up = get_cosine_schedule_with_warmup(optimizer,num_warmup_steps = int(epochs/10), num_training_steps = epochs)
     for epoch in range(epochs):
         acc1_avg = 0.0
@@ -114,11 +123,28 @@ def worker_header(
                     if i == 0:
 
                         output = model(images[j])
+                        if settings["prun"] != 0:
+                            output = topk_layer(output)
+                        if settings['quantization'] != 0:
+                            if epoch < 10:
+                                output =  quant_16bit_layer(output)
+                            else:
+                                output = quant_8bit_layer(output)
+                        else:
+                            output = forwardsend(output)
                         # output = ForwardSend_BackwardReceive.apply(output,tuple(list(output.shape)),rank+1,rank+1,rank)
                         # print("forward","rank",rank,"part",i,"finish")
                     elif i == len(models) - 1:
                         # print("last part begin")
                         input = torch.empty(recev_size[0]).to(device).requires_grad_()
+                        if settings["quantization"] != 0:
+                            if epoch < 10:
+                                input = dequant_16bit_layer(input)
+                            else:
+                                input = dequant_8bit_layer(input)
+                        else:
+                            input = frowardreceive(input)
+                        
                         # input = ForwardReceive_BackwardSend.apply(input,3,3,rank)
                         # print("forward","rank",rank,"part",i,"finish")
                         output = model(input)
@@ -191,11 +217,27 @@ def worker_header(
                     for j in range(chunks):
                         if i == 0:
                             output = model(images[j])
+                            if settings["prun"] != 0:
+                                output = topk_layer(output)
+                            if settings['quantization'] != 0:
+                                if epoch < 10:
+                                    output =  quant_16bit_layer(output)
+                                else:
+                                    output = quant_8bit_layer(output)
+                            else:
+                                output = forwardsend(output)
                             # print("val","forward","epoch:",epochs,"rank:",rank,"part:",i,"chunk:",j)
                         elif i == len(models) - 1:
                             input = (
                                 torch.empty(recev_size[0]).to(device).requires_grad_()
                             )
+                            if settings["quantization"] != 0:
+                                if epoch < 10:
+                                    input = dequant_16bit_layer(input)
+                                else:
+                                    input = dequant_8bit_layer(input)
+                            else:
+                                input = frowardreceive(input)
                             output = model(input)
                             # print("val","forward","epoch:",epochs,"rank:",rank,"part:",i,"chunk:",j)
                             acc, _ = accuracy(output, targets[j], topk=(1, 5))
@@ -285,6 +327,17 @@ def worker(
                     momentum=settings["momentum"],
                 )
     warm_up = get_cosine_schedule_with_warmup(optimizer,num_warmup_steps = int(epochs/10), num_training_steps = epochs)
+    forwardrecv_layer = ForwardReceiveLayers(rank - 1, rank - 1, rank)
+    if rank != 3:
+
+        forwardsend_layer = ForwardSendLayers((1,1),rank+1,rank+1,rank)
+    else:
+        forwardsend_layer = ForwardSendLayers((1,1),0,0,rank)
+        quant_16bit_layer = RemoteQuantizationLayer(16,0,0)
+        quant_8bit_layer = RemoteQuantizationLayer(8,0,0)
+    if rank == 1:
+        dequant_16bit_layer = RemoteDeQuantizationLayer(16,0,0)
+        dequant_8bit_layer = RemoteDeQuantizationLayer(8,0,0)
     for epoch in range(epochs):
 
         # if rank == 3:
@@ -301,9 +354,28 @@ def worker(
                     input = torch.empty(output_size[i]).to(device)
                     # if j == 0:
                     input = input.requires_grad_()
-
+                    if rank == 1:
+                        if settings["quantization"] != 0:
+                            if epoch < 10:
+                                input = dequant_16bit_layer(input)
+                            else:
+                                input = dequant_8bit_layer(input)
+                        else:
+                            input = forwardrecv_layer(input)
+                    else:
+                        input = forwardrecv_layer(input)
                     # input = ForwardReceive_BackwardSend.apply(input,rank-1,rank-1,rank)
                     output = model(input)
+                    if rank == 3:
+                        if settings["quantization"] != 0:
+                            if epoch < 10:
+                                output = quant_16bit_layer(output)
+                            else:
+                                output = quant_16bit_layer(output)
+                        else:
+                            output = forwardsend_layer(output)
+                    else:
+                        output = forwardsend_layer(output)
                     # if rank != 3:
                     #     output = ForwardSend_BackwardReceive.apply(output,tuple(list(output.shape)),rank+1,rank+1,rank)
                     # else:
@@ -343,10 +415,30 @@ def worker(
                     model.eval()
                     for j in range(chunks):
                         input = torch.empty(output_size[i]).to(device)
+                        if rank == 1:
+                            if settings["quantization"] != 0:
+                                if epoch < 10:
+                                    input = dequant_16bit_layer(input)
+                                else:
+                                    input = dequant_8bit_layer(input)
+                            else:
+                                input = forwardrecv_layer(input)
+                        else:
+                            input = forwardrecv_layer(input)
                         output = model(input)
+                        if rank == 3:
+                            if settings["quantization"] != 0:
+                                if epoch < 10:
+                                    output = quant_16bit_layer(output)
+                                else:
+                                    output = quant_16bit_layer(output)
+                            else:
+                                output = forwardsend_layer(output)
+                        else:
+                            output = forwardsend_layer(output)
 
 
-class dist_gpipe:
+class dist_gpipe_dynamic:
     def __init__(
         self,
         model_partition: List[nn.Sequential],
@@ -388,93 +480,93 @@ class dist_gpipe:
             shape = list(output.shape)
             shape = tuple(shape)
             output_size.append(shape)
-            if i == 0:
-                # model.add_module("SendLayers", ForwardSendLayers(
-                #     shape, devices[i+1], devices[i+1], devices[i]))
-                if settings["prun"] != 0:
-                    model.add_module("pruning", TopkLayer(settings["prun"]))
-                if settings["quantization"] != 0:
-                    model.add_module(
-                        "Quantization",
-                        RemoteQuantizationLayer(
-                            settings["quantization"], devices[i + 1], devices[i + 1]
-                        ),
-                    )
-                else:
-                    model.add_module(
-                        "sendlayer",
-                        ForwardSendLayers(shape,devices[i + 1], devices[i + 1],devices[i])
-                    )
-            elif i == len(devices) - 1:
-                if settings["quantization"] != 0:
-                    receivelayer = nn.Sequential(
-                        RemoteDeQuantizationLayer(
-                            settings["quantization"], devices[i - 1], devices[i - 1]
-                        )
-                    )
-                else:
-                    receivelayer = nn.Sequential(
-                        ForwardReceiveLayers(
-                             devices[i - 1], devices[i - 1],devices[i]
-                        )
-                    )
-                receivelayer.add_module("layer", model)
-                model = receivelayer
+            # if i == 0:
+            #     # model.add_module("SendLayers", ForwardSendLayers(
+            #     #     shape, devices[i+1], devices[i+1], devices[i]))
+            #     if settings["prun"] is not None:
+            #         model.add_module("pruning", TopkLayer(settings["prun"]))
+            #     if settings["quantization"] != 0:
+            #         model.add_module(
+            #             "Quantization",
+            #             RemoteQuantizationLayer(
+            #                 settings["quantization"], devices[i + 1], devices[i + 1]
+            #             ),
+            #         )
+            #     else:
+            #         model.add_module(
+            #             "sendlayer",
+            #             ForwardSendLayers(shape,devices[i + 1], devices[i + 1],devices[i])
+            #         )
+            # elif i == len(devices) - 1:
+            #     if settings["quantization"] != 0:
+            #         receivelayer = nn.Sequential(
+            #             RemoteDeQuantizationLayer(
+            #                 settings["quantization"], devices[i - 1], devices[i - 1]
+            #             )
+            #         )
+            #     else:
+            #         receivelayer = nn.Sequential(
+            #             ForwardReceiveLayers(
+            #                  devices[i - 1], devices[i - 1],devices[i]
+            #             )
+            #         )
+            #     receivelayer.add_module("layer", model)
+            #     model = receivelayer
 
-            else:
-                if i == 1:
-                    if settings["quantization"] != 0:
-                        receivelayer = nn.Sequential(
-                            RemoteDeQuantizationLayer(
-                                settings["quantization"], devices[i - 1], devices[i - 1]
-                            )
-                        )
-                    else:
-                        receivelayer = nn.Sequential(
-                            ForwardReceiveLayers(
-                                 devices[i - 1], devices[i - 1],devices[i]
-                            )
-                        )
-                    receivelayer.add_module("layer", model)
-                    model = receivelayer
-                    model.add_module(
-                        "SendLayers",
-                        ForwardSendLayers(
-                            shape, devices[i + 1], devices[i + 1], devices[i]
-                        ),
-                    )
-                elif i == len(devices) - 2:
-                    receivelayer = nn.Sequential(
-                        ForwardReceiveLayers( devices[i - 1], devices[i - 1], devices[i])
-                    )
-                    receivelayer.add_module("layer", model)
-                    model = receivelayer
-                    if settings["prun"] != 0:
-                        model.add_module("pruning", TopkLayer(settings["prun"]))
-                    if settings['quantization'] != 0:
-                        model.add_module(
-                            "SendLayers",
-                            RemoteQuantizationLayer(
-                                settings["quantization"], devices[i + 1], devices[i + 1]
-                            ),
-                        )
-                    else:
-                        model.add_module(
-                            "Sendlayers",
-                            ForwardSendLayers(shape, devices[i + 1], devices[i + 1],devices[i])
-                        )
-                else:
-                    receivelayer = nn.Sequential(
-                        ForwardReceiveLayers( devices[i - 1], devices[i - 1], devices[i])
-                    )
-                    receivelayer.add_module("layer", model)
-                    model = receivelayer
-                    model.add_module(
-                        "SendLayers",
-                        ForwardSendLayers(
-                            shape, devices[i + 1], devices[i + 1], devices[i]
-                        ),
-                    )
+            # else:
+            #     if i == 1:
+            #         if settings["quantization"] != 0:
+            #             receivelayer = nn.Sequential(
+            #                 RemoteDeQuantizationLayer(
+            #                     settings["quantization"], devices[i - 1], devices[i - 1]
+            #                 )
+            #             )
+            #         else:
+            #             receivelayer = nn.Sequential(
+            #                 ForwardReceiveLayers(
+            #                      devices[i - 1], devices[i - 1],devices[i]
+            #                 )
+            #             )
+            #         receivelayer.add_module("layer", model)
+            #         model = receivelayer
+            #         model.add_module(
+            #             "SendLayers",
+            #             ForwardSendLayers(
+            #                 shape, devices[i + 1], devices[i + 1], devices[i]
+            #             ),
+            #         )
+            #     elif i == len(devices) - 2:
+            #         receivelayer = nn.Sequential(
+            #             ForwardReceiveLayers( devices[i - 1], devices[i - 1], devices[i])
+            #         )
+            #         receivelayer.add_module("layer", model)
+            #         model = receivelayer
+            #         if settings["prun"] is not None:
+            #             model.add_module("pruning", TopkLayer(settings["prun"]))
+            #         if settings['quantization'] != 0:
+            #             model.add_module(
+            #                 "SendLayers",
+            #                 RemoteQuantizationLayer(
+            #                     settings["quantization"], devices[i + 1], devices[i + 1]
+            #                 ),
+            #             )
+            #         else:
+            #             model.add_module(
+            #                 "Sendlayers",
+            #                 ForwardSendLayers(shape, devices[i + 1], devices[i + 1],devices[i])
+            #             )
+            #     else:
+            #         receivelayer = nn.Sequential(
+            #             ForwardReceiveLayers( devices[i - 1], devices[i - 1], devices[i])
+            #         )
+            #         receivelayer.add_module("layer", model)
+            #         model = receivelayer
+            #         model.add_module(
+            #             "SendLayers",
+            #             ForwardSendLayers(
+            #                 shape, devices[i + 1], devices[i + 1], devices[i]
+            #             ),
+            #         )
             DeferredBatchNorm.convert_deferred_batch_norm(model, self.chunks)
             # model = model.to(devices[i])
             model_partition[i] = model

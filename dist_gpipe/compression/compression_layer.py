@@ -56,15 +56,17 @@ class Quantization(autograd.Function):
     @staticmethod
     def forward(ctx, input, min, step, bits):
         ctx.bits, ctx.min, ctx.step = bits, min, step
-        if bits <= 8:
-            output = torch.round((input - min) / step - pow(2, bits - 1)).type(
-                torch.cuda.CharTensor
-            )
-        else:
-            output = torch.round((input - min) / step - pow(2, bits - 1)).type(
-                torch.cuda.HalfTensor
+        # if bits <= 8:
+        #     output = torch.round((input - min) / step - pow(2, bits - 1)).type(
+        #         torch.cuda.CharTensor
+        #     )
+        # else:
+        
+        output = torch.round((input - min) / step - pow(2, bits - 1)).type(
+            torch.cuda.HalfTensor
             )  # 16
-        pass
+        # pass
+        return output
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -76,26 +78,26 @@ class Quantization(autograd.Function):
 
 
 class QuantizationLayer(nn.Module):
-    def __init__(self, bits, momentum=0.1):
+    def __init__(self, bits, momentum=0.1, dynamic = 0):
         super(QuantizationLayer, self).__init__()
         self.running_min = 0.0
         self.time = 0
         self.running_step = 0.0
         self.momentum = momentum
         self.bits = bits
-
+        self.dynamic = dynamic
     def forward(self, x):
         min, max = x.min(), x.max()
         step = torch.tensor((max - min) / (pow(2, self.bits) - 1))
         # min = torch.tensor([min.item()]).to(x.get_device())
-        if self.training:
+        if self.training or self.dynamic == 0:
             self.time = self.time + 1
             if self.time == 1:
                 self.running_min, self.running_step = (
                     min.item(),
                     step.item(),
                 )  # need to change to CPU?
-            else:
+            elif self.dynamic != 0:
                 self.running_min = (
                     self.running_min * (1 - self.momentum) + min.item() * self.momentum
                 )
@@ -103,51 +105,55 @@ class QuantizationLayer(nn.Module):
                     self.running_step * (1 - self.momentum)
                     + step.item() * self.momentum
                 )
-            return Quantization.apply(x, min, step, self.bits)
+            return Quantization.apply(x, min, step, self.bits),min,step
         else:
-            self.time = 0
-            return Quantization.apply(x, self.running_min, self.running_step, self.bits)
+            # self.time = 0
+            return Quantization.apply(x, self.running_min, self.running_step, self.bits),min,step
 
 
 class RemoteQuantization(autograd.Function):
     @staticmethod
     def forward(ctx, input, min, step, bits, from_rank, to_rank):
         ctx.from_rank, ctx.bits = from_rank, bits
-        # if bits <= 8:
-        #     output = torch.round((input - min) / step - pow(2, bits - 1)).type(
-        #         torch.cuda.CharTensor
-        #     )
-        # else:
-        output = torch.round((input - min) / step - pow(2, bits - 1)).type(
-            torch.cuda.HalfTensor
-        )  # 16
 
+        # if bits <= 16:
+        #     output1 = torch.round((input - min) / step - pow(2, bits - 1)).type(
+        #         torch.cuda.ShortTensor
+        #     )  # 16
+        # elif bits > 16:
+        output1 = torch.round((input - min) / step - pow(2, bits - 1)).type(
+            torch.cuda.IntTensor
+        )
+            # can not send torch.cuda.CharTensor and torch.cuda
+        
+        
         dist.isend(torch.tensor(min.item()).to(input.get_device()), to_rank)
         dist.isend(torch.tensor(step.item()).to(input.get_device()), to_rank)
-        dist.isend(output, to_rank)
+        dist.isend(output1, to_rank)
 
-        return output
+        return input * 1.0
 
     @staticmethod
     def backward(ctx, grad_output):
         from_rank, bits = ctx.from_rank, ctx.bits
         min = torch.tensor(0.0).to(grad_output.get_device())
         step = torch.tensor(0.0).to(grad_output.get_device())
-        # if bits <= 8:
-        #     grad_output = grad_output.type(torch.cuda.CharTensor)
+
+        # if bits <= 16:
+        #     grad_output = grad_output.type(torch.cuda.ShortTensor)
         # else:
-        grad_output = grad_output.type(torch.cuda.HalfTensor)
+        grad_output = grad_output.type(torch.cuda.IntTensor)
         dist.recv(min, from_rank)
         dist.recv(step, from_rank)
         dist.recv(grad_output, from_rank)
         output = (
-            grad_output.type(torch.cuda.FloatTensor) + pow(2, bits - 1)
+            grad_output.type(torch.cuda.FloatTensor).requires_grad_() + pow(2, bits - 1)
         ) * step + min
         return output, None, None, None, None, None
 
 
 class RemoteQuantizationLayer(nn.Module):
-    def __init__(self, bits, from_rank: int, to_rank: int, momentum=0.1):
+    def __init__(self, bits, from_rank: int, to_rank: int, momentum=0.1,dynamic = 0):
         super(RemoteQuantizationLayer, self).__init__()
         self.running_min = torch.tensor(0.0)
         self.time = 0
@@ -156,45 +162,59 @@ class RemoteQuantizationLayer(nn.Module):
         self.bits = bits
         self.from_rank = from_rank
         self.to_rank = to_rank
-
+        self.dynamic = dynamic
     def forward(self, x):
-        if self.training:
+        if self.training or self.dynamic == 0:
             min, max = x.min(), x.max()
             step = (max - min) / (pow(2, self.bits) - 1)
             self.time = self.time + 1
-            if self.time == 1:
-                self.running_min, self.running_step = (
-                    min,
-                    step,
-                )  # need to change to CPU?
-            else:
-                self.running_min = (
-                    self.running_min * (1 - self.momentum) + min.item() * self.momentum
-                )
-                self.running_step = (
-                    self.running_step * (1 - self.momentum)
-                    + step.item() * self.momentum
-                )
-            output = RemoteQuantization.apply(
-                x, min, step, self.bits, self.from_rank, self.to_rank
-            )
+            if self.dynamic != 0:
+                if self.time == 1:
+                    self.running_min, self.running_step = (
+                        min,
+                        step,
+                    )  # need to change to CPU?
+                else:
+                    self.running_min = (
+                        self.running_min * (1 - self.momentum) + min.item() * self.momentum
+                    )
+                    self.running_step = (
+                        self.running_step * (1 - self.momentum)
+                        + step.item() * self.momentum
+                    )
+            output = RemoteQuantization.apply(x, min, step, self.bits,self.from_rank,self.to_rank)
             return output
         else:
             # self.time = 0
 
             output = RemoteQuantization.apply(
-                x,
-                self.running_min,
-                self.running_step,
-                self.bits,
-                self.from_rank,
-                self.to_rank,
+                x, self.running_min, self.running_step, self.bits,self.from_rank,self.to_rank
             )
             return output
 
+class Dequantization(autograd.Function):
+    @staticmethod
+    def forward(
+        ctx,
+        input,
+        bits,
+        min,
+        max,
+        step
+    ):
+        ctx.bits = bits
+        output = (input + pow(2, bits - 1)) * step + min
+        return output
+    @staticmethod
+    def backward(ctx, grad_output):
+        bits = ctx.bits
+        min, max = grad_output.min(), grad_output.max()
+        step = (max - min) / (pow(2, bits) - 1)
+        output1 = torch.round((grad_output - min) / step - pow(2, bits - 1))
 
 ##TODO
 class RemoteDeQuantization(autograd.Function):
+
     @staticmethod
     def forward(
         ctx,
@@ -226,11 +246,14 @@ class RemoteDeQuantization(autograd.Function):
         # if bits <= 8:
         #     input = input.type(torch.cuda.CharTensor)
         # else:
-        input = input.type(torch.cuda.HalfTensor)
+        # if bits <= 16:
+        #     input = input.type(torch.cuda.ShortTensor)
+        # else:
+        input = input.type(torch.cuda.IntTensor)
         dist.recv(min, from_rank)
         dist.recv(step, from_rank)
         dist.recv(input, from_rank)
-        input = input.type(torch.cuda.FloatTensor)
+        input = input.type(torch.cuda.FloatTensor).requires_grad_()
         # print(input,"recv from")
         # TODO recv datatype change?
         output = (input + pow(2, bits - 1)) * step + min
@@ -266,17 +289,23 @@ class RemoteDeQuantization(autograd.Function):
         #         torch.cuda.CharTensor
         #     )
         # else:
-        output = torch.round((grad_output - min) / step - pow(2, bits - 1)).type(
-            torch.cuda.HalfTensor
+        # if bits <= 16:
+
+        #     output1 = torch.round((grad_output - min) / step - pow(2, bits - 1)).type(
+        #         torch.cuda.ShortTensor
+        #     )
+        # else:
+        output1 = torch.round((grad_output - min) / step - pow(2, bits - 1)).type(
+            torch.cuda.IntTensor
         )
         dist.isend(min, to_rank)
         dist.isend(step, to_rank)
-        dist.isend(output, to_rank)
-        return output, None, None, None, None, None, None, None, None
+        dist.isend(output1, to_rank)
+        return grad_output * 1.0,None,None,None,None,None,None,None,None
 
 
 class RemoteDeQuantizationLayer(nn.Module):
-    def __init__(self, bits, from_rank: int, to_rank: int, momentum=0.1):
+    def __init__(self, bits, from_rank: int, to_rank: int, momentum=0.1,dynamic = 0):
         super(RemoteDeQuantizationLayer, self).__init__()
         self.bits = bits
         self.from_rank = from_rank
@@ -285,11 +314,12 @@ class RemoteDeQuantizationLayer(nn.Module):
         self.running_min = torch.tensor([0.0])
         self.running_step = torch.tensor([0.0])
         self.time = 0
+        self.dynamic = dynamic
 
     def forward(self, input):
-        if self.training:
+        if self.training or self.dynamic == 0:
             self.time = self.time + 1
-            if self.time == 1:
+            if self.time == 1 or self.dynamic == 0:
 
                 return RemoteDeQuantization.apply(
                     input,
@@ -369,3 +399,4 @@ class RemoteDeQuantizationLayer(nn.Module):
 # x.backward()
 # x.backward()
 # x.backward()
+

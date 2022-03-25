@@ -1,13 +1,13 @@
 # from model import resnet
 import torchvision.models as models
-from my_pipe import dist_gpipe,Reshape1,Reshape2
+from dist_gpipe import dist_gpipe,Reshape1,Reshape2
 # from model import MobileNetV2, ResNet18
 import model as md
 import torch.nn as nn
 import torch
 import torch.multiprocessing as mp
 import torchvision.transforms as transforms
-from my_pipe.distributedlayers.distributed_layers import ForwardSendLayers,ForwardReceiveLayers
+from dist_gpipe.distributedlayers.distributed_layers import ForwardSendLayers,ForwardReceiveLayers
 import torchvision
 import torch.distributed as dist
 import argparse
@@ -133,10 +133,10 @@ def main():
     settings['quantization'] = args.quant
     print(args.warmup)
     settings['warmup'] = args.warmup
-    if args.prun != 0.0:
-        settings['prun'] = args.prun
-    else:
-        settings['prun'] = None
+    # if args.prun != 0.0:
+    settings['prun'] = args.prun
+    # else:
+    #     settings['prun'] = None
     settings['Adam'] = args.Adam
     model  = dist_gpipe(partition,[0,1,2,3,0],args.chunks,input_size=input_size,criterion = criterion,save_path = args.log_dir,settings = settings)
 
