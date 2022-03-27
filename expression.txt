@@ -1,0 +1,4 @@
+dist_gpipe for cv normal
+dynamic_gpipe for cv dynamic qunat bit 16->8
+dist_gpipe_nlp for roberta model rte
+dataparalel_test_cv.py a short script for testing compression results

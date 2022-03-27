@@ -54,66 +54,45 @@ class TopkLayer(nn.Module):
 #         return output,None
 class Quantization(autograd.Function):
     @staticmethod
-    def forward(ctx, input, min, step, bits):
-        ctx.bits, ctx.min, ctx.step = bits, min, step
+    def forward(ctx, input, min, step, bits,backward_min,backward_step):
+        ctx.bits, ctx.backward_min, ctx.backward_step = bits, backward_min, backward_step
         # if bits <= 8:
         #     output = torch.round((input - min) / step - pow(2, bits - 1)).type(
         #         torch.cuda.CharTensor
         #     )
         # else:
 
-        output = torch.round((input - min) / step - pow(2, bits - 1)).type(
-            torch.cuda.HalfTensor
-        )  # 16
+        output = torch.round((input - min) / step) - pow(2, bits - 1)  # 16
         # pass
         return output
 
     @staticmethod
     def backward(ctx, grad_output):
-        bits, min, step = ctx.bits, ctx.min, ctx.step
+        bits, backward_min, backward_step = ctx.bits, ctx.backward_min[0], ctx.backward_step[0]
         output = (
-            grad_output.type(torch.cuda.FloatTensor) + pow(2, bits - 1)
-        ) * step + min
+            grad_output + pow(2, bits - 1)
+        ) * backward_step + backward_min
         return output, None, None, None, None
 
 
 class QuantizationLayer(nn.Module):
-    def __init__(self, bits, momentum=0.1, dynamic=0):
+    def __init__(self, bits):
         super(QuantizationLayer, self).__init__()
-        self.running_min = 0.0
-        self.time = 0
-        self.running_step = 0.0
-        self.momentum = momentum
+
         self.bits = bits
-        self.dynamic = dynamic
+        self.backward_step = torch.tensor([0.0])
+        self.backward_min = torch.tensor([0.0])
+
 
     def forward(self, x):
         min, max = x.min(), x.max()
-        step = torch.tensor((max - min) / (pow(2, self.bits) - 1))
+        step = torch.tensor((max - min) / (pow(2, self.bits)-1)) #error
         # min = torch.tensor([min.item()]).to(x.get_device())
-        if self.training or self.dynamic == 0:
-            self.time = self.time + 1
-            if self.time == 1:
-                self.running_min, self.running_step = (
-                    min.item(),
-                    step.item(),
-                )  # need to change to CPU?
-            elif self.dynamic != 0:
-                self.running_min = (
-                    self.running_min * (1 - self.momentum) + min.item() * self.momentum
-                )
-                self.running_step = (
-                    self.running_step * (1 - self.momentum)
-                    + step.item() * self.momentum
-                )
-            return Quantization.apply(x, min, step, self.bits), min, step
-        else:
-            # self.time = 0
-            return (
-                Quantization.apply(x, self.running_min, self.running_step, self.bits),
-                min,
-                step,
-            )
+        # print("steps",step,"minus",max-min,"results",(max - min) / pow(2, self.bits))
+
+
+        return Quantization.apply(x, min, step, self.bits,self.backward_min,self.backward_step), min, step
+
 
 
 class RemoteQuantization(autograd.Function):
@@ -209,29 +188,29 @@ class RemoteQuantizationLayer(nn.Module):
 class Dequantization(autograd.Function):
     @staticmethod
     def forward(
-        ctx, input, bits, min, max, step, backward_min, backward_step,
+        ctx, input, bits, min, step, backward_min, backward_step,
     ):
         ctx.bits, ctx.backward_min, ctx.backward_step = (
             bits,
             backward_min,
             backward_step,
         )
-
+        # print("input",input,(input + pow(2, bits - 1)))
         output = (input + pow(2, bits - 1)) * step + min
+        # print("output",output)
         return output
 
     @staticmethod
     def backward(ctx, grad_output):
-        bits, backward_min, backward_step = (
-            ctx.bits,
-            ctx.backward_min[0],
-            ctx.backward_step[0],
-        )
-        # min, max = grad_output.min(), grad_output.max()
-        # step = (max - min) / (pow(2, bits) - 1)
+        bits = ctx.bits
+
+        min, max = grad_output.min(), grad_output.max()
+        step = (max - min) / (pow(2, bits) - 1)
+        ctx.backward_min[0] = min
+        ctx.backward_step[0] = step
         output1 = torch.round(
-            (grad_output - backward_min) / backward_step - pow(2, bits - 1)
-        )
+            (grad_output - min) / step) - pow(2, bits - 1)
+        
         return output1
 
 
@@ -240,8 +219,10 @@ class DequantizationLayer(nn.Module):
         super(DequantizationLayer, self).__init__()
         self.bits = bits
 
-    def forward(self, input, min, step):
-        return
+    def forward(self, input, min, step,backward_min,backward_step):
+        
+        return Dequantization.apply(input,self.bits,min, step,backward_min,backward_step)
+
 
 
 ##TODO
