@@ -45,3 +45,10 @@ I have only trained 40epochs here. To test multiple quantization
 3. Finish Roberta classification tasks using (prun ,quant,multiple quant) and analyze the results
 
    Motivation: tests compression layers on NLP tasks(don't prun nn.Embedding again).
+
+## TEST CODE
+
+```
+./tests/dataparallel_test_cv.py
+```
+
