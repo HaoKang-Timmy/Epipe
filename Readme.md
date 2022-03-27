@@ -35,5 +35,13 @@ I have only trained 40epochs here. To test multiple quantization
 ## To do
 
 1. Finish multiple quantization in distributed method and run samples of CIFAR10 using MobileNetV2 backend.
-2. Fulfill the difference of input and output of quantization functions, record them and analyse.
-3. Finish Roberta classification tasks and analyse the results
+
+   motivation: try this new method on the dist_gpipe system, test how many sets of steps and min are reasonable for **8bits** quantization
+
+2. Fulfill the difference of input and output of quantization functions, record them and analyze.
+
+   Motivation: analyze why the error will increase during small bits quantization training. And How to decrease it? Any specification that could represent the tensors distance that could give a response answer to acc decay dramatically.
+
+3. Finish Roberta classification tasks using (prun ,quant,multiple quant) and analyze the results
+
+   Motivation: tests compression layers on NLP tasks(don't prun nn.Embedding again).
