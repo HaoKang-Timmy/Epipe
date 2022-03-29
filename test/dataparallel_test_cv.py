@@ -22,6 +22,8 @@ parser.add_argument("--batches", default=64, type=int)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prun", default=0.0, type=float)
 parser.add_argument("--avgpool", default=0, action="store_true")
+parser.add_argument("--split", default=4, type=int)
+parser.add_argument("--multi", default=0, action="store_true")
 # metric = load_metric("glue", "cola")
 # print(train_dataset)
 def get_lr(optimizer):
@@ -127,16 +129,21 @@ def main_worker(rank,process_num,args):
 
             
             outputs =layer1(image)
-            if args.prun != 0:
-                outputs = topk_layer(outputs)
-            if args.avgpool != 0:
-                outputs = avgpool1(outputs)
-            if args.quant != 0:
-                outputs = Fakequantize.apply(outputs,args.quant)
-            if args.avgpool != 0:
-                outputs = upsample1(outputs)
-            else:
-                outputs = Topk_quantization.apply(outputs,8,0.5,64)
+            if args.multi == 0:
+                if args.prun != 0:
+                    outputs = topk_layer(outputs)
+                    # print("prun")
+                if args.avgpool != 0:
+                    outputs = avgpool2(outputs)
+                    # print("avg")
+                if args.quant != 0:
+                    outputs = Fakequantize.apply(outputs,args.quant)
+                    # print("quant")
+                if args.avgpool != 0:
+                    outputs = upsample2(outputs)
+                    # print("avg")
+            elif args.multi != 0:
+                outputs = Topk_quantization.apply(outputs,args.quant,args.prun,args.split)
             # print(outputs)
             # while(1):
             #     pass
@@ -154,21 +161,21 @@ def main_worker(rank,process_num,args):
             # outputs2 = outputs
             # print("outputs2",outputs2)
             outputs = layer2(outputs)
-            if args.prun != 0:
-                outputs = topk_layer(outputs)
-                # print("prun")
-            if args.avgpool != 0:
-                outputs = avgpool2(outputs)
-                # print("avg")
-            if args.quant != 0:
-                outputs = Fakequantize.apply(outputs,args.quant)
-                # print("quant")
-            if args.avgpool != 0:
-                outputs = upsample2(outputs)
-                # print("avg")
-            else:
-                # print(outputs.shape)
-                outputs = Topk_quantization.apply(outputs,8,0.5,4)
+            if args.multi == 0:
+                if args.prun != 0:
+                    outputs = topk_layer(outputs)
+                    # print("prun")
+                if args.avgpool != 0:
+                    outputs = avgpool2(outputs)
+                    # print("avg")
+                if args.quant != 0:
+                    outputs = Fakequantize.apply(outputs,args.quant)
+                    # print("quant")
+                if args.avgpool != 0:
+                    outputs = upsample2(outputs)
+                    # print("avg")
+            elif args.multi != 0:
+                outputs = Topk_quantization.apply(outputs,args.quant,args.prun,args.split)
             # outputs,min,step = quant_layer2(outputs)
             # outputs = dequant_layer2(outputs,min,step,quant_layer2.backward_min,quant_layer2.backward_step)
             outputs = layer3(outputs)
@@ -211,11 +218,41 @@ def main_worker(rank,process_num,args):
                 label = label.to(rank,non_blocking = True)
                 
                 outputs =layer1(image)
+                if args.multi == 0:
+                    if args.prun != 0:
+                        outputs = topk_layer(outputs)
+                        # print("prun")
+                    if args.avgpool != 0:
+                        outputs = avgpool2(outputs)
+                        # print("avg")
+                    if args.quant != 0:
+                        outputs = Fakequantize.apply(outputs,args.quant)
+                        # print("quant")
+                    if args.avgpool != 0:
+                        outputs = upsample2(outputs)
+                        # print("avg")
+                elif args.multi != 0:
+                    outputs = Topk_quantization.apply(outputs,args.quant,args.prun,args.split)
                 # outputs,min,step = quant_layer1(outputs)
                 # outputs = dequant_layer1(outputs,min,step,quant_layer1.backward_min,quant_layer1.backward_step)
                 outputs = layer2(outputs)
                 # outputs,min,step = quant_layer2(outputs)
                 # outputs = dequant_layer2(outputs,min,step,quant_layer2.backward_min,quant_layer2.backward_step)
+                if args.multi == 0:
+                    if args.prun != 0:
+                        outputs = topk_layer(outputs)
+                        # print("prun")
+                    if args.avgpool != 0:
+                        outputs = avgpool2(outputs)
+                        # print("avg")
+                    if args.quant != 0:
+                        outputs = Fakequantize.apply(outputs,args.quant)
+                        # print("quant")
+                    if args.avgpool != 0:
+                        outputs = upsample2(outputs)
+                        # print("avg")
+                elif args.multi != 0:
+                    outputs = Topk_quantization.apply(outputs,args.quant,args.prun,args.split)
                 outputs = layer3(outputs)
                 loss = criterion(outputs,label)
                 acc,_ = accuracy(outputs,label,topk =(1,2))

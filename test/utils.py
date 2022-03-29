@@ -1,7 +1,7 @@
 '''
 Author: your name
 Date: 2022-03-26 01:32:34
-LastEditTime: 2022-03-27 23:00:39
+LastEditTime: 2022-03-29 00:09:21
 LastEditors: Please set LastEditors
 Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 FilePath: /research/gpipe_test/test/utils.py
@@ -178,6 +178,7 @@ class TopkLayer(nn.Module):
 class Topk_quantization(autograd.Function):
     @staticmethod
     def forward(ctx,input,bits,ratio,partition):
+        # print(bits,ratio,partition)
         shape = input.shape
         test = input
         input = input.view(-1)
@@ -197,11 +198,17 @@ class Topk_quantization(autograd.Function):
         # print(src1[1])
         for i in range(partition):
             min, max = src1[i].min(),src1[i].max()
-            step = (max - min) / (pow(2, bits) - 1)
-            
-            # print(torch.round((src1[i] - min) / step)- pow(2, bits - 1) )
-            temp_src = torch.round((src1[i] - min) / step) - pow(2, bits - 1)
-            temp_src = (temp_src + pow(2, bits - 1)) * step + min
+            if min != max:
+                step = (max - min) / (pow(2, bits) - 1)
+                
+                # print(torch.round((src1[i] - min) / step)- pow(2, bits - 1) )
+                temp_src = torch.round((src1[i] - min) / step) - pow(2, bits - 1)
+                temp_src = (temp_src + pow(2, bits - 1)) * step + min
+                # if i == 0:
+                #     print(temp_src)
+            else:
+                # print(src1[i])
+                temp_src = src1[i]
             # print("origin_src",src1[i])
             # print("quant_dequant_src",temp_src)
             src.scatter_(0,index1[i],temp_src)
@@ -215,7 +222,8 @@ class Topk_quantization(autograd.Function):
         ctx.bits = bits
         ctx.partition = partition
         input = input.view(shape)
-        #print("forward",torch.abs(torch.abs(input) - torch.abs(test)).sum()/torch.abs(test).sum())
+        # if input.get_device() == 0:
+        #     print("forward",torch.abs(torch.abs(input) - torch.abs(test)).sum()/torch.abs(test).sum())
         return input
     @staticmethod
     def backward(ctx,grad_backward):
@@ -232,19 +240,22 @@ class Topk_quantization(autograd.Function):
         src1 = src1.chunk(ctx.partition)
         for i in range(ctx.partition):
             min, max = src1[i].min(),src1[i].max()
-            step = (max - min) / (pow(2, ctx.bits) - 1)
-            src_temp = torch.round((src1[i] - min) / step) - pow(2, ctx.bits - 1)
-            src_temp = (src_temp + pow(2, ctx.bits - 1)) * step + min
+            if min != max:
+                step = (max - min) / (pow(2, ctx.bits) - 1)
+                src_temp = torch.round((src1[i] - min) / step) - pow(2, ctx.bits - 1)
+                src_temp = (src_temp + pow(2, ctx.bits - 1)) * step + min
+            else:
+                src_temp = src1[i]
             src.scatter_(0,index1[i],src_temp)
 
         # index = index.view(-1)
         grad_backward.scatter_(0,index,src)
         grad_backward = grad_backward.view(shape)
-        grad_backward =grad_backward * ctx.mask
         # print(grad_backward)
         # while(1):
         #     pass
-        #print("backward",torch.abs(torch.abs(grad_backward) - torch.abs(test)).sum()/torch.abs(test).sum())
+        # if grad_backward.get_device() == 0:
+        #     print("backward",torch.abs(torch.abs(grad_backward) - torch.abs(test)).sum()/torch.abs(test).sum())
         return grad_backward,None,None,None
 
 class TopkQuantLayer(nn.Module):
