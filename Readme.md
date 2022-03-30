@@ -23,12 +23,13 @@ Here are some important data. And I have done some train efficiency tests on dis
 
 I have trained 100epochs here.
 
-| Training method | Compression method  | Acc%        |
-| --------------- | ------------------- | ----------- |
-| Finetune        | No                  | 95.9%       |
-| Finetune        | Quantization 16bits | 95.7%       |
-| Finetune        | Prune0.5            | 96.1%       |
-| Finetune        | Quantization 11bits | 91.3% 84.5% |
+| Training method | Compression method                 | Acc%        |
+| --------------- | ---------------------------------- | ----------- |
+| Finetune        | No                                 | 95.9%       |
+| Finetune        | Quantization 16bits                | 95.7%       |
+| Finetune        | Prune0.5                           | 96.1%       |
+| Finetune        | Quantization 11bits                | 91.3% 84.5% |
+| Finetune        | Haokang_quantization 8bits 8splits | 95.47%      |
 
 The reason that quantization 11bits has two acc is that, it's curve first climb quickly like quantization 16bits but suddenly fall to 60% and then climb slowly.
 
