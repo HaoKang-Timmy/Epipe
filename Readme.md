@@ -8,29 +8,29 @@ On CIFAR10 MobilenetV2 training
 
 Traditional quantization is one step, one min per tensor. Multiple quantization has multiple steps and mins
 
-| Training method         | Compression method   | Acc%  |
-| ----------------------- | -------------------- | ----- |
-| tfs(train from scratch) | No                   | 94.07 |
-| tfs(train from scratch) | Quant16(traditional) | 93.94 |
-| tfs(train from scratch) | prun 0.5             | 94.02 |
-| Fintune                 | No                   | 96.03 |
-| Fintune                 | Quant16(traditional) | 96.07 |
-| Fintune                 | Prun 0.5             | 96.27 |
+| Training method         | Compression method          | Acc%   |
+| ----------------------- | --------------------------- | ------ |
+| tfs(train from scratch) | No                          | 94.07% |
+| tfs(train from scratch) | Quantization16(traditional) | 93.94% |
+| tfs(train from scratch) | Prune 0.5                   | 94.02% |
+| Finetune                | No                          | 96.03% |
+| Finetune                | Quantization16(traditional) | 96.07% |
+| Finetune                | Prune 0.5                   | 96.27% |
 
 Here are some important data. And I have done some train efficiency tests on dist-gpipe, which speed up the process at least 30%.
 
 ### Dataparallel tests
 
-I have only trained 40epochs here. To test multiple quantization
+I have trained 100epochs here.
 
-| Training method | Compression method          | Acc%   |
-| --------------- | --------------------------- | ------ |
-| Fintune         | No                          | 92.70  |
-| Fintune         | Quant16(traditional)        | 92.59% |
-| Fintune         | prun0.5                     | 92.52% |
-| Fintune         | Avgpool2d                   | 83.74% |
-| Fintune         | Quant8(traditional)         | 62%    |
-| Fintune         | Quant8 prun0.5(multiple 64) | 92.53% |
+| Training method | Compression method  | Acc%        |
+| --------------- | ------------------- | ----------- |
+| Finetune        | No                  | 95.9%       |
+| Finetune        | Quantization 16bits | 95.7%       |
+| Finetune        | Prune0.5            | 96.1%       |
+| Finetune        | Quantization 11bits | 91.3% 84.5% |
+
+The reason that quantization 11bits has two acc is that, it's curve first climb quickly like quantization 16bits but suddenly fall to 60% and then climb slowly.
 
 ## To do
 
