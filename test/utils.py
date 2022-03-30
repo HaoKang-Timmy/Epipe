@@ -193,7 +193,7 @@ class TopkLayer(nn.Module):
         return TopkPruning.apply(x, self.ratio)
 
 
-class Topk_quantization(autograd.Function):
+class HaoKangQuantization(autograd.Function):
     @staticmethod
     def forward(ctx, input, bits, ratio, partition):
         # print(bits,ratio,partition)
@@ -274,4 +274,4 @@ class TopkQuantLayer(nn.Module):
         self.divide_part = divide_part
 
     def forward(self, input):
-        return Topk_quantization.apply(input, self.bits, self.ratio, self.divide_part)
+        return HaoKangQuantization.apply(input, self.bits, self.ratio, self.divide_part)

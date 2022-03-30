@@ -16,7 +16,7 @@ from utils import (
     DequantizationLayer,
     Fakequantize,
     TopkLayer,
-    Topk_quantization,
+    HaoKangQuantization,
 )
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
@@ -160,7 +160,7 @@ def main_worker(rank, process_num, args):
                     outputs = upsample2(outputs)
                     # print("avg")
             elif args.multi != 0:
-                outputs = Topk_quantization.apply(
+                outputs = HaoKangQuantization.apply(
                     outputs, args.quant, args.prun, args.split
                 )
 
@@ -179,7 +179,7 @@ def main_worker(rank, process_num, args):
                     outputs = upsample2(outputs)
                     # print("avg")
             elif args.multi != 0:
-                outputs = Topk_quantization.apply(
+                outputs = HaoKangQuantization.apply(
                     outputs, args.quant, args.prun, args.split
                 )
             # outputs,min,step = quant_layer2(outputs)
@@ -238,7 +238,7 @@ def main_worker(rank, process_num, args):
                         outputs = upsample2(outputs)
                         # print("avg")
                 elif args.multi != 0:
-                    outputs = Topk_quantization.apply(
+                    outputs = HaoKangQuantization.apply(
                         outputs, args.quant, args.prun, args.split
                     )
                 # outputs,min,step = quant_layer1(outputs)
@@ -260,7 +260,7 @@ def main_worker(rank, process_num, args):
                         outputs = upsample2(outputs)
                         # print("avg")
                 elif args.multi != 0:
-                    outputs = Topk_quantization.apply(
+                    outputs = HaoKangQuantization.apply(
                         outputs, args.quant, args.prun, args.split
                     )
                 outputs = layer3(outputs)
