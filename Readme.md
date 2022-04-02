@@ -23,17 +23,38 @@ Here are some important data. And I have done some train efficiency tests on dis
 
 I have trained 100epochs here.
 
-| Training method | Compression method                          | Acc%        |
-| --------------- | ------------------------------------------- | ----------- |
-| Finetune        | No                                          | 95.9%       |
-| Finetune        | Quantization 16bits                         | 95.7%       |
-| Finetune        | Prune0.5                                    | 96.1%       |
-| Finetune        | Quantization 11bits                         | 91.3% 84.5% |
-| Finetune        | Haokang_quantization 8bits 8splits          | 95.47%      |
-| Finetune        | Haokang_quantization 8bits 8splits prune0.5 | 95.45%      |
-| Finetune        | Haokang_quantization 4bits 16splits         | 94.9%       |
+On CIFAR10 MobilenetV2 training
+
+| Training method | Compression method                         | Acc%        |
+| --------------- | ------------------------------------------ | ----------- |
+| Finetune        | No                                         | 96.1%       |
+| Finetune        | Quantization 16bits                        | 96.0%       |
+| Finetune        | Prune0.5                                   | 96.1%       |
+| Finetune        | Quantization 11bits                        | 91.3% 84.5% |
+| Finetune        | HaokangQuantization 8bits 8splits          | 95.45%      |
+| Finetune        | HaokangQuantization 8bits 8splits prune0.5 | 95.53%      |
+| Finetune        | HaokangQuantization 4bits 16splits         | 94.9%       |
 
 The reason that quantization 11bits has two acc is that, it's curve first climb quickly like quantization 16bits but suddenly fall to 60% and then climb slowly.
+
+On NLP tasks, for the cola dataset, I use Matthew's correlation. The rte dataset uses **validation acc**.
+
+| Tasks | Training method | Compression method | Validation_value |
+| ----- | --------------- | ------------------ | ---------------- |
+| Cola  | Sota            | None               | 0.636            |
+| Cola  | Finetune        | None               | 0.630$\pm$0.04   |
+| Cola  | Finetune        | Prune 0.5          | 0.633$\pm$0.01   |
+| Cola  | Finetune        | Quantization 16    | 0.632$\pm$0.01   |
+| Cola  | Finetune        | Quantization 4     | 0(acc: 69.1%)    |
+| RTE   | Sota            | None               | 78.9%            |
+| RTE   | Finetune        | None               | 78.4% $\pm$ 0.6% |
+| RTE   | Finetune        | Prune 0.5          | 79.3%$\pm$ 0.7%  |
+| RTE   | Finetune        | Quantization 16    | 78.7% $\pm$ 0.7% |
+| RTE   | Finetune        | Quantization 10    | 0.783$\pm$1.1%   |
+| RTE   | Finetune        | Quantization 8     | 77.5% $\pm$ 0.8% |
+| RTE   | Finetune        | Quantization 4     | 52.2% $\pm$ 0.1% |
+
+
 
 ## To do
 
