@@ -1,3 +1,7 @@
+---
+typora-copy-images-to: ./pic
+---
+
 # TO DO LIST
 
 ## What I have done
@@ -54,7 +58,7 @@ On NLP tasks, for the cola dataset, I use Matthew's correlation. The rte dataset
 | RTE   | Finetune        | Quantization 8     | 77.5% $\pm$ 0.8% |
 | RTE   | Finetune        | Quantization 4     | 52.2% $\pm$ 0.1% |
 
-
+![image-20220402164042368](./pic/image-20220402164042368.png)
 
 ## To do
 
