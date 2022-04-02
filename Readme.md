@@ -12,16 +12,9 @@ On CIFAR10 MobilenetV2 training
 
 Traditional quantization is one step, one min per tensor. Multiple quantization has multiple steps and mins
 
-| Training method         | Compression method          | Acc%   |
-| ----------------------- | --------------------------- | ------ |
-| tfs(train from scratch) | No                          | 94.07% |
-| tfs(train from scratch) | Quantization16(traditional) | 93.94% |
-| tfs(train from scratch) | Prune 0.5                   | 94.02% |
-| Finetune                | No                          | 96.03% |
-| Finetune                | Quantization16(traditional) | 96.07% |
-| Finetune                | Prune 0.5                   | 96.27% |
-
 Here are some important data. And I have done some train efficiency tests on dist-gpipe, which speed up the process at least 30%.
+
+![image-20220402191813314](./pic/image-20220402191813314.png)
 
 ### 2.Dataparallel tests
 
@@ -29,36 +22,13 @@ I have trained 100epochs here.
 
 On CIFAR10 MobilenetV2 training
 
-| Training method | Compression method                         | Acc%        |
-| --------------- | ------------------------------------------ | ----------- |
-| Finetune        | No                                         | 96.1%       |
-| Finetune        | Quantization 16bits                        | 96.0%       |
-| Finetune        | Prune0.5                                   | 96.1%       |
-| Finetune        | Quantization 11bits                        | 91.3% 84.5% |
-| Finetune        | HaokangQuantization 8bits 8splits          | 95.45%      |
-| Finetune        | HaokangQuantization 8bits 8splits prune0.5 | 95.53%      |
-| Finetune        | HaokangQuantization 4bits 16splits         | 94.9%       |
+![image-20220402191703060](./pic/image-20220402191703060.png)
 
 The reason that quantization 11bits has two acc is that, it's curve first climb quickly like quantization 16bits but suddenly fall to 60% and then climb slowly.
 
 On NLP tasks, for the cola dataset, I use Matthew's correlation. The rte dataset uses **validation acc**.
 
-| Tasks | Training method | Compression method | Validation_value |
-| ----- | --------------- | ------------------ | ---------------- |
-| Cola  | Sota            | None               | 0.636            |
-| Cola  | Finetune        | None               | 0.630$\pm$0.04   |
-| Cola  | Finetune        | Prune 0.5          | 0.633$\pm$0.01   |
-| Cola  | Finetune        | Quantization 16    | 0.632$\pm$0.01   |
-| Cola  | Finetune        | Quantization 4     | 0(acc: 69.1%)    |
-| RTE   | Sota            | None               | 78.9%            |
-| RTE   | Finetune        | None               | 78.4% $\pm$ 0.6% |
-| RTE   | Finetune        | Prune 0.5          | 79.3%$\pm$ 0.7%  |
-| RTE   | Finetune        | Quantization 16    | 78.7% $\pm$ 0.7% |
-| RTE   | Finetune        | Quantization 10    | 0.783$\pm$1.1%   |
-| RTE   | Finetune        | Quantization 8     | 77.5% $\pm$ 0.8% |
-| RTE   | Finetune        | Quantization 4     | 52.2% $\pm$ 0.1% |
-
-![image-20220402164042368](./pic/image-20220402164042368.png)
+![image-20220402191613560](./pic/image-20220402191613560.png)
 
 ## To do
 
