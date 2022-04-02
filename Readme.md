@@ -28,7 +28,7 @@ The reason that quantization 11bits has two acc is that, it's curve first climb 
 
 On NLP tasks, for the cola dataset, I use Matthew's correlation. The rte dataset uses **validation acc**.
 
-![image-20220402191613560](./pic/image-20220402191613560.png)
+![image-20220402204721953](./pic/image-20220402204721953.png)
 
 ## To do
 

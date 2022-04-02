@@ -82,23 +82,21 @@ def worker_header(
         model = model.to(device, non_blocking=True)
         param_list.append({"params": model.parameters()})
     optimizer = torch.optim.SGD(
-        param_list,
-        settings["lr"],
-        weight_decay=settings["wd"],
-        momentum=settings["momentum"],
-    )
-    if settings["prun"] != 0:
+                    param_list,
+                    settings["lr"],
+                    weight_decay=settings["wd"],
+                    momentum=settings["momentum"],
+                )
+    if settings["prun"] !=0:
         topk_layer = TopkLayer(settings["prun"])
     if settings["quantization"] != 0:
-        quant_16bit_layer = RemoteQuantizationLayer(16, rank + 1, rank + 1)
-        quant_8bit_layer = RemoteQuantizationLayer(8, rank + 1, rank + 1)
-        dequant_16bit_layer = RemoteDeQuantizationLayer(16, 3, 3)
-        dequant_8bit_layer = RemoteDeQuantizationLayer(8, 3, 3)
-    forwardsend = ForwardSendLayers(None, rank + 1, rank + 1, rank)
-    frowardreceive = ForwardReceiveLayers(3, 3, 0)
-    warm_up = get_cosine_schedule_with_warmup(
-        optimizer, num_warmup_steps=int(epochs / 10), num_training_steps=epochs
-    )
+        quant_16bit_layer = RemoteQuantizationLayer(16,rank+1,rank+1)
+        quant_8bit_layer = RemoteQuantizationLayer(8,rank+1,rank+1)
+        dequant_16bit_layer = RemoteDeQuantizationLayer(16,3,3)
+        dequant_8bit_layer = RemoteDeQuantizationLayer(8,3,3)
+    forwardsend = ForwardSendLayers(None,rank+1,rank+1,rank)
+    frowardreceive = ForwardReceiveLayers(3,3,0)
+    warm_up = get_cosine_schedule_with_warmup(optimizer,num_warmup_steps = int(epochs/10), num_training_steps = epochs)
     for epoch in range(epochs):
         acc1_avg = 0.0
         losses_avg = 0.0
@@ -127,9 +125,9 @@ def worker_header(
                         output = model(images[j])
                         if settings["prun"] != 0:
                             output = topk_layer(output)
-                        if settings["quantization"] != 0:
+                        if settings['quantization'] != 0:
                             if epoch < 10:
-                                output = quant_16bit_layer(output)
+                                output =  quant_16bit_layer(output)
                             else:
                                 output = quant_8bit_layer(output)
                         else:
@@ -146,7 +144,7 @@ def worker_header(
                                 input = dequant_8bit_layer(input)
                         else:
                             input = frowardreceive(input)
-
+                        
                         # input = ForwardReceive_BackwardSend.apply(input,3,3,rank)
                         # print("forward","rank",rank,"part",i,"finish")
                         output = model(input)
@@ -167,6 +165,7 @@ def worker_header(
             if batch_iter % 16 == 0:
                 print("tarining_loss:", losses, "training_acc", acc)
 
+            
             # print("forward over")
             # while(1):
             #     pass
@@ -220,9 +219,9 @@ def worker_header(
                             output = model(images[j])
                             if settings["prun"] != 0:
                                 output = topk_layer(output)
-                            if settings["quantization"] != 0:
+                            if settings['quantization'] != 0:
                                 if epoch < 10:
-                                    output = quant_16bit_layer(output)
+                                    output =  quant_16bit_layer(output)
                                 else:
                                     output = quant_8bit_layer(output)
                             else:
@@ -267,7 +266,7 @@ def worker_header(
             "val_loss",
             val_loss_avg,
             "lr",
-            get_lr(optimizer),
+            get_lr(optimizer)
         )
         file_save = open(savepth, mode="a")
         file_save.write(
@@ -284,7 +283,7 @@ def worker_header(
             + str(val_acc_avg)
             + "  time_per_batch:"
             + str(time_per_batch)
-            + "  lr:"
+            +"  lr:"
             + str(get_lr(optimizer))
         )
 
@@ -314,7 +313,7 @@ def worker(
     )
     print("process begin: ", rank)
     # train
-
+    
     for model in models:
         model = model.to(device, non_blocking=True)
     param_list = []
@@ -322,25 +321,23 @@ def worker(
         model = model.to(device, non_blocking=True)
         param_list.append({"params": model.parameters()})
     optimizer = torch.optim.SGD(
-        param_list,
-        settings["lr"],
-        weight_decay=settings["wd"],
-        momentum=settings["momentum"],
-    )
-    warm_up = get_cosine_schedule_with_warmup(
-        optimizer, num_warmup_steps=int(epochs / 10), num_training_steps=epochs
-    )
+                    param_list,
+                    settings["lr"],
+                    weight_decay=settings["wd"],
+                    momentum=settings["momentum"],
+                )
+    warm_up = get_cosine_schedule_with_warmup(optimizer,num_warmup_steps = int(epochs/10), num_training_steps = epochs)
     forwardrecv_layer = ForwardReceiveLayers(rank - 1, rank - 1, rank)
     if rank != 3:
 
-        forwardsend_layer = ForwardSendLayers((1, 1), rank + 1, rank + 1, rank)
+        forwardsend_layer = ForwardSendLayers((1,1),rank+1,rank+1,rank)
     else:
-        forwardsend_layer = ForwardSendLayers((1, 1), 0, 0, rank)
-        quant_16bit_layer = RemoteQuantizationLayer(16, 0, 0)
-        quant_8bit_layer = RemoteQuantizationLayer(8, 0, 0)
+        forwardsend_layer = ForwardSendLayers((1,1),0,0,rank)
+        quant_16bit_layer = RemoteQuantizationLayer(16,0,0)
+        quant_8bit_layer = RemoteQuantizationLayer(8,0,0)
     if rank == 1:
-        dequant_16bit_layer = RemoteDeQuantizationLayer(16, 0, 0)
-        dequant_8bit_layer = RemoteDeQuantizationLayer(8, 0, 0)
+        dequant_16bit_layer = RemoteDeQuantizationLayer(16,0,0)
+        dequant_8bit_layer = RemoteDeQuantizationLayer(8,0,0)
     for epoch in range(epochs):
 
         # if rank == 3:
@@ -391,7 +388,7 @@ def worker(
                 batches.append(batch)
                 # recv.append(batches[i][0].clone().detach())
             # forward over
-
+            
             # print("forward over")
             # while(1):
             #     pass
@@ -632,7 +629,7 @@ class dist_gpipe_dynamic:
                     weight_decay=settings["wd"],
                     momentum=settings["momentum"],
                 )
-                print("lr", settings["lr"])
+                print("lr",settings["lr"])
                 warmup_schduler = warmup.LinearWarmup(optimizer, warmup_period=20)
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                     optimizer, T_max=epochs

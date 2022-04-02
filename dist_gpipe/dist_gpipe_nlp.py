@@ -82,9 +82,9 @@ def worker_header(
 
     for model in models:
         model = model.to(device, non_blocking=True)
-    topk_layer = TopkLayer(settings["prun"])
-    quant_layer = RemoteQuantizationLayer(settings["quant"], rank + 1, rank + 1)
-    dequant_layer = RemoteDeQuantizationLayer(settings["quant"], 3, 3)
+    topk_layer = TopkLayer(settings['prun'])
+    quant_layer = RemoteQuantizationLayer(settings['quant'],rank+1,rank+1)
+    dequant_layer = RemoteDeQuantizationLayer(settings['quant'],3,3)
     for epoch in range(epochs):
         acc1_avg = 0.0
         losses_avg = 0.0
@@ -96,30 +96,22 @@ def worker_header(
             start = time.time()
             # images = images.to(device, non_blocking=True)
             # targets = targets.to(device, non_blocking=True)
-            input_ids = batch["input_ids"].to(device, non_blocking=True)
-            labels = batch["labels"].to(device, non_blocking=True)
-            batch["attention_mask"] = torch.reshape(
-                batch["attention_mask"],
-                [
-                    int(batch["attention_mask"].shape[0]),
-                    1,
-                    1,
-                    int(batch["attention_mask"].shape[-1]),
-                ],
-            ).to(0)
-            attention_mask = batch["attention_mask"]
+            input_ids = batch["input_ids"].to(device,non_blocking = True)
+            labels = batch['labels'].to(device,non_blocking = True)
+            batch['attention_mask'] = torch.reshape(batch['attention_mask'],[int(batch['attention_mask'].shape[0]),1,1,int(batch['attention_mask'].shape[-1])]).to(0)
+            attention_mask = batch['attention_mask']
             # attention_mask = attention_mask.chunk(chunks)
             # print("begin broadcast")
             # dist.broadcast(attention_mask,src = rank,async_op=True)#TODO recv
-            dist.isend(attention_mask, 1)
-            dist.isend(attention_mask, 2)
-            dist.isend(attention_mask, 3)
+            dist.isend(attention_mask,1)
+            dist.isend(attention_mask,2)
+            dist.isend(attention_mask,3)
             # print("end")
 
             input_ids = input_ids.chunk(chunks)
             # print("input_ids",len(input_ids))
             labels = labels.chunk(chunks)
-
+            
             batches = []
             acc1 = 0.0
             losses = 0.0
@@ -135,12 +127,10 @@ def worker_header(
                     if i == 0:
 
                         output = model(input_ids[j])
-                        if settings["prun"] != 0:
+                        if settings['prun'] != 0:
                             output = topk_layer(output)
-                        if settings["quant"] == 0:
-                            output = ForwardSend_BackwardReceive.apply(
-                                output, rank + 1, rank + 1, rank
-                            )
+                        if settings['quant'] == 0:
+                            output = ForwardSend_BackwardReceive.apply(output,rank+1,rank+1,rank)
                         else:
                             output = quant_layer(output)
                         # output = ForwardSend_BackwardReceive.apply(output,tuple(list(output.shape)),rank+1,rank+1,rank)
@@ -150,10 +140,8 @@ def worker_header(
                         input = torch.empty(recev_size[0]).to(device).requires_grad_()
                         # input = ForwardReceive_BackwardSend.apply(input,3,3,rank)
                         # print("forward","rank",rank,"part",i,"finish")
-                        if settings["quant"] == 0:
-                            input = ForwardReceive_BackwardSend.apply(
-                                input, 3, 3, 0
-                            )  # TODO limited
+                        if settings['quant'] == 0:
+                            input = ForwardReceive_BackwardSend.apply(input,3,3,0)#TODO limited
                         else:
                             input = dequant_layer(input)
                         output = model(input)
@@ -217,23 +205,15 @@ def worker_header(
         with torch.no_grad():
             # print("validation begin")
             for batch_iter, batch in enumerate(val_loader):
-                input_ids = batch["input_ids"].to(device, non_blocking=True)
-                labels = batch["labels"].to(device, non_blocking=True)
-                batch["attention_mask"] = torch.reshape(
-                    batch["attention_mask"],
-                    [
-                        int(batch["attention_mask"].shape[0]),
-                        1,
-                        1,
-                        int(batch["attention_mask"].shape[-1]),
-                    ],
-                ).to(0)
-                attention_mask = batch["attention_mask"]
-
+                input_ids = batch["input_ids"].to(device,non_blocking = True)
+                labels = batch['labels'].to(device,non_blocking = True)
+                batch['attention_mask'] = torch.reshape(batch['attention_mask'],[int(batch['attention_mask'].shape[0]),1,1,int(batch['attention_mask'].shape[-1])]).to(0)
+                attention_mask = batch['attention_mask']
+                
                 # dist.broadcast(attention_mask,src = rank,async_op=True)#TODO recv
-                dist.isend(attention_mask, 1)
-                dist.isend(attention_mask, 2)
-                dist.isend(attention_mask, 3)
+                dist.isend(attention_mask,1)
+                dist.isend(attention_mask,2)
+                dist.isend(attention_mask,3)
                 attention_mask = attention_mask.chunk(chunks)
                 input_ids = input_ids.chunk(chunks)
                 labels = labels.chunk(chunks)
@@ -241,15 +221,13 @@ def worker_header(
                 losses = 0.0
                 for i, model in enumerate(models):
                     # model.eval()
-
+                    
                     for j in range(chunks):
                         if i == 0:
 
                             output = model(input_ids[j])
-                            if settings["quant"] == 0:
-                                output = ForwardSend_BackwardReceive.apply(
-                                    output, rank + 1, rank + 1, rank
-                                )
+                            if settings['quant'] == 0:
+                                output = ForwardSend_BackwardReceive.apply(output,rank+1,rank+1,rank)
                             else:
                                 output = quant_layer(output)
                             # print("val","forward","epoch:",epochs,"rank:",rank,"part:",i,"chunk:",j)
@@ -257,10 +235,8 @@ def worker_header(
                             input = (
                                 torch.empty(recev_size[0]).to(device).requires_grad_()
                             )
-                            if settings["quant"] == 0:
-                                input = ForwardReceive_BackwardSend.apply(
-                                    input, 3, 3, 0
-                                )  # TODO limited
+                            if settings['quant'] == 0:
+                                input = ForwardReceive_BackwardSend.apply(input,3,3,0)#TODO limited
                             else:
                                 input = dequant_layer(input)
                             output = model(input)
@@ -334,12 +310,12 @@ def worker(
     )
     print("process begin: ", rank)
     # train
-    topk_layer = TopkLayer(settings["prun"])
+    topk_layer = TopkLayer(settings['prun'])
     for model in models:
         model = model.to(device, non_blocking=True)
-    if rank == 1 or rank == 3:
-        quant_layer = RemoteQuantizationLayer(settings["quant"], 0, 0)
-        dequant_layer = RemoteDeQuantizationLayer(settings["quant"], 0, 0)
+    if rank ==1 or rank == 3:
+        quant_layer = RemoteQuantizationLayer(settings['quant'],0,0)
+        dequant_layer = RemoteDeQuantizationLayer(settings['quant'],0,0)
     else:
         quant_layer = None
         dequant_layer = None
@@ -351,8 +327,8 @@ def worker(
         #     print(models)
         for batch_iter in range(len_train):
             pass
-            attention_mask = torch.rand([16, 1, 1, 128]).to(device)
-            dist.recv(attention_mask, 0)  # TODO limited
+            attention_mask = torch.rand([16,1,1,128]).to(device)
+            dist.recv(attention_mask,0)#TODO limited
             # print
             attention_mask = attention_mask.chunk(chunks)
             batches = []
@@ -365,27 +341,21 @@ def worker(
                     input = torch.empty(output_size[i]).to(device)
                     # if j == 0:
                     input = input.requires_grad_()
-                    if rank == 1 and settings["quant"] != 0:  # TODO limited
+                    if rank == 1 and settings['quant'] != 0: #TODO limited
                         input = dequant_layer(input)
                     else:
-                        input = ForwardReceive_BackwardSend.apply(
-                            input, rank - 1, rank - 1, rank
-                        )
+                        input = ForwardReceive_BackwardSend.apply(input,rank-1,rank-1,rank)
                     # input = ForwardReceive_BackwardSend.apply(input,rank-1,rank-1,rank)
-                    output = model(input, attention_mask[j])
-                    if rank != 3:
-                        output = ForwardSend_BackwardReceive.apply(
-                            output, rank + 1, rank + 1, rank
-                        )
+                    output = model(input,attention_mask[j])
+                    if rank !=3:
+                        output = ForwardSend_BackwardReceive.apply(output,rank+1,rank+1,rank)
                     else:
-                        if settings["prun"] != 0:
+                        if settings['prun'] != 0:
                             output = topk_layer(output)
-                        if settings["quant"] != 0:
+                        if settings['quant'] != 0:
                             output = quant_layer(output)
                         else:
-                            output = ForwardSend_BackwardReceive.apply(
-                                output, 0, 0, rank
-                            )
+                            output = ForwardSend_BackwardReceive.apply(output,0,0,rank)
                     # if rank != 3:
                     #     output = ForwardSend_BackwardReceive.apply(output,tuple(list(output.shape)),rank+1,rank+1,rank)
                     # else:
@@ -424,29 +394,23 @@ def worker(
                 quant_layer.eval()
                 dequant_layer.eval()
             for batch_iter in range(len_val):
-                attention_mask = torch.rand([16, 1, 1, 128]).to(device)
-                dist.recv(attention_mask, 0)  # TODO limited
+                attention_mask = torch.rand([16,1,1,128]).to(device)
+                dist.recv(attention_mask,0)#TODO limited
                 attention_mask = attention_mask.chunk(chunks)
                 for i, model in enumerate(models):
                     model.eval()
                     for j in range(chunks):
                         input = torch.empty(output_size[i]).to(device)
-                        if rank == 1 and settings["quant"] != 0:
+                        if rank == 1 and settings['quant'] != 0:
                             input = dequant_layer(input)
                         else:
-                            input = ForwardReceive_BackwardSend.apply(
-                                input, rank - 1, rank - 1, rank
-                            )
-                        output = model(input, attention_mask[j])
+                            input = ForwardReceive_BackwardSend.apply(input,rank-1,rank-1,rank)
+                        output = model(input,attention_mask[j])
                         if rank != 3:
-                            output = ForwardSend_BackwardReceive.apply(
-                                output, rank + 1, rank + 1, rank
-                            )
+                            output = ForwardSend_BackwardReceive.apply(output,rank+1,rank+1,rank)
                         else:
-                            if settings["quant"] == 0:
-                                output = ForwardSend_BackwardReceive.apply(
-                                    output, 0, 0, rank
-                                )
+                            if settings['quant'] == 0:
+                                output = ForwardSend_BackwardReceive.apply(output,0,0,rank)
                             else:
                                 output = quant_layer(input)
 
@@ -500,7 +464,7 @@ class dist_gpipe_nlp:
                 # print(i)
                 # print("input",input.shape)
                 # print(model)
-                output = model(input, torch.rand([4, 1, 1, 128]))
+                output = model(input,torch.rand([4,1,1,128]))
                 input = output
                 shape = list(output.shape)
                 shape = tuple(shape)
@@ -558,9 +522,9 @@ class dist_gpipe_nlp:
         for i in range(len(self.num_devices)):
             print("process start:", i)
             param_list = []
-            for j, model in enumerate(self.model_list[i]):
+            for j,model in enumerate(self.model_list[i]):
                 # param_list.append({"params": model.parameters()})
-                if i == 0 and j == 1:
+                if i ==0 and j == 1:
                     # param_list.append({"params": model.parameters(),"lr":settings["lr"]*10})
                     param_list.append({"params": model.parameters()})
                 else:
@@ -571,6 +535,7 @@ class dist_gpipe_nlp:
                     param_list,
                     settings["lr"],
                     # weight_decay=settings["wd"],
+
                 )
                 warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=10)
                 # warmup_scheduler = get_scheduler(name = 'linear',optimizer = optimizer, num_warmup_steps=10*len(train_loader), num_training_steps=len(train_loader)*epochs)
@@ -640,6 +605,4 @@ class dist_gpipe_nlp:
         del train_loader, val_loader
         for process in processes:
             process.join()
-
-
-# TODO 问题出现在forwardrecv，只接受了一个tensor，实际上需要两个
+#TODO 问题出现在forwardrecv，只接受了一个tensor，实际上需要两个

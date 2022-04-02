@@ -82,14 +82,12 @@ def worker_header(
         model = model.to(device, non_blocking=True)
         param_list.append({"params": model.parameters()})
     optimizer = torch.optim.SGD(
-        param_list,
-        settings["lr"],
-        weight_decay=settings["wd"],
-        momentum=settings["momentum"],
-    )
-    warm_up = get_cosine_schedule_with_warmup(
-        optimizer, num_warmup_steps=int(epochs / 10), num_training_steps=epochs
-    )
+                    param_list,
+                    settings["lr"],
+                    weight_decay=settings["wd"],
+                    momentum=settings["momentum"],
+                )
+    warm_up = get_cosine_schedule_with_warmup(optimizer,num_warmup_steps = int(epochs/10), num_training_steps = epochs)
     for epoch in range(epochs):
         acc1_avg = 0.0
         losses_avg = 0.0
@@ -141,6 +139,7 @@ def worker_header(
             if batch_iter % 16 == 0:
                 print("tarining_loss:", losses, "training_acc", acc)
 
+            
             # print("forward over")
             # while(1):
             #     pass
@@ -225,7 +224,7 @@ def worker_header(
             "val_loss",
             val_loss_avg,
             "lr",
-            get_lr(optimizer),
+            get_lr(optimizer)
         )
         file_save = open(savepth, mode="a")
         file_save.write(
@@ -242,7 +241,7 @@ def worker_header(
             + str(val_acc_avg)
             + "  time_per_batch:"
             + str(time_per_batch)
-            + "  lr:"
+            +"  lr:"
             + str(get_lr(optimizer))
         )
 
@@ -272,7 +271,7 @@ def worker(
     )
     print("process begin: ", rank)
     # train
-
+    
     for model in models:
         model = model.to(device, non_blocking=True)
     param_list = []
@@ -280,14 +279,12 @@ def worker(
         model = model.to(device, non_blocking=True)
         param_list.append({"params": model.parameters()})
     optimizer = torch.optim.SGD(
-        param_list,
-        settings["lr"],
-        weight_decay=settings["wd"],
-        momentum=settings["momentum"],
-    )
-    warm_up = get_cosine_schedule_with_warmup(
-        optimizer, num_warmup_steps=int(epochs / 10), num_training_steps=epochs
-    )
+                    param_list,
+                    settings["lr"],
+                    weight_decay=settings["wd"],
+                    momentum=settings["momentum"],
+                )
+    warm_up = get_cosine_schedule_with_warmup(optimizer,num_warmup_steps = int(epochs/10), num_training_steps = epochs)
     for epoch in range(epochs):
 
         # if rank == 3:
@@ -319,7 +316,7 @@ def worker(
                 batches.append(batch)
                 # recv.append(batches[i][0].clone().detach())
             # forward over
-
+            
             # print("forward over")
             # while(1):
             #     pass
@@ -406,9 +403,7 @@ class dist_gpipe:
                 else:
                     model.add_module(
                         "sendlayer",
-                        ForwardSendLayers(
-                            shape, devices[i + 1], devices[i + 1], devices[i]
-                        ),
+                        ForwardSendLayers(shape,devices[i + 1], devices[i + 1],devices[i])
                     )
             elif i == len(devices) - 1:
                 if settings["quantization"] != 0:
@@ -419,7 +414,9 @@ class dist_gpipe:
                     )
                 else:
                     receivelayer = nn.Sequential(
-                        ForwardReceiveLayers(devices[i - 1], devices[i - 1], devices[i])
+                        ForwardReceiveLayers(
+                             devices[i - 1], devices[i - 1],devices[i]
+                        )
                     )
                 receivelayer.add_module("layer", model)
                 model = receivelayer
@@ -435,7 +432,7 @@ class dist_gpipe:
                     else:
                         receivelayer = nn.Sequential(
                             ForwardReceiveLayers(
-                                devices[i - 1], devices[i - 1], devices[i]
+                                 devices[i - 1], devices[i - 1],devices[i]
                             )
                         )
                     receivelayer.add_module("layer", model)
@@ -448,13 +445,13 @@ class dist_gpipe:
                     )
                 elif i == len(devices) - 2:
                     receivelayer = nn.Sequential(
-                        ForwardReceiveLayers(devices[i - 1], devices[i - 1], devices[i])
+                        ForwardReceiveLayers( devices[i - 1], devices[i - 1], devices[i])
                     )
                     receivelayer.add_module("layer", model)
                     model = receivelayer
                     if settings["prun"] != 0:
                         model.add_module("pruning", TopkLayer(settings["prun"]))
-                    if settings["quantization"] != 0:
+                    if settings['quantization'] != 0:
                         model.add_module(
                             "SendLayers",
                             RemoteQuantizationLayer(
@@ -464,13 +461,11 @@ class dist_gpipe:
                     else:
                         model.add_module(
                             "Sendlayers",
-                            ForwardSendLayers(
-                                shape, devices[i + 1], devices[i + 1], devices[i]
-                            ),
+                            ForwardSendLayers(shape, devices[i + 1], devices[i + 1],devices[i])
                         )
                 else:
                     receivelayer = nn.Sequential(
-                        ForwardReceiveLayers(devices[i - 1], devices[i - 1], devices[i])
+                        ForwardReceiveLayers( devices[i - 1], devices[i - 1], devices[i])
                     )
                     receivelayer.add_module("layer", model)
                     model = receivelayer
@@ -542,7 +537,7 @@ class dist_gpipe:
                     weight_decay=settings["wd"],
                     momentum=settings["momentum"],
                 )
-                print("lr", settings["lr"])
+                print("lr",settings["lr"])
                 warmup_schduler = warmup.LinearWarmup(optimizer, warmup_period=20)
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                     optimizer, T_max=epochs
