@@ -22,13 +22,13 @@ I have trained 100epochs here.
 
 On CIFAR10 MobilenetV2 training
 
-![image-20220402191703060](./pic/image-20220402191703060.png)
+![image-20220402231843956](./pic/image-20220402231843956.png)
 
 The reason that quantization 11bits has two acc is that, it's curve first climb quickly like quantization 16bits but suddenly fall to 60% and then climb slowly.
 
 On NLP tasks, for the cola dataset, I use Matthew's correlation. The rte dataset uses **validation acc**.
 
-![image-20220402204721953](./pic/image-20220402204721953.png)
+![image-20220402231801483](./pic/image-20220402231801483.png)
 
 ## To do
 
@@ -51,7 +51,7 @@ Haokang_quantization
 Here is the pseudocode
 
 ```python
-class HaokangQuantization(autograd.Function):
+class SortQuantization(autograd.Function):
     @staticmethod
     def forward(ctx,input,bits,ratio,partition):
         shape = input.shape
