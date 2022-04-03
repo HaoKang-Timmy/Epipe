@@ -14,7 +14,14 @@ Traditional quantization is one step, one min per tensor. Multiple quantization 
 
 Here are some important data. And I have done some train efficiency tests on dist-gpipe, which speed up the process at least 30%.
 
-![image-20220402191813314](./pic/image-20220402191813314.png)
+| Training method         | Compression method          | Acc%   |
+| ----------------------- | --------------------------- | ------ |
+| tfs(train from scratch) | No                          | 94.07% |
+| tfs(train from scratch) | Quantization16(traditional) | 93.94% |
+| tfs(train from scratch) | Prune 0.5                   | 94.02% |
+| Finetune                | No                          | 96.03% |
+| Finetune                | Quantization16(traditional) | 96.07% |
+| Finetune                | Prune 0.5                   | 96.27% |
 
 ### 2.Dataparallel tests
 
@@ -22,13 +29,37 @@ I have trained 100epochs here.
 
 On CIFAR10 MobilenetV2 training
 
-![image-20220402231843956](./pic/image-20220402231843956.png)
+| Training method | Compression method                      | Acc%        |
+| --------------- | --------------------------------------- | ----------- |
+| Finetune        | No                                      | 96.1%       |
+| Finetune        | Quantization 16bits                     | 96.0%       |
+| Finetune        | Prune0.5                                | 96.1%       |
+| Finetune        | Quantization 11bits                     | 91.3% 84.5% |
+| Finetune        | SortQuantization 8bits 8splits          | 95.45%      |
+| Finetune        | SortQuantization 8bits 8splits prune0.5 | 95.53%      |
+| Finetune        | SortQuantization 4bits 16splits         | 94.9%       |
 
 The reason that quantization 11bits has two acc is that, it's curve first climb quickly like quantization 16bits but suddenly fall to 60% and then climb slowly.
 
 On NLP tasks, for the cola dataset, I use Matthew's correlation. The rte dataset uses **validation acc**.
 
-![image-20220402231801483](./pic/image-20220402231801483.png)
+| Tasks | Training method | Compression method              | Validation_value |
+| ----- | --------------- | ------------------------------- | ---------------- |
+| Cola  | Sota            | None                            | 0.636            |
+| Cola  | Finetune        | None                            | 0.634～0.008     |
+| Cola  | Finetune        | Prune 0.5                       | 0.633～0.013     |
+| Cola  | Finetune        | Quantization 16                 | 0.632～0.010     |
+| Cola  | Finetune        | Quantization 10                 | 0.635~0.014      |
+| Cola  | Finetune        | Quantization 8                  | 0.644~0.001      |
+| Cola  | Finetune        | Quantization 4                  | 0(acc: 69.1%)    |
+| RTE   | Sota            | None                            | 78.9%            |
+| RTE   | Finetune        | None                            | 78.4% ~ 0.6%     |
+| RTE   | Finetune        | Prune 0.5                       | 79.3%~ 0.7%      |
+| RTE   | Finetune        | Quantization 16                 | 78.7% ~ 0.7%     |
+| RTE   | Finetune        | Quantization 10                 | 0.783~1.1%       |
+| RTE   | Finetune        | Quantization 8                  | 77.5% ~ 0.8%     |
+| RTE   | Finetune        | Sort Quantization 6bits 4splits | 79.5% ~0.5%      |
+| RTE   | Finetune        | Quantization 4                  | 52.2% ~0.1%      |
 
 ## To do
 
@@ -110,6 +141,17 @@ class SortQuantization(autograd.Function):
         grad_backward = grad_backward.view(shape)
         return grad_backward,None,None,None
 ```
+
+# comparing to k-means
+
+| Method                  | Input size          | Time    | Error |
+| ----------------------- | ------------------- | ------- | ----- |
+| K-means 5bits           | 229376([64,32,112]) | 6.4s    | 1.61% |
+| Quantization 5bits      | 229376              | 0.0003s | 1.61% |
+| Sort Quantization 5bits | 229376              | 0.149s  | 1.78% |
+| K-means 8bits           | 229376              | 7.9s    | 0.2%  |
+| Quantization 8bits      | 229376              | 0.0003s | 0.2%  |
+| Sort Quantization 8bits | 229376              | 0.149s  | 0.21% |
 
 
 
