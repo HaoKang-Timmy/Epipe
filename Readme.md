@@ -34,10 +34,11 @@ On CIFAR10 MobilenetV2 training
 | Finetune        | No                                      | 96.1%       |
 | Finetune        | Quantization 16bits                     | 96.0%       |
 | Finetune        | Prune0.5                                | 96.1%       |
+| Finetune        | Prune 0.2                               | 95.4%       |
 | Finetune        | Quantization 11bits                     | 91.3% 84.5% |
-| Finetune        | SortQuantization 8bits 8splits          | 95.45%      |
-| Finetune        | SortQuantization 8bits 8splits prune0.5 | 95.53%      |
-| Finetune        | SortQuantization 4bits 16splits         | 94.9%       |
+| Finetune        | SortQuantization 8bits 8splits          | 95.6%       |
+| Finetune        | SortQuantization 8bits 8splits prune0.5 | 95.6%       |
+| Finetune        | SortQuantization 4bits 16splits         | 95.1%       |
 
 The reason that quantization 11bits has two acc is that, it's curve first climb quickly like quantization 16bits but suddenly fall to 60% and then climb slowly.
 
@@ -144,14 +145,13 @@ class SortQuantization(autograd.Function):
 
 # comparing to k-means
 
-| Method                  | Input size          | Time    | Error |
-| ----------------------- | ------------------- | ------- | ----- |
-| K-means 5bits           | 229376([64,32,112]) | 6.4s    | 1.61% |
-| Quantization 5bits      | 229376              | 0.0003s | 1.61% |
-| Sort Quantization 5bits | 229376              | 0.149s  | 1.78% |
-| K-means 8bits           | 229376              | 7.9s    | 0.2%  |
-| Quantization 8bits      | 229376              | 0.0003s | 0.2%  |
-| Sort Quantization 8bits | 229376              | 0.149s  | 0.21% |
+| Settings                    | Method                                 | Input size    | Time per batch | Acc    |
+| --------------------------- | -------------------------------------- | ------------- | -------------- | ------ |
+| CIFAR10 MobileNetV2 10epoch | K-means 4bits(20 iter)                 | [16,24,56,56] | 0.66s          | 93.01% |
+| CIFAR10 MobileNetV2 10epoch | K-means 4bits(50 iter)                 | [16,24,56,56] | 1.33s          | 93.17% |
+| CIFAR10 MobileNetV2 10epoch | Quantization 4bits                     | [16,24,56,56] | 0.10s          | 89.42% |
+| CIFAR10 MobileNetV2 10epoch | Sort Quantization 4bits(4splits,2bits) | [16,24,56,56] | 0.10s          | 93.38% |
+| CIFAR10 MobileNetV2 10epoch | None                                   | [16,24,56,56] | 0.07s          | 94.21% |
 
 
 
