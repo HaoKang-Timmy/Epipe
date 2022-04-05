@@ -145,13 +145,22 @@ class SortQuantization(autograd.Function):
 
 # comparing to k-means
 
-| Settings                    | Method                                 | Input size    | Time per batch | Acc    |
-| --------------------------- | -------------------------------------- | ------------- | -------------- | ------ |
-| CIFAR10 MobileNetV2 10epoch | K-means 4bits(20 iter)                 | [16,24,56,56] | 0.66s          | 93.01% |
-| CIFAR10 MobileNetV2 10epoch | K-means 4bits(50 iter)                 | [16,24,56,56] | 1.33s          | 93.17% |
-| CIFAR10 MobileNetV2 10epoch | Quantization 4bits                     | [16,24,56,56] | 0.10s          | 89.42% |
-| CIFAR10 MobileNetV2 10epoch | Sort Quantization 4bits(4splits,2bits) | [16,24,56,56] | 0.10s          | 93.38% |
-| CIFAR10 MobileNetV2 10epoch | None                                   | [16,24,56,56] | 0.07s          | 94.21% |
+| Settings                    | Method                                 | Input size                     | Time per batch | Acc          |
+| --------------------------- | -------------------------------------- | ------------------------------ | -------------- | ------------ |
+| CIFAR10 MobileNetV2 10epoch | K-means 4bits(20 iter)                 | [16,24,56,56]                  | 0.66s          | 93.01%       |
+| CIFAR10 MobileNetV2 10epoch | K-means 4bits(50 iter)                 | [16,24,56,56]                  | 1.33s          | 93.17%       |
+| CIFAR10 MobileNetV2 10epoch | Quantization 4bits                     | [16,24,56,56]                  | 0.10s          | 89.42%       |
+| CIFAR10 MobileNetV2 10epoch | Sort Quantization 4bits(4splits,2bits) | [16,24,56,56]                  | 0.10s          | 93.38%       |
+| CIFAR10 MobileNetV2 10epoch | None                                   | [16,24,56,56]                  | 0.07s          | 94.21%       |
+| RTE Roberta-base 20epochs   | Sota                                   | [8,128,786]                    |                | 78.9%        |
+| RTE Roberta-base 20epochs   | None                                   | [8,128,786]\(the first layer)  | 0.39s          | 78.5% ~ 0.1% |
+| RTE Roberta-base 20epochs   | Quantization 6bits                     | [8,128,786]\(the first layer)  | 0.39s          | 77.5%~0.1%   |
+| RTE Roberta-base 20epochs   | Sort Quantization 6bits(3bits,8splits) | [8,128,786]\(the first layer)  | 0.39s          | 78.1%~0.2%   |
+| RTE Roberta-base 20epochs   | K-meas 6bits(50 iter)                  | [8,128,786]\(the first layer)  | 3.06s          | 52.7%,53.6%  |
+| RTE Roberta-base 20epochs   | K-meas 6bits(100 iter)                 | [8,128,786]\(the first layer)  | 5.27s          | 55.1%        |
+| RTE Roberta-base 20epochs   | K-meas 6bits(100 iter)                 | [8,128,786]\(the sender layer) | 5.27s          | 73.6%        |
+| RTE Roberta-base 20epochs   | Quantization 6bits(100 iter)           | [8,128,786]\(the sender layer) | 0.40s          | 73.1%        |
+| RTE Roberta-base 20epochs   | Sort Quantization 6bits(3bits,8splits) | [8,128,786]\(the sender layer) | 0.40s          | 77.2%~1.8%   |
 
 
 
