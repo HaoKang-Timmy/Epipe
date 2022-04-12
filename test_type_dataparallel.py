@@ -1,11 +1,19 @@
 '''
 Author: your name
 Date: 2022-03-25 01:01:31
+LastEditTime: 2022-04-08 23:52:10
+LastEditors: your name
+Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+FilePath: /research/gpipe_test/test_type.py
+'''
+"""
+Author: your name
+Date: 2022-03-25 01:01:31
 LastEditTime: 2022-04-02 22:33:41
 LastEditors: Please set LastEditors
 Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 FilePath: /research/gpipe_test/test_type.py
-'''
+"""
 """
 Author: your name
 Date: 2022-03-25 01:01:31
@@ -18,6 +26,7 @@ import torch.multiprocessing as mp
 import torch
 import torchvision.models as models
 import torch.distributed as dist
+
 # from dist_gpipe import RemoteQuantizationLayer, RemoteDeQuantizationLayer
 
 
@@ -52,6 +61,5 @@ import torch.distributed as dist
 
 # if __name__ == "__main__":
 #     main()
-input = torch.rand([4,4])
-output = input.type(torch.int8)
-print(input)
+diction = {}
+print(diction['nothing'])

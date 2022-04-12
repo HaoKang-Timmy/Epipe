@@ -4,21 +4,26 @@ from torch import autograd
 import torch
 import torch.nn as nn
 import torch.distributed as dist
-def create_sparse(input:torch.tensor,bit_saving = True):
+
+
+def create_sparse(input: torch.tensor, bit_saving=True):
     shape = input.shape
     input = input.view(-1)
     index = input.nonzero()
     index = index.view(-1)
     if bit_saving is True:
         index = index.type(torch.bfloat16)
-    src = input.index_select(0,index)
+    src = input.index_select(0, index)
     input = input.view(shape)
-    return shape,index,src
-def unzip_sparse(input,index,src,shape):
+    return shape, index, src
+
+
+def unzip_sparse(input, index, src, shape):
     input = input.view(-1)
-    input.scatter_(0,index,src)
+    input.scatter_(0, index, src)
     input = input.view(shape)
     return input
+
 
 class TopkPruning(autograd.Function):
     @staticmethod
@@ -46,10 +51,12 @@ class TopkLayer(nn.Module):
 
     def forward(self, x):
         return TopkPruning.apply(x, self.ratio)
+
+
 ## These are gloo api
-def QuantizationonGPU(input:torch.tensor,bits,min_step):
-    
-    min,max = input.min(), input.max()
+def QuantizationonGPU(input: torch.tensor, bits, min_step):
+
+    min, max = input.min(), input.max()
     step = (max - min) / (pow(2, bits) - 1)
     output = torch.round((input - min) / step - pow(2, bits - 1))
     if bits <= 8:
@@ -58,27 +65,42 @@ def QuantizationonGPU(input:torch.tensor,bits,min_step):
         output = output.type(torch.cuda.ShortTensor)
     else:
         output = output.type(torch.cuda.IntTensor)
-    
+
     min_step[0] = min.item()
     min_step[1] = step.item()
-    return min_step,output
-def DequantizationonGPU(input:torch.tensor,bits,min,step):
+    return min_step, output
+
+
+def DequantizationonGPU(input: torch.tensor, bits, min, step):
     input = input.type(torch.cuda.FloatTensor)
 
     output = (input + pow(2, bits - 1)) * step + min
     output = output.requires_grad_()
     return output
+
+
 class QSend(autograd.Function):
     @staticmethod
-    def forward(ctx,input,bits,min_step,send_rank,rank):
-        ctx.bits,ctx.recv_rank,ctx.rank,ctx.min_step = bits, send_rank, rank, min_step
-        min_step, output = QuantizationonGPU(input,bits,min_step)
-        dist.send(min_step.cpu(),send_rank)
-        dist.send(output.cpu(),send_rank)
+    def forward(ctx, input, bits, min_step, send_rank, rank):
+        ctx.bits, ctx.recv_rank, ctx.rank, ctx.min_step = (
+            bits,
+            send_rank,
+            rank,
+            min_step,
+        )
+        min_step, output = QuantizationonGPU(input, bits, min_step)
+        dist.send(min_step.cpu(), send_rank)
+        dist.send(output.cpu(), send_rank)
         return input
+
     @staticmethod
-    def backward(ctx,grad_output):
-        bits, send_rank, rank, min_step = ctx.bits,ctx.recv_rank,ctx.rank,ctx.min_step
+    def backward(ctx, grad_output):
+        bits, send_rank, rank, min_step = (
+            ctx.bits,
+            ctx.recv_rank,
+            ctx.rank,
+            ctx.min_step,
+        )
         input = grad_output.cpu()
         if bits <= 8:
             input = input.type(torch.int8)
@@ -87,34 +109,47 @@ class QSend(autograd.Function):
         else:
             input = grad_output.type(torch.int32)
         min_step_cpu = min_step.cpu()
-        dist.recv(min_step_cpu,send_rank)
-        dist.recv(input,send_rank)
+        dist.recv(min_step_cpu, send_rank)
+        dist.recv(input, send_rank)
         input = input.to(rank)
         min_step = min_step_cpu.to(rank)
-        grad_output = DequantizationonGPU(input, bits,min_step[0],min_step[1])
+        grad_output = DequantizationonGPU(input, bits, min_step[0], min_step[1])
         # print(grad_output)
-        return grad_output,None, None, None, None
+        return grad_output, None, None, None, None
+
+
 class QSendSparse(autograd.Function):
     @staticmethod
-    def forward(ctx,input,bits,min_step,send_rank,rank):
-        ctx.bits,ctx.recv_rank,ctx.rank,ctx.min_step = bits, send_rank, rank, min_step
-        min_step, output = QuantizationonGPU(input,bits,min_step)
+    def forward(ctx, input, bits, min_step, send_rank, rank):
+        ctx.bits, ctx.recv_rank, ctx.rank, ctx.min_step = (
+            bits,
+            send_rank,
+            rank,
+            min_step,
+        )
+        min_step, output = QuantizationonGPU(input, bits, min_step)
         shape, index, src = create_sparse(output)
-        dist.send(min_step.cpu(),send_rank)
+        dist.send(min_step.cpu(), send_rank)
         index = index.cpu()
         src = src.cpu()
-        dist.send(index,send_rank)
-        dist.send(src,send_rank)
-        ctx.index,ctx.src = index,src
+        dist.send(index, send_rank)
+        dist.send(src, send_rank)
+        ctx.index, ctx.src = index, src
         return input
+
     @staticmethod
-    def backward(ctx,grad_output):
-        bits, recv_rank, rank, min_step = ctx.bits,ctx.recv_rank,ctx.rank,ctx.min_step
+    def backward(ctx, grad_output):
+        bits, recv_rank, rank, min_step = (
+            ctx.bits,
+            ctx.recv_rank,
+            ctx.rank,
+            ctx.min_step,
+        )
         index, src = ctx.index, ctx.src
         min_step = min_step.cpu()
-        dist.recv(min_step,recv_rank)
-        dist.recv(index,recv_rank)
-        dist.recv(src,recv_rank)
+        dist.recv(min_step, recv_rank)
+        dist.recv(index, recv_rank)
+        dist.recv(src, recv_rank)
         input = grad_output.cpu()
         if bits <= 8:
             input = input.type(torch.int8)
@@ -122,35 +157,43 @@ class QSendSparse(autograd.Function):
             input = input.type(torch.int16)
         else:
             input = grad_output.type(torch.int32)
-        input = unzip_sparse(input,index,src,input.shape)
+        input = unzip_sparse(input, index, src, input.shape)
         input = input.to(rank)
         min_step = min_step.to(rank)
-        grad_output = DequantizationonGPU(input, bits,min_step[0],min_step[1])
-        return grad_output,None, None, None, None
-        #TODO not finish yet
+        grad_output = DequantizationonGPU(input, bits, min_step[0], min_step[1])
+        return grad_output, None, None, None, None
+        # TODO not finish yet
 
-
-
-    
 
 class QSendLayer(nn.Module):
-    def __init__(self, bits,send_rank,rank,sparse = False) -> None:
+    def __init__(self, bits, send_rank, rank, sparse=False) -> None:
         super(QSendLayer, self).__init__()
         self.bits = bits
-        self.min_step = torch.tensor([0.,0.])
+        self.min_step = torch.tensor([0.0, 0.0])
         self.send_rank = send_rank
         self.rank = rank
         self.sparse = sparse
-    def forward(self,input):
+
+    def forward(self, input):
         if self.sparse is False:
-            return QSend.apply(input,self.bits,self.min_step,self.send_rank,self.rank)
+            return QSend.apply(
+                input, self.bits, self.min_step, self.send_rank, self.rank
+            )
         else:
-            return QSendSparse.apply(input,self.bits,self.min_step,self.send_rank,self.rank)
+            return QSendSparse.apply(
+                input, self.bits, self.min_step, self.send_rank, self.rank
+            )
+
 
 class Qrecv(autograd.Function):
     @staticmethod
-    def forward(ctx,input,bits,min_step,recv_rank,rank):
-        ctx.bits,ctx.send_rank,ctx.rank,ctx.min_step = bits, recv_rank, rank, min_step
+    def forward(ctx, input, bits, min_step, recv_rank, rank):
+        ctx.bits, ctx.send_rank, ctx.rank, ctx.min_step = (
+            bits,
+            recv_rank,
+            rank,
+            min_step,
+        )
         min_step_cpu = min_step.cpu()
         recv = input.cpu()
         if bits <= 8:
@@ -159,25 +202,37 @@ class Qrecv(autograd.Function):
             recv = recv.type(torch.int16)
         else:
             recv = recv.type(torch.int32)
-        
-        dist.recv(min_step_cpu,recv_rank)
-        dist.recv(recv,recv_rank)
+
+        dist.recv(min_step_cpu, recv_rank)
+        dist.recv(recv, recv_rank)
         min_step = min_step_cpu.to(rank)
         recv = recv.to(rank)
-        input = DequantizationonGPU(recv,bits,min_step[0],min_step[1])
+        input = DequantizationonGPU(recv, bits, min_step[0], min_step[1])
         return input
+
     @staticmethod
-    def backward(ctx,grad_output):
-        bits, recv_rank, rank, min_step = ctx.bits,ctx.send_rank,ctx.rank,ctx.min_step
-        min_step ,output = QuantizationonGPU(grad_output,bits,min_step)
-        dist.send(min_step.cpu(),recv_rank)
-        dist.send(output.cpu(),recv_rank)
+    def backward(ctx, grad_output):
+        bits, recv_rank, rank, min_step = (
+            ctx.bits,
+            ctx.send_rank,
+            ctx.rank,
+            ctx.min_step,
+        )
+        min_step, output = QuantizationonGPU(grad_output, bits, min_step)
+        dist.send(min_step.cpu(), recv_rank)
+        dist.send(output.cpu(), recv_rank)
         return grad_output, None, None, None, None
+
 
 class QrecvSparse(autograd.Function):
     @staticmethod
-    def forward(ctx,input,bits,min_step,recv_rank,rank):
-        ctx.bits,ctx.send_rank,ctx.rank,ctx.min_step = bits, recv_rank, rank, min_step
+    def forward(ctx, input, bits, min_step, recv_rank, rank):
+        ctx.bits, ctx.send_rank, ctx.rank, ctx.min_step = (
+            bits,
+            recv_rank,
+            rank,
+            min_step,
+        )
         min_step_cpu = min_step.cpu()
         recv = input.cpu()
         if bits <= 8:
@@ -186,39 +241,19 @@ class QrecvSparse(autograd.Function):
             recv = recv.type(torch.int16)
         else:
             recv = recv.type(torch.int32)
-            #TODO how to know the size of src and index
-        
+            # TODO how to know the size of src and index
 
 
 class QrecvLayer(nn.Module):
-    def __init__(self,bits,recv_rank,rank) -> None:
-        super(QrecvLayer,self).__init__()
+    def __init__(self, bits, recv_rank, rank) -> None:
+        super(QrecvLayer, self).__init__()
         self.bits = bits
         self.recv_rank = recv_rank
         self.rank = rank
-        self.min_step = torch.tensor([0.,0.])
-    def forward(self,input):
-        return Qrecv.apply(input,self.bits,self.min_step,self.recv_rank,self.rank)
+        self.min_step = torch.tensor([0.0, 0.0])
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    def forward(self, input):
+        return Qrecv.apply(input, self.bits, self.min_step, self.recv_rank, self.rank)
 
 
 # return cpu tensors
@@ -231,10 +266,10 @@ class Quantization(autograd.Function):
         #         torch.cuda.CharTensor
         #     )
         # else:
-        
+
         output = torch.round((input - min) / step - pow(2, bits - 1)).type(
             torch.cuda.HalfTensor
-            )  # 16
+        )  # 16
         # pass
         return output
 
@@ -248,7 +283,7 @@ class Quantization(autograd.Function):
 
 
 class QuantizationLayer(nn.Module):
-    def __init__(self, bits, momentum=0.1, dynamic = 0):
+    def __init__(self, bits, momentum=0.1, dynamic=0):
         super(QuantizationLayer, self).__init__()
         self.running_min = 0.0
         self.time = 0
@@ -256,6 +291,7 @@ class QuantizationLayer(nn.Module):
         self.momentum = momentum
         self.bits = bits
         self.dynamic = dynamic
+
     def forward(self, x):
         min, max = x.min(), x.max()
         step = torch.tensor((max - min) / (pow(2, self.bits) - 1))
@@ -275,10 +311,14 @@ class QuantizationLayer(nn.Module):
                     self.running_step * (1 - self.momentum)
                     + step.item() * self.momentum
                 )
-            return Quantization.apply(x, min, step, self.bits),min,step
+            return Quantization.apply(x, min, step, self.bits), min, step
         else:
             # self.time = 0
-            return Quantization.apply(x, self.running_min, self.running_step, self.bits),min,step
+            return (
+                Quantization.apply(x, self.running_min, self.running_step, self.bits),
+                min,
+                step,
+            )
 
 
 class RemoteQuantization(autograd.Function):
@@ -294,9 +334,8 @@ class RemoteQuantization(autograd.Function):
         output1 = torch.round((input - min) / step - pow(2, bits - 1)).type(
             torch.cuda.IntTensor
         )
-            # can not send torch.cuda.CharTensor and torch.cuda
-        
-        
+        # can not send torch.cuda.CharTensor and torch.cuda
+
         dist.isend(torch.tensor(min.item()).to(input.get_device()), to_rank)
         dist.isend(torch.tensor(step.item()).to(input.get_device()), to_rank)
         dist.isend(output1, to_rank)
@@ -323,7 +362,7 @@ class RemoteQuantization(autograd.Function):
 
 
 class RemoteQuantizationLayer(nn.Module):
-    def __init__(self, bits, from_rank: int, to_rank: int, momentum=0.1,dynamic = 0):
+    def __init__(self, bits, from_rank: int, to_rank: int, momentum=0.1, dynamic=0):
         super(RemoteQuantizationLayer, self).__init__()
         self.running_min = torch.tensor(0.0)
         self.time = 0
@@ -333,6 +372,7 @@ class RemoteQuantizationLayer(nn.Module):
         self.from_rank = from_rank
         self.to_rank = to_rank
         self.dynamic = dynamic
+
     def forward(self, x):
         if self.training or self.dynamic == 0:
             min, max = x.min(), x.max()
@@ -346,35 +386,38 @@ class RemoteQuantizationLayer(nn.Module):
                     )  # need to change to CPU?
                 else:
                     self.running_min = (
-                        self.running_min * (1 - self.momentum) + min.item() * self.momentum
+                        self.running_min * (1 - self.momentum)
+                        + min.item() * self.momentum
                     )
                     self.running_step = (
                         self.running_step * (1 - self.momentum)
                         + step.item() * self.momentum
                     )
-            output = RemoteQuantization.apply(x, min, step, self.bits,self.from_rank,self.to_rank)
+            output = RemoteQuantization.apply(
+                x, min, step, self.bits, self.from_rank, self.to_rank
+            )
             return output
         else:
             # self.time = 0
 
             output = RemoteQuantization.apply(
-                x, self.running_min, self.running_step, self.bits,self.from_rank,self.to_rank
+                x,
+                self.running_min,
+                self.running_step,
+                self.bits,
+                self.from_rank,
+                self.to_rank,
             )
             return output
 
+
 class Dequantization(autograd.Function):
     @staticmethod
-    def forward(
-        ctx,
-        input,
-        bits,
-        min,
-        max,
-        step
-    ):
+    def forward(ctx, input, bits, min, max, step):
         ctx.bits = bits
         output = (input + pow(2, bits - 1)) * step + min
         return output
+
     @staticmethod
     def backward(ctx, grad_output):
         bits = ctx.bits
@@ -382,9 +425,9 @@ class Dequantization(autograd.Function):
         step = (max - min) / (pow(2, bits) - 1)
         output1 = torch.round((grad_output - min) / step - pow(2, bits - 1))
 
+
 ##TODO
 class RemoteDeQuantization(autograd.Function):
-
     @staticmethod
     def forward(
         ctx,
@@ -471,11 +514,11 @@ class RemoteDeQuantization(autograd.Function):
         dist.isend(min, to_rank)
         dist.isend(step, to_rank)
         dist.isend(output1, to_rank)
-        return grad_output * 1.0,None,None,None,None,None,None,None,None
+        return grad_output * 1.0, None, None, None, None, None, None, None, None
 
 
 class RemoteDeQuantizationLayer(nn.Module):
-    def __init__(self, bits, from_rank: int, to_rank: int, momentum=0.1,dynamic = 0):
+    def __init__(self, bits, from_rank: int, to_rank: int, momentum=0.1, dynamic=0):
         super(RemoteDeQuantizationLayer, self).__init__()
         self.bits = bits
         self.from_rank = from_rank
@@ -574,61 +617,68 @@ class RemoteDeQuantizationLayer(nn.Module):
 class multi_quantization_nosparse(autograd.Function):
     @staticmethod
     # every iter send value and min steps（because this might save transfer bits when sending same value tensors), and finally send keys
-    #TODO I changed idea, I want to implement a single one!!! I might do this in the future,could do pipeline as above!!!!!
-    def forward(ctx,input,bits,seperation,rank_send):
+    # TODO I changed idea, I want to implement a single one!!! I might do this in the future,could do pipeline as above!!!!!
+    def forward(ctx, input, bits, seperation, rank_send):
         ctx.bits, ctx.seperation, ctx.rank_recv = bits, seperation, rank_send
         shape = input.shape
         input = input.view(-1)
         # src, index = torch.topk(torch.abs(input), int(input.shape[0]))
         # src = input.index_select(0,index)
         src, index = torch.topk(input, int(input.shape[0]))
-        print("rank",0,"src",src)
+        print("rank", 0, "src", src)
         # print(src.size())
-        index1 = torch.linspace(start = 0, end = src.size()[0] - 1, steps = 1).type(torch.cuda.LongTensor).to(input.get_device())
+        index1 = (
+            torch.linspace(start=0, end=src.size()[0] - 1, steps=1)
+            .type(torch.cuda.LongTensor)
+            .to(input.get_device())
+        )
         # index = index.chunk(seperation)
-        index1 = torch.flip(index1,[0])
+        index1 = torch.flip(index1, [0])
         src = src.chunk(seperation)
         index1 = index1.chunk(seperation)
-        print("index1",index1)
-        min_step = torch.zeros([2,seperation]).to(input.get_device())
-        
+        print("index1", index1)
+        min_step = torch.zeros([2, seperation]).to(input.get_device())
+
         for i in range(seperation):
             min, max = src[i].min(), src[i].max()
             if min == max:
                 # dist.isend(torch.tensor([min,max]),rank_send)
                 min_step[0][i] = min
                 min_step[1][i] = min
-                temp = src[i]#could be better
+                temp = src[i]  # could be better
                 # the receiver will test whether the two are equal, if are, they will put the value to accordingly indexs
             else:
                 step = (max - min) / (pow(2, bits) - 1)
                 min_step[0][i] = min
                 min_step[1][i] = step
                 temp = torch.round((src[i] - min) / step) - pow(2, bits - 1)
-            src = torch.cat(src,0)
-            src.scatter_(0,index1[i],temp)
+            src = torch.cat(src, 0)
+            src.scatter_(0, index1[i], temp)
             src = src.chunk(seperation)
-        src = torch.cat(src,0)
+        src = torch.cat(src, 0)
         # index = torch.cat(index,0)
         # print("rank",0,"min",min,"step",step)
-        print("rank",0,"quant_src",src)
-        print("rank",0,"index",index)
-        dist.isend(min_step,rank_send)
-        dist.isend(index,rank_send)
-        dist.isend(src,rank_send)
+        print("rank", 0, "quant_src", src)
+        print("rank", 0, "index", index)
+        dist.isend(min_step, rank_send)
+        dist.isend(index, rank_send)
+        dist.isend(src, rank_send)
         return input.view(shape)
+
     @staticmethod
-    def backward(ctx,grad_output):
+    def backward(ctx, grad_output):
         bits, seperation, rank_recv = ctx.bits, ctx.seperation, ctx.rank_recv
         grad_shape = grad_output.shape
         grad_output = grad_output.view(-1)
         shape = grad_output.shape
-        min_step = torch.zeros([2,seperation]).to(grad_output.get_device())
-        index = torch.zeros(shape).type(torch.cuda.LongTensor).to(grad_output.get_device())# need to change type
-        src= torch.zeros(shape).to(grad_output.get_device())# need to change type
+        min_step = torch.zeros([2, seperation]).to(grad_output.get_device())
+        index = (
+            torch.zeros(shape).type(torch.cuda.LongTensor).to(grad_output.get_device())
+        )  # need to change type
+        src = torch.zeros(shape).to(grad_output.get_device())  # need to change type
         # src1 = torch.zeros(shape).to(grad_output.get_device())
-        dist.recv(min_step,rank_recv)
-        dist.recv(index,rank_recv)
+        dist.recv(min_step, rank_recv)
+        dist.recv(index, rank_recv)
         dist.recv(src, rank_recv)
         # src = src.view(-1)
         # index = index.view(-1)
@@ -638,29 +688,32 @@ class multi_quantization_nosparse(autograd.Function):
             min = min_step[0][i]
             step = min_step[1][i]
             if min == step:
-                
-                src[i].index_fill_(0,index[i],min)
+
+                src[i].index_fill_(0, index[i], min)
                 temp = src[i]
             else:
                 temp = (src[i] + pow(2, bits - 1)) * step + min
-            src = torch.cat(src,0)
-            src.scatter_(0,index[i],temp)
+            src = torch.cat(src, 0)
+            src.scatter_(0, index[i], temp)
             src = src.chunk(seperation)
-        grad_output.scatter_(0,index,src)
+        grad_output.scatter_(0, index, src)
         grad_output = grad_output.view(grad_shape)
-        return grad_output,None,None,None
+        return grad_output, None, None, None
+
 
 class multi_dequantization_nosparse(autograd.Function):
     @staticmethod
-    def forward(ctx,input,bits,seperation,rank_recv):
+    def forward(ctx, input, bits, seperation, rank_recv):
         ctx.bits, ctx.seperation, ctx.rank_send = bits, seperation, rank_recv
         shape = input.shape
         input = input.view(-1)
-        min_step = torch.zeros([2,seperation]).to(input.get_device())
-        index = torch.zeros(input.shape).type(torch.cuda.LongTensor).to(input.get_device())# need to change type
-        src= torch.zeros(input.shape).to(input.get_device())# need to change type
-        dist.recv(min_step,rank_recv)
-        dist.recv(index,rank_recv)
+        min_step = torch.zeros([2, seperation]).to(input.get_device())
+        index = (
+            torch.zeros(input.shape).type(torch.cuda.LongTensor).to(input.get_device())
+        )  # need to change type
+        src = torch.zeros(input.shape).to(input.get_device())  # need to change type
+        dist.recv(min_step, rank_recv)
+        dist.recv(index, rank_recv)
         dist.recv(src, rank_recv)
         # index = index.view(-1)
         # src = src.view(-1)
@@ -672,33 +725,33 @@ class multi_dequantization_nosparse(autograd.Function):
             step = min_step[1][i]
 
             if min == step:
-                src[i].index_fill_(0,index[i],min)
+                src[i].index_fill_(0, index[i], min)
                 temp = src[i] * 1.0
             else:
                 temp = (src[i] + pow(2, ctx.bits - 1)) * step + min
                 # print("temp",temp)
-                src = torch.cat(src,0)
+                src = torch.cat(src, 0)
 
-                src.scatter_(0,index[i],temp)
-                src = src.chunk(seperation)  
-        src = torch.cat(src,0)
-        index = torch.cat(index,0)
-        print("rank",1,"min",min,"step",step)
-        print("rank",1,"src",src)
-        print("rank",1,"index",index)
-        input.scatter_(0,index,src)
+                src.scatter_(0, index[i], temp)
+                src = src.chunk(seperation)
+        src = torch.cat(src, 0)
+        index = torch.cat(index, 0)
+        print("rank", 1, "min", min, "step", step)
+        print("rank", 1, "src", src)
+        print("rank", 1, "index", index)
+        input.scatter_(0, index, src)
         input = input.view(shape)
         return input
 
     @staticmethod
-    def backward(ctx,grad_output):
+    def backward(ctx, grad_output):
         bits, seperation, rank_send = ctx.bits, ctx.seperation, ctx.rank_send
         shape = grad_output.shape
         grad_output = grad_output.view(-1)
         src, index = torch.topk(grad_output, int(grad_output.shape[0]))
         index = index.chunk(seperation)
         src = src.chunk(seperation)
-        min_step = torch.zeros([2,seperation]).to(grad_output.get_device())
+        min_step = torch.zeros([2, seperation]).to(grad_output.get_device())
         for i in range(seperation):
             min, max = src[i].min(), src[i].max()
             if min == max:
@@ -710,12 +763,12 @@ class multi_dequantization_nosparse(autograd.Function):
                 min_step[0][i] = min
                 min_step[1][i] = step
                 temp = torch.round((src[i] - min) / step) - pow(2, bits - 1)
-            src = torch.cat(src,0)
-            src.scatter_(0,index[i],temp)
-            src = src.chunk(seperation)  
-        src = torch.cat(src,0)
-        index = torch.cat(index,0)
-        dist.isend(min_step,rank_send)
-        dist.isend(index,rank_send)
-        dist.isend(src,rank_send)
-        return grad_output.view(shape),None,None,None
+            src = torch.cat(src, 0)
+            src.scatter_(0, index[i], temp)
+            src = src.chunk(seperation)
+        src = torch.cat(src, 0)
+        index = torch.cat(index, 0)
+        dist.isend(min_step, rank_send)
+        dist.isend(index, rank_send)
+        dist.isend(src, rank_send)
+        return grad_output.view(shape), None, None, None

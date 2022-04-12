@@ -16,7 +16,8 @@ from utils import (
     DequantizationLayer,
     Fakequantize,
     TopkLayer,
-    HaoKangQuantization,
+    Topk_quantization,
+    KMeansLayer,
 )
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
@@ -24,7 +25,7 @@ parser.add_argument("--chunks", default=4, type=int)
 parser.add_argument("--log-dir", default="./my_gpipe", type=str)
 parser.add_argument("--pretrained", default=0, action="store_true")
 parser.add_argument("--warmup", default=0, action="store_true")
-parser.add_argument("--lr", default=0.005, type=float)
+parser.add_argument("--lr", default=0.01, type=float)
 parser.add_argument("--epochs", default=80, type=int)
 parser.add_argument("--batches", default=64, type=int)
 parser.add_argument("--quant", default=0, type=int)
@@ -32,6 +33,8 @@ parser.add_argument("--prun", default=0.0, type=float)
 parser.add_argument("--avgpool", default=0, action="store_true")
 parser.add_argument("--split", default=4, type=int)
 parser.add_argument("--multi", default=0, action="store_true")
+parser.add_argument("--kmeans", default=0, type=int)
+
 
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
@@ -71,7 +74,7 @@ def main_worker(rank, process_num, args):
     train_loader = torch.utils.data.DataLoader(
         trainset,
         batch_size=args.batches,
-        shuffle=False,
+        shuffle=(train_sampler is None),
         num_workers=12,
         drop_last=True,
         sampler=train_sampler,
@@ -90,19 +93,24 @@ def main_worker(rank, process_num, args):
         pin_memory=True,
     )
     #     pass
-    model = model = models.mobilenet_v2(pretrained=True)
+    model = models.mobilenet_v2(pretrained=True)
     model.classifier[-1] = torch.nn.Linear(1280, 10)
 
-    layer1 = nn.Sequential(*[model.features[0]])
+    layer1 = nn.Sequential(*[model.features[0:1]])
     layer2 = nn.Sequential(*[model.features[1:]])
     layer3 = nn.Sequential(*[Reshape1(), model.classifier])
-
+    # quant_layer1 = QuantizationLayer(args.quant)
+    # dequant_layer1 = DequantizationLayer(args.quant)
+    # quant_layer2 = QuantizationLayer(args.quant)
+    # dequant_layer2 = DequantizationLayer(args.quant)
     layer1 = layer1.to(rank)
     layer2 = layer2.to(rank)
     layer3 = layer3.to(rank)
-    layer1 = torch.nn.SyncBatchNorm.convert_sync_batchnorm(layer1)
-    layer2 = torch.nn.SyncBatchNorm.convert_sync_batchnorm(layer2)
-    layer3 = torch.nn.SyncBatchNorm.convert_sync_batchnorm(layer3)
+
+    # quant_layer1 = quant_layer1.to(rank)
+    # dequant_layer1 = dequant_layer1.to(rank)
+    # quant_layer2 =quant_layer2.to(rank)
+    # dequant_layer2 = dequant_layer2.to(rank)
     topk_layer = TopkLayer(args.prun)
     avgpool1 = nn.AvgPool2d((2, 2))
     avgpool2 = nn.AvgPool2d((2, 2))
@@ -111,7 +119,7 @@ def main_worker(rank, process_num, args):
     layer1 = torch.nn.parallel.DistributedDataParallel(layer1)
     layer2 = torch.nn.parallel.DistributedDataParallel(layer2)
     layer3 = torch.nn.parallel.DistributedDataParallel(layer3)
-
+    kmeanslayer = KMeansLayer(args.kmeans, rank).to(rank)
     optimizer = torch.optim.SGD(
         [
             {"params": layer1.parameters()},
@@ -119,7 +127,7 @@ def main_worker(rank, process_num, args):
             {"params": layer3.parameters()},
         ],
         lr=args.lr,
-        weight_decay=1e-4,
+        momentum=0.9,
     )
 
     lr_scheduler = get_scheduler(
@@ -159,11 +167,29 @@ def main_worker(rank, process_num, args):
                 if args.avgpool != 0:
                     outputs = upsample2(outputs)
                     # print("avg")
+                if args.kmeans != 0:
+                    outputs = kmeanslayer(outputs)
             elif args.multi != 0:
-                outputs = HaoKangQuantization.apply(
+                outputs = Topk_quantization.apply(
                     outputs, args.quant, args.prun, args.split
                 )
 
+            # print(outputs)
+            # while(1):
+            #     pass
+
+            # print("outputs1",outputs1)
+            # print("max:",outputs.max(),"min:",outputs.min())
+            # outputs,min,step = quant_layer1(outputs)
+            # if rank == 0:
+            # print(outputs)
+            # while(1):
+            #     pass
+            # outputs = dequant_layer1(outputs,min,step,quant_layer1.backward_min,quant_layer1.backward_step)
+
+            # print(outputs)
+            # outputs2 = outputs
+            # print("outputs2",outputs2)
             outputs = layer2(outputs)
             if args.multi == 0:
                 if args.prun != 0:
@@ -178,8 +204,10 @@ def main_worker(rank, process_num, args):
                 if args.avgpool != 0:
                     outputs = upsample2(outputs)
                     # print("avg")
+                if args.kmeans != 0:
+                    outputs = kmeanslayer(outputs)
             elif args.multi != 0:
-                outputs = HaoKangQuantization.apply(
+                outputs = Topk_quantization.apply(
                     outputs, args.quant, args.prun, args.split
                 )
             # outputs,min,step = quant_layer2(outputs)
@@ -237,8 +265,10 @@ def main_worker(rank, process_num, args):
                     if args.avgpool != 0:
                         outputs = upsample2(outputs)
                         # print("avg")
+                    if args.kmeans != 0:
+                        outputs = kmeanslayer(outputs)
                 elif args.multi != 0:
-                    outputs = HaoKangQuantization.apply(
+                    outputs = Topk_quantization.apply(
                         outputs, args.quant, args.prun, args.split
                     )
                 # outputs,min,step = quant_layer1(outputs)
@@ -259,8 +289,10 @@ def main_worker(rank, process_num, args):
                     if args.avgpool != 0:
                         outputs = upsample2(outputs)
                         # print("avg")
+                    if args.kmeans != 0:
+                        outputs = kmeanslayer(outputs)
                 elif args.multi != 0:
-                    outputs = HaoKangQuantization.apply(
+                    outputs = Topk_quantization.apply(
                         outputs, args.quant, args.prun, args.split
                     )
                 outputs = layer3(outputs)
@@ -273,6 +305,7 @@ def main_worker(rank, process_num, args):
                     print("val_loss", loss.item(), "val_acc", acc.item())
             val_loss /= len(val_loader)
             val_acc1 /= len(val_loader)
+            print(len(val_loader))
         if rank == 0:
             print(
                 "epoch:",
