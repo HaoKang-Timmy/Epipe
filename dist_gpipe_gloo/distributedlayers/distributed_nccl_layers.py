@@ -1,19 +1,4 @@
-"""
-Author: your name
-Date: 2022-04-03 11:39:13
-LastEditTime: 2022-04-08 10:45:41
-LastEditors: Please set LastEditors
-Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-FilePath: /research/gpipe_test/dist_gpipe_gloo/distributedlayers/distributed_gloo_layer.py
-"""
-"""
-Author: your name
-Date: 2022-04-03 11:34:27
-LastEditTime: 2022-04-03 11:37:20
-LastEditors: Please set LastEditors
-Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-FilePath: /research/gpipe_test/dist_gpipe/distributedlayers/distributed_gloo_layer.py
-"""
+
 from torch import autograd
 import torch.distributed as dist
 import torch
@@ -49,6 +34,7 @@ class FSBRFunction(autograd.Function):
     def forward(ctx, input: torch.tensor, send_rank: int, self_rank: int):
         ctx.recv_rank, ctx.rank = send_rank, self_rank
         dist.isend(input, send_rank)
+        # print("send to",send_rank,input.shape)
         return input * 1.0
 
     @staticmethod
@@ -67,7 +53,9 @@ class FRBSFunction(autograd.Function):
         # recv = input.cpu()
         recv = input
         dist.recv(recv, recv_rank)
+        # print(rank,"recv from", recv_rank,recv.shape)
         input = recv.to(rank)
+        
         return input
 
     @staticmethod

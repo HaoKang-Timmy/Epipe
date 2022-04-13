@@ -1,27 +1,4 @@
-'''
-Author: your name
-Date: 2022-04-03 11:39:13
-LastEditTime: 2022-04-12 16:26:54
-LastEditors: your name
-Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-FilePath: /research/gpipe_test/dist_gpipe_gloo/distributedlayers/distributed_gloo_layers.py
-'''
-"""
-Author: your name
-Date: 2022-04-03 11:39:13
-LastEditTime: 2022-04-08 10:45:41
-LastEditors: Please set LastEditors
-Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-FilePath: /research/gpipe_test/dist_gpipe_gloo/distributedlayers/distributed_gloo_layer.py
-"""
-"""
-Author: your name
-Date: 2022-04-03 11:34:27
-LastEditTime: 2022-04-03 11:37:20
-LastEditors: Please set LastEditors
-Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-FilePath: /research/gpipe_test/dist_gpipe/distributedlayers/distributed_gloo_layer.py
-"""
+
 from torch import autograd
 import torch.distributed as dist
 import torch

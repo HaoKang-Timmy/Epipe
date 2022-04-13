@@ -14,20 +14,33 @@ Traditional quantization is one step, one min per tensor. Multiple quantization 
 
 Here are some important data. And I have done some train efficiency tests on dist-gpipe, which speed up the process at least 30%.
 
-| Training method         | Compression method                 | Acc%       |
-| ----------------------- | ---------------------------------- | ---------- |
-| tfs(train from scratch) | No                                 | 94.07%     |
-| tfs(train from scratch) | Quantization16(traditional)        | 93.94%     |
-| tfs(train from scratch) | Prune 0.5                          | 94.02%     |
-| tfs(train from scratch) | Prune 0.1                          | 90.1%      |
-| Finetune                | No                                 | 95.9%~0.1% |
-| Finetune                | Quantization16(traditional)        | 95.8%~0.1% |
-| Finetune                | Quantization8(traditional)         | 95.3%      |
-| Finetune                | Prune 0.5                          | 95.9%~0.1% |
-| Finetune                | Prune 0.2                          | 95.1%~0.1% |
-| Finetune                | Prune 0.1                          | 94.3%      |
-| Finetune                | Sortquant(9bits quant 3bits split) |            |
-| Finetune                | Sortquant(6bits quant 2bits split) | 95.7%      |
+CIFAR10
+
+| Training method         | Compression method                    | Acc%       |
+| ----------------------- | ------------------------------------- | ---------- |
+| tfs(train from scratch) | No                                    | 94.07%     |
+| tfs(train from scratch) | Quantization16(traditional)           | 93.94%     |
+| tfs(train from scratch) | Prune 0.5                             | 94.02%     |
+| tfs(train from scratch) | Prune 0.1                             | 90.1%      |
+| Finetune                | No                                    | 95.9%~0.1% |
+| Finetune                | Quantization16(traditional)           | 95.8%~0.1% |
+| Finetune                | Prune 0.5                             | 95.9%~0.1% |
+| Finetune                | Prune 0.2                             | 95.1%~0.1% |
+| Finetune                | Prune 0.1                             | 94.3%      |
+| Finetune                | Sort Quant12(9bits quant 3bits split) | 95.7%      |
+| Finetune                | Sort Quant8(6bits quant 2bits split)  | 95.7%      |
+| Finetune                |                                       |            |
+
+RTE
+
+| Training method | Compression method             | Acc%       |
+| --------------- | ------------------------------ | ---------- |
+| Finetune        | No                             | 79.7%~0.2% |
+| Finetune        | Quant6                         | 75.1%~3.2% |
+| Finetune        | Sort Quant6(4bits 2bits split) | 77.4%~2.0% |
+| Finetune        | Quant8                         | 78.4%~1%   |
+| Finetune        | Sort Quant8(6bits 2bits split) | 78.4%~1%   |
+|                 |                                |            |
 
 ### 2.Dataparallel tests
 
@@ -48,7 +61,7 @@ On CIFAR10 MobilenetV2 training
 | Finetune        | Quantization 11bits                     | 91.3% 84.5% |
 | Finetune        | SortQuantization 8bits 8splits          | 95.6%       |
 | Finetune        | SortQuantization 8bits 8splits prune0.5 | 95.6%       |
-| Finetune        | SortQuantization 4bits 16splits         | 95.1%       |
+| Finetune        | SortQuantization 4bits 16splits         | 95.3%       |
 |                 |                                         |             |
 
 The reason that quantization 11bits has two acc is that, it's curve first climb quickly like quantization 16bits but suddenly fall to 60% and then climb slowly.
@@ -169,9 +182,9 @@ class SortQuantization(autograd.Function):
 | RTE Roberta-base 20epochs   | Sort Quantization 6bits(3bits,8splits)  | [8,128,786]\(the first layer)     | 0.39s          | 78.1%~0.2%                   |
 | RTE Roberta-base 20epochs   | K-meas 6bits(50 iter)                   | [8,128,786]\(the first layer)     | 3.06s          | 52.7%,53.6%（the bug occurs) |
 | RTE Roberta-base 20epochs   | K-meas 6bits(100 iter)                  | [8,128,786]\(the first layer)     | 5.27s          | 55.1%(the bug occurs)        |
-| RTE Roberta-base 20epochs   | K-meas 6bits(100 iter)                  | [8,128,786]\(the sender layer)    | 5.27s          | 73.6%                        |
-| RTE Roberta-base 20epochs   | Quantization 6bits                      | [8,128,786]\(the sender layer)    | 0.40s          | 73.1%                        |
-| RTE Roberta-base 20epochs   | Sort Quantization 6bits(3bits,8splits)  | [8,128,786]\(the sender layer)    | 0.40s          | 77.2%~0.9%                   |
+| RTE Roberta-base 20epochs   | K-meas 6bits(100 iter)                  | [8,128,786]\(the sender layer)    | 5.27s          | 73.6%(TD)                    |
+| RTE Roberta-base 20epochs   | Quantization 6bits                      | [8,128,786]\(the sender layer)    | 0.40s          | 73.1%(TD)                    |
+| RTE Roberta-base 20epochs   | Sort Quantization 6bits(3bits,8splits)  | [8,128,786]\(the sender layer)    | 0.40s          | 77.2%~0.9%(TD)               |
 | RTE Roberta-base 20epochs   | K-meas 6bits(50 iter)                   | [8,128,786]\(the  last two layer) | 3.05s          | 79.4%                        |
 | RTE Roberta-base 20epochs   | Quantization 6bits                      | [8,128,786]\(the  last two layer) | 0.4s           | 52.2%                        |
 | RTE Roberta-base 20epochs   | Sort Quantization 6bits(3bits, 8splits) | [8,128,786]\(the  last two layer) | 0.4s           | 75.0%                        |
@@ -186,22 +199,22 @@ class SortQuantization(autograd.Function):
 
 
 
-| Settings            | Method                                                       | Input size                            | Time per batch | Acc       |
-| ------------------- | ------------------------------------------------------------ | ------------------------------------- | -------------- | --------- |
-| CIFAR10 MobilenetV2 | Sort Quantization 4bits(3bits 2split)                        | [256,32,112,112]\(first one last one) | 0.40           | 87.1% 10% |
-| CIFAR10 MobilenetV2 | Sort Quantization 8bits(6bits 4split)                        | [256,32,112,112]\(first one last one) | 0.40           | 95.5%     |
-| CIFAR10 MobilenetV2 | Sort Quantization 12bits(9bits 8split)                       | [256,32,112,112]\(first one last one) | 0.44           | 95.9%     |
-| CIFAR10 MobilenetV2 | Sort Quantization 16bits(12bits 16split)                     | [256,32,112,112]\(first one last one) | 0.49           | 96.1%     |
-| CIFAR10 MobilenetV2 | Sort Quantization 8bits(40 epochs)+Sort Quantization 12bits(40 epochs) | [256,32,112,112]\(first one last one) | 0.42           | 95.72%    |
-| Finetune            | Quantization 10bits                                          |                                       |                | 68%       |
-| Finetune            | Quantization 11bits                                          |                                       |                | 91% 10%   |
-| Finetune            | Quantization 12bits                                          |                                       |                | 95.4%     |
-| Finetune            | Quantization 16bits                                          |                                       |                | 96.0%     |
-| RTE Roberta         | Sort Quantization 4bits(9bits 8split)                        | firsrt 1 last 2                       |                | 52.2%     |
-| RTE Roberta         | Sort Quantization 8bits(6bits 4split)                        | firsrt 1 last 2                       |                | 79.7%     |
-| RTE Roberta         | Sort Quantization 12bits(9bits 8split)                       | firsrt 1 last 2                       |                | 79.7%     |
-| RTE Roberta         | Sort Quantization 16bits(12bits 16split)                     | firsrt 1 last 2                       |                | 79.7%     |
-|                     |                                                              |                                       |                |           |
+| Settings            | Method                                                       | Input size                            | Time per batch | Acc     |
+| ------------------- | ------------------------------------------------------------ | ------------------------------------- | -------------- | ------- |
+| CIFAR10 MobilenetV2 | Sort Quantization 4bits(3bits 2split)                        | [256,32,112,112]\(first one last one) | 0.40           | 87.1%   |
+| CIFAR10 MobilenetV2 | Sort Quantization 8bits(6bits 4split)                        | [256,32,112,112]\(first one last one) | 0.40           | 95.5%   |
+| CIFAR10 MobilenetV2 | Sort Quantization 12bits(9bits 8split)                       | [256,32,112,112]\(first one last one) | 0.44           | 95.9%   |
+| CIFAR10 MobilenetV2 | Sort Quantization 16bits(12bits 16split)                     | [256,32,112,112]\(first one last one) | 0.49           | 96.1%   |
+| CIFAR10 MobilenetV2 | Sort Quantization 8bits(40 epochs)+Sort Quantization 12bits(40 epochs) | [256,32,112,112]\(first one last one) | 0.42           | 95.72%  |
+| Finetune            | Quantization 10bits                                          |                                       |                | 68%     |
+| Finetune            | Quantization 11bits                                          |                                       |                | 91% 10% |
+| Finetune            | Quantization 12bits                                          |                                       |                | 95.4%   |
+| Finetune            | Quantization 16bits                                          |                                       |                | 96.0%   |
+| RTE Roberta         | Sort Quantization 4bits(9bits 8split)                        | firsrt 1 last 2                       |                | 52.2%   |
+| RTE Roberta         | Sort Quantization 8bits(6bits 4split)                        | firsrt 1 last 2                       |                | 79.7%   |
+| RTE Roberta         | Sort Quantization 12bits(9bits 8split)                       | firsrt 1 last 2                       |                | 79.7%   |
+| RTE Roberta         | Sort Quantization 16bits(12bits 16split)                     | firsrt 1 last 2                       |                | 79.7%   |
+|                     |                                                              |                                       |                |         |
 
 
 
