@@ -216,6 +216,26 @@ class SortQuantization(autograd.Function):
 | RTE Roberta         | Sort Quantization 16bits(12bits 16split)                     | firsrt 1 last 2                       |                | 79.7%   |
 |                     |                                                              |                                       |                |         |
 
+# bandwidth detect
+
+I use two GPUs to perform client and one GPU to perform server in order to avoid deadlock! And this is no different with one GPU for the client since two parts are sent and calculated separately.
+
+The setting is shown below
+
+| Backbone  | MoblieNetV2    |
+| --------- | -------------- |
+| Dataset   | CIFAR10        |
+| Batchsize | 64             |
+| Chunk     | 4              |
+| Separate  | First 1 last 1 |
+|           |                |
+
+| compression method | average bandwidth | Peak    | Average_batch_time |
+| ------------------ | ----------------- | ------- | ------------------ |
+| None               | 183kb/s           | 431kb/s | 0.39s              |
+|                    |                   |         |                    |
+|                    |                   |         |                    |
+
 
 
 ## TEST CODE
@@ -224,3 +244,8 @@ class SortQuantization(autograd.Function):
 ./tests/dataparallel_test_cv.py
 ```
 
+  
+
+sudo apt install iperf 
+
+Sudo iperf   -s -i 1 -f  m
