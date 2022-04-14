@@ -226,26 +226,30 @@ The setting is shown below
 | --------- | -------------- |
 | Dataset   | CIFAR10        |
 | Batchsize | 64             |
-| Chunk     | 4              |
+| Chunk     | 8              |
 | Separate  | First 1 last 1 |
 |           |                |
 
-| compression method | average bandwidth | Peak    | Average_batch_time |
-| ------------------ | ----------------- | ------- | ------------------ |
-| None               | 183kb/s           | 431kb/s | 0.39s              |
-|                    |                   |         |                    |
-|                    |                   |         |                    |
+| compression method                   | average bandwidth  | Average_batch_time |
+| ------------------------------------ | ------------------ | ------------------ |
+| None                                 | 8.85GB/S,1.19GB/S  | 0.39s              |
+| Quantization 8 bits                  | 2.23GB/S,0.37GB/S  | 0.41s              |
+| Sort Quantization 6bits 2bits split  | 2.20GB/S,0.38GB/S  | 0.51s              |
+| Quantization 10bits                  | 2.81GB/S, 0.49GB/S | 0.63s              |
+| Quantization 12bits                  | 3.17GB/S ,0.70GB/S | 0.74s              |
+| Quantization 16bits                  | 4.41GB/S,0.80GB/S  | 0.43s              |
+| Sort Quantization 12bits 4bits split | 4.40GB/S,0.76GB/S  | 0.61s              |
 
 
 
 ## TEST CODE
 
 ```
-./tests/dataparallel_test_cv.py
+python test_vision_dgpipe.py --sortquant --quant <quant bit> --split <split bit> --log <logdir> --chunk <chunk>
+python test_nlp_dgpipe.py --sortquant --quant <quant bit> --split <split bit> --log <logdir> --chunk <chunk>
+
+
 ```
 
   
 
-sudo apt install iperf 
-
-Sudo iperf   -s -i 1 -f  m
