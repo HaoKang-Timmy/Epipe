@@ -1,4 +1,3 @@
-
 from torch import autograd
 import torch.distributed as dist
 import torch
@@ -42,8 +41,8 @@ class FSBRFunction(autograd.Function):
         recv_rank, rank = ctx.recv_rank, ctx.rank
         dist.recv(grad_ouput, recv_rank)
         grad_ouput = grad_ouput.to(rank)
-     
-        return grad_ouput,None,None
+
+        return grad_ouput, None, None
 
 
 class FRBSFunction(autograd.Function):
@@ -55,7 +54,7 @@ class FRBSFunction(autograd.Function):
         dist.recv(recv, recv_rank)
         # print(rank,"recv from", recv_rank,recv.shape)
         input = recv.to(rank)
-        
+
         return input
 
     @staticmethod
@@ -64,4 +63,4 @@ class FRBSFunction(autograd.Function):
         # send = grad_output.cpu()
         send = grad_output
         dist.isend(send, send_rank)
-        return grad_output,None,None
+        return grad_output, None, None

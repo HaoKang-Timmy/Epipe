@@ -166,8 +166,7 @@ def main():
     #                 ],
     #             )
     # output = model1(input)
-    
-    
+
     # # print(output.shape)
     # output = model2(output,mask)
     # print(mask.dtype)

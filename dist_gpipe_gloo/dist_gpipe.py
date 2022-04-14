@@ -1,4 +1,3 @@
-
 from .server_utils import server
 from .client_utils import client
 from .utils import make_dictions
@@ -33,10 +32,10 @@ class dist_gpipe:
         self.client_train_settings = client_train_settings
         self.server_train_settings_list = server_train_settings_list
         self.num_devices = args.devices
-        print("client settings",self.client_settings)
-        print("server settings",self.server_settings_list)
-        print("client train settings",self.client_train_settings)
-        print("server train settings",self.server_train_settings_list)
+        print("client settings", self.client_settings)
+        print("server settings", self.server_settings_list)
+        print("client train settings", self.client_train_settings)
+        print("server train settings", self.server_train_settings_list)
 
     def session(self):
         processes = []

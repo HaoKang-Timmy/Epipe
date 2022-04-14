@@ -1,4 +1,3 @@
-
 import enum
 import time
 import torch
@@ -36,7 +35,8 @@ def init_models_server(train_settings, server_settings):
             num_warmup_steps=int(
                 train_settings["epochs"] / 10 * train_settings["len_trainloader"]
             ),
-            num_training_steps=train_settings["epochs"] * train_settings["len_trainloader"],
+            num_training_steps=train_settings["epochs"]
+            * train_settings["len_trainloader"],
         )
     topk_layer = TopkLayer(train_settings["prune"], server_settings["send_size"])
     quant_layer = QSendLayerGPU(
@@ -158,8 +158,17 @@ def server_trainer(
     else:
         for batch_iter in range(train_settings["len_trainloader"]):
             batches = []
-            attention_mask = torch.zeros(server_settings["recv_size"][0]*server_settings["chunks"],1,1,server_settings["recv_size"][1]).type(torch.float32).to(server_settings['rank'])
-            dist.recv(attention_mask,0)
+            attention_mask = (
+                torch.zeros(
+                    server_settings["recv_size"][0] * server_settings["chunks"],
+                    1,
+                    1,
+                    server_settings["recv_size"][1],
+                )
+                .type(torch.float32)
+                .to(server_settings["rank"])
+            )
+            dist.recv(attention_mask, 0)
             # print("server rev mask")
             attention_mask = attention_mask.chunk(server_settings["chunks"])
             for i, model in enumerate(train_settings["models"]):
@@ -368,15 +377,25 @@ def server_validation(
             model.eval()
         with torch.no_grad():
             for batch_iter in range(train_settings["len_valloader"]):
-                attention_mask = torch.zeros(server_settings["recv_size"][0]*server_settings["chunks"],1,1,server_settings["recv_size"][1]).type(torch.float32).to(server_settings['rank'])
-                dist.recv(attention_mask,0)
+                attention_mask = (
+                    torch.zeros(
+                        server_settings["recv_size"][0] * server_settings["chunks"],
+                        1,
+                        1,
+                        server_settings["recv_size"][1],
+                    )
+                    .type(torch.float32)
+                    .to(server_settings["rank"])
+                )
+                dist.recv(attention_mask, 0)
                 # print("server rev mask")
                 attention_mask = attention_mask.chunk(server_settings["chunks"])
                 for i, model in enumerate(train_settings["models"]):
                     for chunk in range(server_settings["chunks"]):
                         input = (
-                            torch.zeros(server_settings["recv_size"])
-                            .to(server_settings["device"])
+                            torch.zeros(server_settings["recv_size"]).to(
+                                server_settings["device"]
+                            )
                             # .type(torch.long)
                         )
                         if server_settings["recv_rank"] == 0:
@@ -410,7 +429,7 @@ def server_validation(
                                 server_settings["rank"],
                                 recv_layer=1,
                             )
-                        
+
                         # input = input.type(torch.long)
                         # attention_mask = (
                         #     torch.zeros(input.shape[0],1,1,input.shape[-1])

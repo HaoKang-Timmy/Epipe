@@ -1,4 +1,3 @@
-
 from torch import autograd
 import torch.distributed as dist
 import torch
@@ -34,7 +33,7 @@ class FSBRFunction(autograd.Function):
     def forward(ctx, input: torch.tensor, send_rank: int, self_rank: int):
         ctx.recv_rank, ctx.rank = send_rank, self_rank
         send = input.cpu()
-   
+
         ctx.send = send
         dist.isend(send, send_rank)
         return input * 1.0
@@ -45,8 +44,8 @@ class FSBRFunction(autograd.Function):
         recv = ctx.send
         dist.recv(recv, recv_rank)
         grad_ouput = recv.to(rank)
-     
-        return grad_ouput,None,None
+
+        return grad_ouput, None, None
 
 
 class FRBSFunction(autograd.Function):
@@ -65,4 +64,4 @@ class FRBSFunction(autograd.Function):
         send = grad_output.cpu()
         send = grad_output
         dist.isend(send, send_rank)
-        return grad_output,None,None
+        return grad_output, None, None

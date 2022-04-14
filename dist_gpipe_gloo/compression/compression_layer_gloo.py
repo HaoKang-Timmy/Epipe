@@ -96,8 +96,7 @@ def QtensorSendonCPU(min_step, output, send_rank):
     # handle2.wait()
     # return handle2
     # print("send",min_step,output)
-    #TODO gloo send has bug
-
+    # TODO gloo send has bug
 
 
 def QtensorRecvonCPU(min_step, input, bits, rank):
@@ -148,8 +147,6 @@ class QSend(autograd.Function):
         return grad_output, None, None, None, None
 
 
-
-
 class QSendLayerGloo(nn.Module):
     def __init__(self, bits, send_rank, rank, sparse=False) -> None:
         super(QSendLayerGloo, self).__init__()
@@ -161,10 +158,7 @@ class QSendLayerGloo(nn.Module):
 
     def forward(self, input):
 
-        return QSend.apply(
-            input, self.bits, self.min_step, self.send_rank, self.rank
-        )
-
+        return QSend.apply(input, self.bits, self.min_step, self.send_rank, self.rank)
 
 
 class Qrecv(autograd.Function):
@@ -175,7 +169,7 @@ class Qrecv(autograd.Function):
             recv_rank,
             min_step,
         )
-        min_step_cpu,recv = QtensorRecvonCPU(min_step,input,bits,recv_rank)
+        min_step_cpu, recv = QtensorRecvonCPU(min_step, input, bits, recv_rank)
         min_step = min_step_cpu.to(rank)
         recv = recv.to(rank)
         # print("recv")
@@ -184,7 +178,7 @@ class Qrecv(autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        bits, send_rank,  min_step = (
+        bits, send_rank, min_step = (
             ctx.bits,
             ctx.send_rank,
             ctx.min_step,
@@ -192,9 +186,8 @@ class Qrecv(autograd.Function):
         min_step_cpu, output = Quantization2CPU(grad_output, bits, min_step)
         # dist.send(min_step.cpu(), recv_rank)
         # dist.send(output.cpu(), recv_rank)
-        QtensorSendonCPU(min_step_cpu,output,send_rank)
+        QtensorSendonCPU(min_step_cpu, output, send_rank)
         return grad_output, None, None, None, None
-
 
 
 class QRecvLayerGloo(nn.Module):
