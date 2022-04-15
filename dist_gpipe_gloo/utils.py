@@ -1,3 +1,11 @@
+"""
+Author: your name
+Date: 2022-04-09 01:27:35
+LastEditTime: 2022-04-12 19:43:03
+LastEditors: Please set LastEditors
+Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+FilePath: /research/gpipe_test/dist_gpipe_gloo/utils.py
+"""
 import torchvision.transforms as transforms
 import torchvision
 import os
@@ -17,52 +25,60 @@ from torch.optim import AdamW, SGD
 from transformers import get_scheduler
 import torch.nn as nn
 from .distributedlayers.distributed_nccl_layers import FSBRFunction, FRBSFunction
+from .compression.compression_layer_nccl import QrecvGPU, QSendGPU, TopkPruning
 
 
 def tensor2tuple(input: torch.tensor):
     return tuple(list(input))
 
 
-def SendTensor(
-    input,
-    send_rank,
-    self_rank,
-    prune_layer=None,
-    quant_layer=None,
-    send_layer=None,
-    sortquant=None,
-    split=0,
-    bits=0,
-):
-    if prune_layer is not None:
-        input = prune_layer(input)
-    if quant_layer is not None:
-        input = quant_layer(input)
-    elif send_layer is not None:
-        input = FSBRFunction.apply(input, send_rank, self_rank)
-    elif sortquant is not None:
-        input = SortQuantGPU.apply(input, bits, split, send_rank)
-    return input
+def SendTensor(input, settings, train_settings, edge=False):
+    if settings["send_rank"] == 0 or edge is not False:
+        if train_settings["prune"] != 0:
+            output = TopkPruning.apply(input, train_settings["prune"])
+        if train_settings["sortquant"] != 0:
+            output = SortQuantGPU.apply(
+                input,
+                train_settings["quant"],
+                train_settings["split"],
+                settings["send_rank"],
+            )
+            # print("rank:",settings["rank"],"send",settings["send_rank"])
+
+        elif train_settings["quant"] != 0:
+            output = QSendGPU.apply(
+                input, train_settings["quant"], settings["send_rank"], settings["rank"]
+            )
+        else:
+            output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
+    else:
+        # print("rank:",settings["rank"],"send",settings["send_rank"])
+        output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
+    return output
 
 
-def RecvTensor(
-    input,
-    recv_rank,
-    self_rank,
-    dequant_layer=None,
-    recv_layer=None,
-    sortdequant=None,
-    split=0,
-    bits=0,
-):
-    if dequant_layer is not None:
-        input = dequant_layer(input)
-    elif recv_layer is not None:
-        input = FRBSFunction.apply(input, recv_rank, self_rank)
-        # print(input)
-    elif sortdequant is not None:
-        input = SortDeQuantGPU.apply(input, bits, split, recv_rank)
-    return input
+def RecvTensor(input, settings, train_settings, edge=False):
+    if settings["recv_rank"] == 0 or edge is not False:
+        if train_settings["sortquant"] != 0:
+
+            output = SortDeQuantGPU.apply(
+                input,
+                train_settings["quant"],
+                train_settings["split"],
+                settings["recv_rank"],
+            )
+            # print("rank:",settings["rank"],"recv",settings["recv_rank"])
+        elif train_settings["quant"] != 0:
+            output = QrecvGPU.apply(
+                input, train_settings["quant"], settings["recv_rank"], settings["rank"]
+            )
+        else:
+            output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
+    else:
+        # print("rank:",settings["rank"],"recv",settings["recv_rank"])
+        output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
+
+    return output
 
 
 def get_lr(optimizer):
@@ -100,7 +116,7 @@ def make_dictions(
     val_loader,
 ):
     client_settings["device"] = 0
-
+    client_settings["devices"] = devices
     client_settings["rank"] = devices[0]
     client_settings["backend"] = args.bachend
     client_settings["dist_url"] = args.url
@@ -126,6 +142,7 @@ def make_dictions(
     for server_num in range(len(devices) - 1):
         train_settings = {}
         server_settings = {}
+        server_settings["devices"] = devices
         server_settings["device"] = devices[server_num + 1]
         server_settings["rank"] = server_num + 1
         server_settings["backend"] = args.bachend

@@ -1,5 +1,6 @@
 # prune quant 这些不用的时候为0不是None
 import time
+from tokenize import group
 import torch
 import torch.distributed as dist
 from .compression import TopkLayer, QSendLayerGPU, QRecvLayerGPU
@@ -11,6 +12,9 @@ from .utils import SendTensor, get_lr, accuracy, RecvTensor
 
 def init_models_client(train_settings, client_settings):
     param_list = []
+    group_list = []
+    for chunk in range(client_settings["chunks"]):
+        group_list.append(dist.new_group(ranks=client_settings["devices"]))
     for model in train_settings["models"]:
         model = model.to(client_settings["device"], non_blocking=True)
         param_list.append({"params": model.parameters()})
@@ -32,9 +36,10 @@ def init_models_client(train_settings, client_settings):
             name="linear",
             optimizer=optimizer,
             num_warmup_steps=int(
-                train_settings["epochs"] / 10 * train_settings["trainloader"]
+                train_settings["epochs"] / 10 * len(train_settings["train_loader"])
             ),
-            num_training_steps=train_settings["epochs"] * train_settings["trainloader"],
+            num_training_steps=train_settings["epochs"]
+            * len(train_settings["train_loader"]),
         )
     topk_layer = TopkLayer(train_settings["prune"], client_settings["send_size"])
     quant_layer = QSendLayerGPU(
@@ -51,6 +56,7 @@ def init_models_client(train_settings, client_settings):
         optimizer,
         warmup_scheduler,
         criterion,
+        group_list,
     )
 
 
@@ -86,38 +92,10 @@ def client_trainer(
                 for chunk in range(client_settings["chunks"]):
                     if i == 0:
                         output = model(images[chunk])
-                        # print("client",client_settings['rank'],"pre_send",output.shape)
-                        if train_settings["prune"] != 0:
-                            output = SendTensor(
-                                output,
-                                client_settings["send_rank"],
-                                client_settings["rank"],
-                                prune_layer=topk_layer,
-                            )
-                        if train_settings["sortquant"] != 0:
-                            output = SendTensor(
-                                output,
-                                client_settings["send_rank"],
-                                client_settings["rank"],
-                                sortquant=1,
-                                bits=train_settings["quant"],
-                                split=train_settings["split"],
-                            )
-                        elif train_settings["quant"] != 0:
-                            # print(client_settings['rank'],"send quant")
-                            output = SendTensor(
-                                output,
-                                client_settings["send_rank"],
-                                client_settings["rank"],
-                                quant_layer=quant_layer,
-                            )
-                        else:
-                            output = SendTensor(
-                                output,
-                                client_settings["send_rank"],
-                                client_settings["rank"],
-                                send_layer=1,
-                            )
+
+                        output = SendTensor(
+                            output, client_settings, train_settings, True
+                        )
 
                         # print("client",client_settings['rank'],"send",output.shape)
                     else:
@@ -126,31 +104,8 @@ def client_trainer(
                             .to(client_settings["device"])
                             .requires_grad_()
                         )
-                        # print("client",client_settings['rank'],"pre_recv",client_settings['recv_rank'],input.shape)
-                        if train_settings["sortquant"] != 0:
-                            input = RecvTensor(
-                                input,
-                                client_settings["recv_rank"],
-                                client_settings["rank"],
-                                sortdequant=1,
-                                bits=train_settings["quant"],
-                                split=train_settings["split"],
-                            )
-                        elif train_settings["quant"] != 0:
-                            input = RecvTensor(
-                                input,
-                                client_settings["recv_rank"],
-                                client_settings["rank"],
-                                dequant_layer=dequant_layer,
-                            )
-                        else:
-                            input = RecvTensor(
-                                input,
-                                client_settings["recv_rank"],
-                                client_settings["rank"],
-                                recv_layer=1,
-                            )
-                        # print("client",client_settings['rank'],"recv",client_settings['recv_rank'],input.shape)
+
+                        input = RecvTensor(input, client_settings, train_settings, True)
                         output = model(input)
                         acc, _ = accuracy(output, targets[chunk], topk=(1, 2))
                         output = criterion(output, targets[chunk])
@@ -187,8 +142,12 @@ def client_trainer(
         )
     else:
         start = time.time()
-        for i, batch in enumerate(train_settings["train_loader"]):
-            batch = {k: v.to(client_settings["rank"]) for k, v in batch.items()}
+        for batch_iter, batch in enumerate(train_settings["train_loader"]):
+            # print("client batch_iter")
+            batch = {
+                k: v.to(client_settings["rank"], non_blocking=True)
+                for k, v in batch.items()
+            }
             acc1 = 0.0
             losses = 0.0
             batch["attention_mask"] = torch.reshape(
@@ -201,6 +160,9 @@ def client_trainer(
                 ],
             ).to(client_settings["rank"])
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
+            dist.isend(batch["attention_mask"], 1)
+            dist.isend(batch["attention_mask"], 2)
+            dist.isend(batch["attention_mask"], 3)
             batch["attention_mask"] = batch["attention_mask"].chunk(
                 client_settings["chunks"]
             )
@@ -208,106 +170,64 @@ def client_trainer(
             batch["labels"] = batch["labels"].chunk(client_settings["chunks"])
             batches = []
             for i, model in enumerate(train_settings["models"]):
-                batch = []
+                batch_save = []
                 model.train()
                 for chunk in range(client_settings["chunks"]):
                     if i == 0:
                         output = model(batch["input_ids"][chunk])
-                        if train_settings["prune"] != 0:
-                            output = SendTensor(
-                                output,
-                                client_settings["send_rank"],
-                                client_settings["rank"],
-                                prune_layer=topk_layer,
-                            )
-                        if train_settings["sortquant"] != 0:
-                            output = SendTensor(
-                                output,
-                                client_settings["send_rank"],
-                                client_settings["rank"],
-                                sortquant=1,
-                                bits=train_settings["quant"],
-                                split=train_settings["split"],
-                            )
-                        elif train_settings["quant"] != 0:
-                            # print(client_settings['rank'],"send quant")
-                            output = SendTensor(
-                                output,
-                                client_settings["send_rank"],
-                                client_settings["rank"],
-                                quant_layer=quant_layer,
-                            )
-                        else:
-                            output = SendTensor(
-                                output,
-                                client_settings["send_rank"],
-                                client_settings["rank"],
-                                send_layer=1,
-                            )
+
+                        output = SendTensor(
+                            output, client_settings, train_settings, True
+                        )
+
                     else:
                         input = (
                             torch.zeros(client_settings["recv_size"])
                             .to(client_settings["device"])
                             .requires_grad_()
-                            .type(torch.long)
+                            # .type(torch.long)
                         )
-                        if train_settings["sortquant"] != 0:
-                            input = RecvTensor(
-                                input,
-                                client_settings["recv_rank"],
-                                client_settings["rank"],
-                                sortdequant=1,
-                                bits=train_settings["quant"],
-                                split=train_settings["split"],
-                            )
-                        elif train_settings["quant"] != 0:
-                            input = RecvTensor(
-                                input,
-                                client_settings["recv_rank"],
-                                client_settings["rank"],
-                                dequant_layer=dequant_layer,
-                            )
-                        else:
-                            input = RecvTensor(
-                                input,
-                                client_settings["recv_rank"],
-                                client_settings["rank"],
-                                recv_layer=1,
-                            )
 
-                        input = input.type(torch.long)
+                        input = RecvTensor(input, client_settings, train_settings, True)
+
+                        # input = input.type(torch.long)
                         output = model(input, batch["attention_mask"][chunk])
                         acc, _ = accuracy(output, batch["labels"][chunk], topk=(1, 2))
                         output = criterion(output, batch["labels"][chunk])
                         losses += output.item()
                         acc1 = acc1 + acc.item()
-                    batch.append(output)
-                batches.append(batch)
-            acc1 = acc1 / client_settings["chunks"]
-            losses = losses / client_settings["chunks"]
+                    batch_save.append(output)
+                batches.append(batch_save)
+                acc1 = acc1 / client_settings["chunks"]
+                losses = losses / client_settings["chunks"]
+                if batch_iter % client_settings["showperiod"] == 0:
+                    print("training_loss:", losses, "training_acc", acc1)
             acc1_avg, losses_avg = acc1 + acc1_avg, losses_avg + losses
-            if batch_iter % client_settings["showperiod"] == 0:
-                print("tarining_loss:", losses, "training_acc", acc)
 
+            # print("client forward over")
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 if back == len(train_settings["models"]) - 1:
                     for chunk in range(client_settings["chunks"]):
+
                         batches[back][chunk].backward()
                 else:
                     for chunk in range(client_settings["chunks"]):
                         batches[back][chunk].backward(
-                            torch.empty(tuple(list(batches[back][chunk].shape)))
-                            .to(client_settings["device"])
-                            .type(torch.long)
+                            torch.empty(tuple(list(batches[back][chunk].shape))).to(
+                                client_settings["device"]
+                            )
+                            # .type(torch.long)
                         )
+            # print("client backword over")
             optimizer.step()
             optimizer.zero_grad()
-            batch_time = time.time() - start
             warmup_scheduler.step()
+            batch_time = time.time() - start
+            # warmup_scheduler.step()
             time_per_batch += batch_time
             start = time.time()
         time_per_batch = time_per_batch / len(train_settings["train_loader"])
-        warmup_scheduler.step()
+
         train_acc1_avg, train_losses_avg = (
             acc1_avg / len(train_settings["train_loader"]),
             losses_avg / len(train_settings["train_loader"]),
@@ -335,37 +255,10 @@ def client_validation(
                     for chunk in range(client_settings["chunks"]):
                         if i == 0:
                             output = model(images[chunk])
-                            if train_settings["prune"] != 0:
-                                output = SendTensor(
-                                    output,
-                                    client_settings["send_rank"],
-                                    client_settings["rank"],
-                                    prune_layer=topk_layer,
-                                )
-                            if train_settings["sortquant"] != 0:
-                                output = SendTensor(
-                                    output,
-                                    client_settings["send_rank"],
-                                    client_settings["rank"],
-                                    sortquant=1,
-                                    bits=train_settings["quant"],
-                                    split=train_settings["split"],
-                                )
-                            elif train_settings["quant"] != 0:
-                                # print(client_settings['rank'],"send quant")
-                                output = SendTensor(
-                                    output,
-                                    client_settings["send_rank"],
-                                    client_settings["rank"],
-                                    quant_layer=quant_layer,
-                                )
-                            else:
-                                output = SendTensor(
-                                    output,
-                                    client_settings["send_rank"],
-                                    client_settings["rank"],
-                                    send_layer=1,
-                                )
+
+                            output = SendTensor(
+                                output, client_settings, train_settings, True
+                            )
                         else:
 
                             input = (
@@ -373,29 +266,10 @@ def client_validation(
                                 .to(client_settings["device"])
                                 .requires_grad_()
                             )
-                            if train_settings["sortquant"] != 0:
-                                input = RecvTensor(
-                                    input,
-                                    client_settings["recv_rank"],
-                                    client_settings["rank"],
-                                    sortdequant=1,
-                                    bits=train_settings["quant"],
-                                    split=train_settings["split"],
-                                )
-                            elif train_settings["quant"] != 0:
-                                input = RecvTensor(
-                                    input,
-                                    client_settings["recv_rank"],
-                                    client_settings["rank"],
-                                    dequant_layer=dequant_layer,
-                                )
-                            else:
-                                input = RecvTensor(
-                                    input,
-                                    client_settings["recv_rank"],
-                                    client_settings["rank"],
-                                    recv_layer=1,
-                                )
+
+                            input = RecvTensor(
+                                input, client_settings, train_settings, True
+                            )
                             output = model(input)
                             acc, _ = accuracy(output, targets[chunk], topk=(1, 2))
                             output = criterion(output, targets[chunk])
@@ -416,7 +290,8 @@ def client_validation(
         val_acc_avg = 0.0
         val_loss_avg = 0.0
         with torch.no_grad():
-            for i, batch in enumerate(train_settings["train_loader"]):
+            for batch_iter, batch in enumerate(train_settings["valloader"]):
+                # print("client",client_settings["rank"],batch_iter)
                 batch = {k: v.to(client_settings["rank"]) for k, v in batch.items()}
                 acc1 = 0.0
                 losses = 0.0
@@ -430,6 +305,9 @@ def client_validation(
                     ],
                 ).to(client_settings["rank"])
                 batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
+                dist.isend(batch["attention_mask"], 1)
+                dist.isend(batch["attention_mask"], 2)
+                dist.isend(batch["attention_mask"], 3)
                 batch["attention_mask"] = batch["attention_mask"].chunk(
                     client_settings["chunks"]
                 )
@@ -442,69 +320,22 @@ def client_validation(
                     for chunk in range(client_settings["chunks"]):
                         if i == 0:
                             output = model(batch["input_ids"][chunk])
-                            if train_settings["prune"] != 0:
-                                output = SendTensor(
-                                    output,
-                                    client_settings["send_rank"],
-                                    client_settings["rank"],
-                                    prune_layer=topk_layer,
-                                )
-                            if train_settings["sortquant"] != 0:
-                                output = SendTensor(
-                                    output,
-                                    client_settings["send_rank"],
-                                    client_settings["rank"],
-                                    sortquant=1,
-                                    bits=train_settings["quant"],
-                                    split=train_settings["split"],
-                                )
-                            elif train_settings["quant"] != 0:
-                                # print(client_settings['rank'],"send quant")
-                                output = SendTensor(
-                                    output,
-                                    client_settings["send_rank"],
-                                    client_settings["rank"],
-                                    quant_layer=quant_layer,
-                                )
-                            else:
-                                output = SendTensor(
-                                    output,
-                                    client_settings["send_rank"],
-                                    client_settings["rank"],
-                                    send_layer=1,
-                                )
+
+                            output = SendTensor(
+                                output, client_settings, train_settings, True
+                            )
                         else:
                             input = (
                                 torch.zeros(client_settings["recv_size"])
                                 .to(client_settings["device"])
                                 .requires_grad_()
-                                .type(torch.long)
+                                # .type(torch.long)
                             )
-                            if train_settings["sortquant"] != 0:
-                                input = RecvTensor(
-                                    input,
-                                    client_settings["recv_rank"],
-                                    client_settings["rank"],
-                                    sortdequant=1,
-                                    bits=train_settings["quant"],
-                                    split=train_settings["split"],
-                                )
-                            elif train_settings["quant"] != 0:
-                                input = RecvTensor(
-                                    input,
-                                    client_settings["recv_rank"],
-                                    client_settings["rank"],
-                                    dequant_layer=dequant_layer,
-                                )
-                            else:
-                                input = RecvTensor(
-                                    input,
-                                    client_settings["recv_rank"],
-                                    client_settings["rank"],
-                                    recv_layer=1,
-                                )
 
-                            input = input.type(torch.long)
+                            input = RecvTensor(
+                                input, client_settings, train_settings, True
+                            )
+                            # input = input.type(torch.long)
                             output = model(input, batch["attention_mask"][chunk])
                             acc, _ = accuracy(
                                 output, batch["labels"][chunk], topk=(1, 2)
@@ -512,11 +343,11 @@ def client_validation(
                             output = criterion(output, batch["labels"][chunk])
                             losses += output.item()
                             acc1 = acc1 + acc.item()
-
                 acc1 = acc1 / client_settings["chunks"]
                 losses = losses / client_settings["chunks"]
                 if batch_iter % client_settings["showperiod"] == 0:
                     print("val_loss:", losses, "val_acc:", acc1)
+
                 val_acc_avg, val_loss_avg = acc1 + val_acc_avg, losses + val_loss_avg
             val_acc_avg, val_loss_avg = (
                 val_acc_avg / len(train_settings["valloader"]),
@@ -550,7 +381,9 @@ def client(train_settings, client_settings):
         optimizer,
         warmup_scheduler,
         criterion,
+        group_list,
     ) = init_models_client(train_settings, client_settings)
+    client_settings["group_list"] = group_list
     for epoch in range(train_settings["epochs"]):
         train_time, train_acc, train_metric, train_loss = client_trainer(
             train_settings,

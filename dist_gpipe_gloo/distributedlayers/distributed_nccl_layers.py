@@ -1,3 +1,19 @@
+"""
+Author: your name
+Date: 2022-04-03 11:39:13
+LastEditTime: 2022-04-08 10:45:41
+LastEditors: Please set LastEditors
+Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+FilePath: /research/gpipe_test/dist_gpipe_gloo/distributedlayers/distributed_gloo_layer.py
+"""
+"""
+Author: your name
+Date: 2022-04-03 11:34:27
+LastEditTime: 2022-04-03 11:37:20
+LastEditors: Please set LastEditors
+Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+FilePath: /research/gpipe_test/dist_gpipe/distributedlayers/distributed_gloo_layer.py
+"""
 from torch import autograd
 import torch.distributed as dist
 import torch
@@ -33,13 +49,16 @@ class FSBRFunction(autograd.Function):
     def forward(ctx, input: torch.tensor, send_rank: int, self_rank: int):
         ctx.recv_rank, ctx.rank = send_rank, self_rank
         dist.isend(input, send_rank)
-        # print("send to",send_rank,input.shape)
+        # print("forward send to",send_rank,input.shape)
         return input * 1.0
 
     @staticmethod
     def backward(ctx, grad_ouput):
         recv_rank, rank = ctx.recv_rank, ctx.rank
+
         dist.recv(grad_ouput, recv_rank)
+        # print(grad_ouput.get_device(),"backward recv from",recv_rank,grad_ouput.shape)
+        # print()
         grad_ouput = grad_ouput.to(rank)
 
         return grad_ouput, None, None
@@ -52,7 +71,7 @@ class FRBSFunction(autograd.Function):
         # recv = input.cpu()
         recv = input
         dist.recv(recv, recv_rank)
-        # print(rank,"recv from", recv_rank,recv.shape)
+        # print(rank,"forward recv from", recv_rank,recv.shape)
         input = recv.to(rank)
 
         return input
@@ -63,4 +82,5 @@ class FRBSFunction(autograd.Function):
         # send = grad_output.cpu()
         send = grad_output
         dist.isend(send, send_rank)
+        # print(grad_output.get_device(),"backward send to",send_rank)
         return grad_output, None, None

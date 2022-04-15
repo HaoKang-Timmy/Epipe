@@ -11,6 +11,9 @@ from .utils import SendTensor, get_lr, accuracy, RecvTensor
 
 def init_models_server(train_settings, server_settings):
     param_list = []
+    group_list = []
+    for chunk in range(server_settings["chunks"]):
+        group_list.append(dist.new_group(ranks=server_settings["devices"]))
     for model in train_settings["models"]:
         model = model.to(train_settings["device"], non_blocking=True)
         # model = torch.nn.parallel.DistributedDataParallel(model,device_ids=[server_settings["device"]])
@@ -45,7 +48,14 @@ def init_models_server(train_settings, server_settings):
     dequant_layer = QRecvLayerGPU(
         train_settings["quant"], server_settings["recv_rank"], server_settings["rank"]
     )
-    return topk_layer, quant_layer, dequant_layer, optimizer, warmup_scheduler
+    return (
+        topk_layer,
+        quant_layer,
+        dequant_layer,
+        optimizer,
+        warmup_scheduler,
+        group_list,
+    )
 
 
 def server_trainer(
@@ -69,79 +79,11 @@ def server_trainer(
                         .to(server_settings["device"])
                         .requires_grad_()
                     )
-                    # print("server",server_settings['rank'],"pre_recv",server_settings['recv_rank'],input.shape)
-                    if server_settings["recv_rank"] == 0:
-                        if train_settings["sortquant"] != 0:
-                            input = RecvTensor(
-                                input,
-                                server_settings["recv_rank"],
-                                server_settings["rank"],
-                                sortdequant=1,
-                                bits=train_settings["quant"],
-                                split=train_settings["split"],
-                            )
-                        elif train_settings["quant"] != 0:
-                            input = RecvTensor(
-                                input,
-                                server_settings["recv_rank"],
-                                server_settings["rank"],
-                                dequant_layer=dequant_layer,
-                            )
-                        else:
-                            input = RecvTensor(
-                                input,
-                                server_settings["recv_rank"],
-                                server_settings["rank"],
-                                recv_layer=1,
-                            )
-                    else:
-                        input = RecvTensor(
-                            input,
-                            server_settings["recv_rank"],
-                            server_settings["rank"],
-                            recv_layer=1,
-                        )
+                    input = RecvTensor(input, server_settings, train_settings)
                     # print("server",server_settings['rank'],"recv",server_settings['recv_rank'],input.shape)
                     output = model(input)
-                    # print("server",server_settings['rank'],"pre_send",server_settings['send_rank'],output.shape)
-                    if server_settings["send_rank"] == 0:
-                        if train_settings["prune"] != 0:
-                            output = SendTensor(
-                                output,
-                                server_settings["send_rank"],
-                                server_settings["rank"],
-                                prune_layer=topk_layer,
-                            )
-                        if train_settings["sortquant"] != 0:
-                            output = SendTensor(
-                                output,
-                                server_settings["send_rank"],
-                                server_settings["rank"],
-                                sortquant=1,
-                                bits=train_settings["quant"],
-                                split=train_settings["split"],
-                            )
-                        elif train_settings["quant"] != 0:
-                            output = SendTensor(
-                                output,
-                                server_settings["send_rank"],
-                                server_settings["rank"],
-                                quant_layer=quant_layer,
-                            )
-                        else:
-                            output = SendTensor(
-                                output,
-                                server_settings["send_rank"],
-                                server_settings["rank"],
-                                send_layer=1,
-                            )
-                    else:
-                        output = SendTensor(
-                            output,
-                            server_settings["send_rank"],
-                            server_settings["rank"],
-                            send_layer=1,
-                        )
+
+                    output = SendTensor(output, server_settings, train_settings)
                     # print("server",server_settings['rank'],"send",server_settings['send_rank'],output.shape)
                     batch.append(output)
                 batches.append(batch)
@@ -181,98 +123,14 @@ def server_trainer(
                         .requires_grad_()
                         # .type(torch.long)
                     )
-                    if server_settings["recv_rank"] == 0:
-                        if train_settings["sortquant"] != 0:
-                            input = RecvTensor(
-                                input,
-                                server_settings["recv_rank"],
-                                server_settings["rank"],
-                                sortdequant=1,
-                                bits=train_settings["quant"],
-                                split=train_settings["split"],
-                            )
-                        elif train_settings["quant"] != 0:
-                            input = RecvTensor(
-                                input,
-                                server_settings["recv_rank"],
-                                server_settings["rank"],
-                                dequant_layer=dequant_layer,
-                            )
-                        else:
-                            input = RecvTensor(
-                                input,
-                                server_settings["recv_rank"],
-                                server_settings["rank"],
-                                recv_layer=1,
-                            )
-                    else:
-                        input = RecvTensor(
-                            input,
-                            server_settings["recv_rank"],
-                            server_settings["rank"],
-                            recv_layer=1,
-                        )
-                    # print("server recv tensor",input.shape)
-                    # input = input.type(torch.long)
-                    # attention_mask = (
-                    #     torch.zeros(input.shape[0],1,1,input.shape[-1])
-                    #     .type(torch.long)
-                    #     .to(server_settings["rank"])
-                    # )
-                    # print("server",attention_mask.shape)
-                    # dist.recv(attention_mask,0)
-                    # attention_mask[input != 0] = 1
-                    # attention_mask = torch.reshape(
-                    #     attention_mask,
-                    #     [
-                    #         int(attention_mask.shape[0]),
-                    #         1,
-                    #         1,
-                    #         int(attention_mask.shape[-1]),
-                    #     ],
-                    # ).to(server_settings["rank"])
-                    # attention_mask = (1.0 - attention_mask) * -1e4
-                    output = model(input, attention_mask[chunk])
-                    if server_settings["send_rank"] == 0:
-                        if train_settings["prune"] != 0:
-                            output = SendTensor(
-                                output,
-                                server_settings["send_rank"],
-                                server_settings["rank"],
-                                prune_layer=topk_layer,
-                            )
-                        if train_settings["sortquant"] != 0:
-                            output = SendTensor(
-                                output,
-                                server_settings["send_rank"],
-                                server_settings["rank"],
-                                sortquant=1,
-                                bits=train_settings["quant"],
-                                split=train_settings["split"],
-                            )
-                        elif train_settings["quant"] != 0:
-                            output = SendTensor(
-                                output,
-                                server_settings["send_rank"],
-                                server_settings["rank"],
-                                quant_layer=quant_layer,
-                            )
-                        else:
-                            output = SendTensor(
-                                output,
-                                server_settings["send_rank"],
-                                server_settings["rank"],
-                                send_layer=1,
-                            )
-                    else:
-                        output = SendTensor(
-                            output,
-                            server_settings["send_rank"],
-                            server_settings["rank"],
-                            send_layer=1,
-                        )
+
+                    output = RecvTensor(input, server_settings, train_settings)
+                    output = model(output, attention_mask[chunk])
+
+                    output = SendTensor(output, server_settings, train_settings)
                     batch.append(output)
                 batches.append(batch)
+            # print("server forward finish",server_settings["rank"])
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 for chunk in range(server_settings["chunks"]):
 
@@ -284,6 +142,7 @@ def server_trainer(
             optimizer.step()
             optimizer.zero_grad()
             warmup_scheduler.step()
+            # print("server batch_iter",server_settings["rank"])
 
 
 def server_validation(
@@ -292,8 +151,6 @@ def server_validation(
     if train_settings["tasktype"] == "cv":
         for model in train_settings["models"]:
             model.eval()
-        val_acc_avg = 0.0
-        val_loss_avg = 0.0
         with torch.no_grad():
             for batch_iter in range(train_settings["len_valloader"]):
                 for i, model in enumerate(train_settings["models"]):
@@ -302,81 +159,17 @@ def server_validation(
                         input = torch.zeros(server_settings["recv_size"]).to(
                             server_settings["device"]
                         )
-                        if server_settings["recv_rank"] == 0:
-                            if train_settings["sortquant"] != 0:
-                                input = RecvTensor(
-                                    input,
-                                    server_settings["recv_rank"],
-                                    server_settings["rank"],
-                                    sortdequant=1,
-                                    bits=train_settings["quant"],
-                                    split=train_settings["split"],
-                                )
-                            elif train_settings["quant"] != 0:
-                                input = RecvTensor(
-                                    input,
-                                    server_settings["recv_rank"],
-                                    server_settings["rank"],
-                                    dequant_layer=dequant_layer,
-                                )
-                            else:
-                                input = RecvTensor(
-                                    input,
-                                    server_settings["recv_rank"],
-                                    server_settings["rank"],
-                                    recv_layer=1,
-                                )
-                        else:
-                            input = RecvTensor(
-                                input,
-                                server_settings["recv_rank"],
-                                server_settings["rank"],
-                                recv_layer=1,
-                            )
+                        input = RecvTensor(input, server_settings, train_settings)
+
                         output = model(input)
-                        if server_settings["send_rank"] == 0:
-                            if train_settings["prune"] != 0:
-                                output = SendTensor(
-                                    output,
-                                    server_settings["send_rank"],
-                                    server_settings["rank"],
-                                    prune_layer=topk_layer,
-                                )
-                            if train_settings["sortquant"] != 0:
-                                output = SendTensor(
-                                    output,
-                                    server_settings["send_rank"],
-                                    server_settings["rank"],
-                                    sortquant=1,
-                                    bits=train_settings["quant"],
-                                    split=train_settings["split"],
-                                )
-                            elif train_settings["quant"] != 0:
-                                output = SendTensor(
-                                    output,
-                                    server_settings["send_rank"],
-                                    server_settings["rank"],
-                                    quant_layer=quant_layer,
-                                )
-                            else:
-                                output = SendTensor(
-                                    output,
-                                    server_settings["send_rank"],
-                                    server_settings["rank"],
-                                    send_layer=1,
-                                )
-                        else:
-                            output = SendTensor(
-                                output,
-                                server_settings["send_rank"],
-                                server_settings["rank"],
-                                send_layer=1,
-                            )
+                        output = SendTensor(output, server_settings, train_settings)
+
     else:
         for model in train_settings["models"]:
             model.eval()
         with torch.no_grad():
             for batch_iter in range(train_settings["len_valloader"]):
+                # print("server",server_settings["rank"],batch_iter)
                 attention_mask = (
                     torch.zeros(
                         server_settings["recv_size"][0] * server_settings["chunks"],
@@ -398,38 +191,8 @@ def server_validation(
                             )
                             # .type(torch.long)
                         )
-                        if server_settings["recv_rank"] == 0:
-                            if train_settings["sortquant"] != 0:
-                                input = RecvTensor(
-                                    input,
-                                    server_settings["recv_rank"],
-                                    server_settings["rank"],
-                                    sortdequant=1,
-                                    bits=train_settings["quant"],
-                                    split=train_settings["split"],
-                                )
-                            elif train_settings["quant"] != 0:
-                                input = RecvTensor(
-                                    input,
-                                    server_settings["recv_rank"],
-                                    server_settings["rank"],
-                                    dequant_layer=dequant_layer,
-                                )
-                            else:
-                                input = RecvTensor(
-                                    input,
-                                    server_settings["recv_rank"],
-                                    server_settings["rank"],
-                                    recv_layer=1,
-                                )
-                        else:
-                            input = RecvTensor(
-                                input,
-                                server_settings["recv_rank"],
-                                server_settings["rank"],
-                                recv_layer=1,
-                            )
 
+                        input = RecvTensor(input, server_settings, train_settings)
                         # input = input.type(torch.long)
                         # attention_mask = (
                         #     torch.zeros(input.shape[0],1,1,input.shape[-1])
@@ -449,44 +212,8 @@ def server_validation(
                         # ).to(server_settings["rank"])
                         # attention_mask = (1.0 - attention_mask) * -1e4
                         output = model(input, attention_mask[chunk])
-                        if server_settings["send_rank"] == 0:
-                            if train_settings["prune"] != 0:
-                                output = SendTensor(
-                                    output,
-                                    server_settings["send_rank"],
-                                    server_settings["rank"],
-                                    prune_layer=topk_layer,
-                                )
-                            if train_settings["sortquant"] != 0:
-                                output = SendTensor(
-                                    output,
-                                    server_settings["send_rank"],
-                                    server_settings["rank"],
-                                    sortquant=1,
-                                    bits=train_settings["quant"],
-                                    split=train_settings["split"],
-                                )
-                            elif train_settings["quant"] != 0:
-                                output = SendTensor(
-                                    output,
-                                    server_settings["send_rank"],
-                                    server_settings["rank"],
-                                    quant_layer=quant_layer,
-                                )
-                            else:
-                                output = SendTensor(
-                                    output,
-                                    server_settings["send_rank"],
-                                    server_settings["rank"],
-                                    send_layer=1,
-                                )
-                        else:
-                            output = SendTensor(
-                                output,
-                                server_settings["send_rank"],
-                                server_settings["rank"],
-                                send_layer=1,
-                            )
+
+                        output = SendTensor(output, server_settings, train_settings)
 
 
 def server(train_settings, server_settings):
@@ -513,7 +240,9 @@ def server(train_settings, server_settings):
         dequant_layer,
         optimizer,
         warmup_scheduler,
+        group_list,
     ) = init_models_server(train_settings, server_settings)
+    server_settings["group_list"] = group_list
     for epoch in range(train_settings["epochs"]):
         server_trainer(
             train_settings,

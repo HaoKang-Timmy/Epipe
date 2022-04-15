@@ -13,6 +13,7 @@ from torch import autograd
 import torch
 import torch.nn as nn
 import torch.distributed as dist
+import time
 
 
 def create_sparse(input: torch.tensor, bit_saving=True):
@@ -256,7 +257,7 @@ class QRecvLayerGPU(nn.Module):
 # no sparse
 class SortQuantGPU(autograd.Function):
     @staticmethod
-    def forward(ctx, input, bits, split_bits, send_rank):
+    def forward(ctx, input, bits, split_bits, send_rank, time=False):
         ctx.recv_rank, ctx.bits, ctx.split_bits = send_rank, bits, split_bits
         shape = input.shape
         input = input.view(-1)
@@ -367,7 +368,7 @@ class SortQuantGPU(autograd.Function):
 
 class SortDeQuantGPU(autograd.Function):
     @staticmethod
-    def forward(ctx, input, bits, split_bits, recv_rank):
+    def forward(ctx, input, bits, split_bits, recv_rank, time_count=False):
         ctx.send_rank, ctx.bits, ctx.split_bits = recv_rank, bits, split_bits
         shape = input.shape
         input = input.view(-1)
@@ -380,8 +381,13 @@ class SortDeQuantGPU(autograd.Function):
         min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
         ctx.min_step = min_step
         # min_step = torch.zeros([2 ** split_bits,2]).to(input.get_device())
+        if time_count is not False:
+            start = time.time()
         dist.recv(min_step, recv_rank)
         dist.recv(recv, recv_rank)
+        if time_count is not False:
+            end = time.time() - start
+            time_count[0] = recv.element_size() * recv.nelement() / end
         # print("1",min_step)
         # print("1",recv)
         if bits + split_bits > 8 and bits + split_bits <= 16:
@@ -417,6 +423,8 @@ class SortDeQuantGPU(autograd.Function):
             # print(index[i])
             input.scatter_(0, index[i], temp_src)
         input = input.view(shape)
+        # if time_count is not False:
+        #     return [input,band_width]
         return input
 
     @staticmethod
@@ -472,4 +480,4 @@ class SortDeQuantGPU(autograd.Function):
         dist.isend(output, send_rank)
         grad_output = grad_output.view(shape)
         # print(grad_output.shape)
-        return grad_output, None, None, None
+        return grad_output, None, None, None, None
