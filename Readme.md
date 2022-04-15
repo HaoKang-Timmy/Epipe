@@ -182,9 +182,6 @@ class SortQuantization(autograd.Function):
 | RTE Roberta-base 20epochs   | Sort Quantization 6bits(3bits,8splits)  | [8,128,786]\(the first layer)     | 0.39s          | 78.1%~0.2%                   |
 | RTE Roberta-base 20epochs   | K-meas 6bits(50 iter)                   | [8,128,786]\(the first layer)     | 3.06s          | 52.7%,53.6%（the bug occurs) |
 | RTE Roberta-base 20epochs   | K-meas 6bits(100 iter)                  | [8,128,786]\(the first layer)     | 5.27s          | 55.1%(the bug occurs)        |
-| RTE Roberta-base 20epochs   | K-meas 6bits(100 iter)                  | [8,128,786]\(the sender layer)    | 5.27s          | 73.6%(TD)                    |
-| RTE Roberta-base 20epochs   | Quantization 6bits                      | [8,128,786]\(the sender layer)    | 0.40s          | 73.1%(TD)                    |
-| RTE Roberta-base 20epochs   | Sort Quantization 6bits(3bits,8splits)  | [8,128,786]\(the sender layer)    | 0.40s          | 77.2%~0.9%(TD)               |
 | RTE Roberta-base 20epochs   | K-meas 6bits(50 iter)                   | [8,128,786]\(the  last two layer) | 3.05s          | 79.4%                        |
 | RTE Roberta-base 20epochs   | Quantization 6bits                      | [8,128,786]\(the  last two layer) | 0.4s           | 52.2%                        |
 | RTE Roberta-base 20epochs   | Sort Quantization 6bits(3bits, 8splits) | [8,128,786]\(the  last two layer) | 0.4s           | 75.0%                        |
@@ -216,9 +213,9 @@ class SortQuantization(autograd.Function):
 | RTE Roberta         | Sort Quantization 16bits(12bits 4split)                      | firsrt 1 last 2                       |                | 79.7%   |
 |                     |                                                              |                                       |                |         |
 
-![image-20220415172007987](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220415172007987.png)
+![image-20220415172007987](./pic/image-20220415172007987.png)
 
-![image-20220415173956248](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220415173956248.png)
+![image-20220415173956248](./pic/image-20220415173956248.png)
 
 # bandwidth detect
 
@@ -256,4 +253,8 @@ python test_nlp_dgpipe.py --sortquant --quant <quant bit> --split <split bit> --
 ```
 
   for bandwidth detection, check 
+
+```
+./test_cv_bandwidth.py
+```
 
