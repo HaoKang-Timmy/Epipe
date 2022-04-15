@@ -12,6 +12,7 @@ from .utils import SendTensor, get_lr, accuracy, RecvTensor
 def init_models_server(train_settings, server_settings):
     param_list = []
     group_list = []
+    # print("server",server_settings['devices'])
     for chunk in range(server_settings["chunks"]):
         group_list.append(dist.new_group(ranks=server_settings["devices"]))
     for model in train_settings["models"]:
@@ -41,29 +42,13 @@ def init_models_server(train_settings, server_settings):
             num_training_steps=train_settings["epochs"]
             * train_settings["len_trainloader"],
         )
-    topk_layer = TopkLayer(train_settings["prune"], server_settings["send_size"])
-    quant_layer = QSendLayerGPU(
-        train_settings["quant"], server_settings["send_rank"], server_settings["rank"]
-    )
-    dequant_layer = QRecvLayerGPU(
-        train_settings["quant"], server_settings["recv_rank"], server_settings["rank"]
-    )
-    return (
-        topk_layer,
-        quant_layer,
-        dequant_layer,
-        optimizer,
-        warmup_scheduler,
-        group_list,
-    )
+
+    return optimizer, warmup_scheduler, group_list
 
 
 def server_trainer(
     train_settings,
     server_settings,
-    topk_layer,
-    quant_layer,
-    dequant_layer,
     optimizer,
     warmup_scheduler,
 ):
@@ -79,11 +64,11 @@ def server_trainer(
                         .to(server_settings["device"])
                         .requires_grad_()
                     )
-                    input = RecvTensor(input, server_settings, train_settings)
+                    input = RecvTensor(input, server_settings, train_settings, chunk)
                     # print("server",server_settings['rank'],"recv",server_settings['recv_rank'],input.shape)
                     output = model(input)
 
-                    output = SendTensor(output, server_settings, train_settings)
+                    output = SendTensor(output, server_settings, train_settings, chunk)
                     # print("server",server_settings['rank'],"send",server_settings['send_rank'],output.shape)
                     batch.append(output)
                 batches.append(batch)
@@ -124,10 +109,10 @@ def server_trainer(
                         # .type(torch.long)
                     )
 
-                    output = RecvTensor(input, server_settings, train_settings)
+                    output = RecvTensor(input, server_settings, train_settings, chunk)
                     output = model(output, attention_mask[chunk])
 
-                    output = SendTensor(output, server_settings, train_settings)
+                    output = SendTensor(output, server_settings, train_settings, chunk)
                     batch.append(output)
                 batches.append(batch)
             # print("server forward finish",server_settings["rank"])
@@ -145,9 +130,7 @@ def server_trainer(
             # print("server batch_iter",server_settings["rank"])
 
 
-def server_validation(
-    train_settings, server_settings, topk_layer, quant_layer, dequant_layer
-):
+def server_validation(train_settings, server_settings):
     if train_settings["tasktype"] == "cv":
         for model in train_settings["models"]:
             model.eval()
@@ -159,10 +142,14 @@ def server_validation(
                         input = torch.zeros(server_settings["recv_size"]).to(
                             server_settings["device"]
                         )
-                        input = RecvTensor(input, server_settings, train_settings)
+                        input = RecvTensor(
+                            input, server_settings, train_settings, chunk
+                        )
 
                         output = model(input)
-                        output = SendTensor(output, server_settings, train_settings)
+                        output = SendTensor(
+                            output, server_settings, train_settings, chunk
+                        )
 
     else:
         for model in train_settings["models"]:
@@ -192,28 +179,14 @@ def server_validation(
                             # .type(torch.long)
                         )
 
-                        input = RecvTensor(input, server_settings, train_settings)
-                        # input = input.type(torch.long)
-                        # attention_mask = (
-                        #     torch.zeros(input.shape[0],1,1,input.shape[-1])
-                        #     .type(torch.long)
-                        #     .to(server_settings["rank"])
-                        # )
-                        # dist.recv(attention_mask,0)
-                        # attention_mask[input != 0] = 1
-                        # attention_mask = torch.reshape(
-                        #     attention_mask,
-                        #     [
-                        #         int(attention_mask.shape[0]),
-                        #         1,
-                        #         1,
-                        #         int(attention_mask.shape[-1]),
-                        #     ],
-                        # ).to(server_settings["rank"])
-                        # attention_mask = (1.0 - attention_mask) * -1e4
+                        input = RecvTensor(
+                            input, server_settings, train_settings, chunk
+                        )
                         output = model(input, attention_mask[chunk])
 
-                        output = SendTensor(output, server_settings, train_settings)
+                        output = SendTensor(
+                            output, server_settings, train_settings, chunk
+                        )
 
 
 def server(train_settings, server_settings):
@@ -234,27 +207,18 @@ def server(train_settings, server_settings):
         rank=server_settings["rank"],
     )
     print("process begin: ", server_settings["rank"])
-    (
-        topk_layer,
-        quant_layer,
-        dequant_layer,
-        optimizer,
-        warmup_scheduler,
-        group_list,
-    ) = init_models_server(train_settings, server_settings)
+    (optimizer, warmup_scheduler, group_list) = init_models_server(
+        train_settings, server_settings
+    )
     server_settings["group_list"] = group_list
+    # print("server",group_list)
     for epoch in range(train_settings["epochs"]):
         server_trainer(
             train_settings,
             server_settings,
-            topk_layer,
-            quant_layer,
-            dequant_layer,
             optimizer,
             warmup_scheduler,
         )
         if train_settings["tasktype"] == "cv":
             warmup_scheduler.step()
-        server_validation(
-            train_settings, server_settings, topk_layer, quant_layer, dequant_layer
-        )
+        server_validation(train_settings, server_settings)

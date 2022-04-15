@@ -32,7 +32,7 @@ def tensor2tuple(input: torch.tensor):
     return tuple(list(input))
 
 
-def SendTensor(input, settings, train_settings, edge=False):
+def SendTensor(input, settings, train_settings, chunk, edge=False):
     if settings["send_rank"] == 0 or edge is not False:
         if train_settings["prune"] != 0:
             output = TopkPruning.apply(input, train_settings["prune"])
@@ -42,22 +42,37 @@ def SendTensor(input, settings, train_settings, edge=False):
                 train_settings["quant"],
                 train_settings["split"],
                 settings["send_rank"],
+                settings["group_list"][chunk],
             )
             # print("rank:",settings["rank"],"send",settings["send_rank"])
 
         elif train_settings["quant"] != 0:
             output = QSendGPU.apply(
-                input, train_settings["quant"], settings["send_rank"], settings["rank"]
+                input,
+                train_settings["quant"],
+                settings["send_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
             )
         else:
-            output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
+            output = FSBRFunction.apply(
+                input,
+                settings["send_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
+            )
     else:
         # print("rank:",settings["rank"],"send",settings["send_rank"])
-        output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
+        output = FSBRFunction.apply(
+            input,
+            settings["send_rank"],
+            settings["rank"],
+            settings["group_list"][chunk],
+        )
     return output
 
 
-def RecvTensor(input, settings, train_settings, edge=False):
+def RecvTensor(input, settings, train_settings, chunk, edge=False):
     if settings["recv_rank"] == 0 or edge is not False:
         if train_settings["sortquant"] != 0:
 
@@ -66,17 +81,32 @@ def RecvTensor(input, settings, train_settings, edge=False):
                 train_settings["quant"],
                 train_settings["split"],
                 settings["recv_rank"],
+                settings["group_list"][chunk],
             )
             # print("rank:",settings["rank"],"recv",settings["recv_rank"])
         elif train_settings["quant"] != 0:
             output = QrecvGPU.apply(
-                input, train_settings["quant"], settings["recv_rank"], settings["rank"]
+                input,
+                train_settings["quant"],
+                settings["recv_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
             )
         else:
-            output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
+            output = FRBSFunction.apply(
+                input,
+                settings["recv_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
+            )
     else:
         # print("rank:",settings["rank"],"recv",settings["recv_rank"])
-        output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
+        output = FRBSFunction.apply(
+            input,
+            settings["recv_rank"],
+            settings["rank"],
+            settings["group_list"][chunk],
+        )
 
     return output
 

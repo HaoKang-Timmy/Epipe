@@ -68,23 +68,23 @@ The reason that quantization 11bits has two acc is that, it's curve first climb 
 
 On NLP tasks, for the cola dataset, I use Matthew's correlation. The rte dataset uses **validation acc**.
 
-| Tasks | Training method | Compression method              | Validation_value |
-| ----- | --------------- | ------------------------------- | ---------------- |
-| Cola  | Sota            | None                            | 0.636            |
-| Cola  | Finetune        | None                            | 0.634～0.008     |
-| Cola  | Finetune        | Prune 0.5                       | 0.633～0.013     |
-| Cola  | Finetune        | Quantization 16                 | 0.632～0.010     |
-| Cola  | Finetune        | Quantization 10                 | 0.635~0.014      |
-| Cola  | Finetune        | Quantization 8                  | 0.644~0.001      |
-| Cola  | Finetune        | Quantization 4                  | 0(acc: 69.1%)    |
-| RTE   | Sota            | None                            | 78.9%            |
-| RTE   | Finetune        | None                            | 78.4% ~ 0.6%     |
-| RTE   | Finetune        | Prune 0.5                       | 79.3%~ 0.7%      |
-| RTE   | Finetune        | Quantization 16                 | 78.7% ~ 0.7%     |
-| RTE   | Finetune        | Quantization 10                 | 0.783~1.1%       |
-| RTE   | Finetune        | Quantization 8                  | 77.5% ~ 0.8%     |
-| RTE   | Finetune        | Sort Quantization 6bits 4splits | 79.5% ~0.5%      |
-| RTE   | Finetune        | Quantization 4                  | 52.2% ~0.1%      |
+| Tasks | Training method | Compression method                | Validation_value |
+| ----- | --------------- | --------------------------------- | ---------------- |
+| Cola  | Sota            | None                              | 0.636            |
+| Cola  | Finetune        | None                              | 0.634～0.008     |
+| Cola  | Finetune        | Prune 0.5                         | 0.633～0.013     |
+| Cola  | Finetune        | Quantization 16                   | 0.632～0.010     |
+| Cola  | Finetune        | Quantization 10                   | 0.635~0.014      |
+| Cola  | Finetune        | Quantization 8                    | 0.644~0.001      |
+| Cola  | Finetune        | Quantization 4                    | 0(acc: 69.1%)    |
+| RTE   | Sota            | None                              | 78.9%            |
+| RTE   | Finetune        | None                              | 78.4% ~ 0.6%     |
+| RTE   | Finetune        | Prune 0.5                         | 79.3%~ 0.7%      |
+| RTE   | Finetune        | Quantization 16                   | 78.7% ~ 0.7%     |
+| RTE   | Finetune        | Quantization 10                   | 0.783~1.1%       |
+| RTE   | Finetune        | Quantization 8                    | 77.5% ~ 0.8%     |
+| RTE   | Finetune        | Sort Quantization 6bits( 4splits) | 79.5% ~0.5%      |
+| RTE   | Finetune        | Quantization 4                    | 52.2% ~0.1%      |
 
 ## To do
 
@@ -202,7 +202,7 @@ class SortQuantization(autograd.Function):
 | Settings            | Method                                                       | Input size                            | Time per batch | Acc     |
 | ------------------- | ------------------------------------------------------------ | ------------------------------------- | -------------- | ------- |
 | CIFAR10 MobilenetV2 | Sort Quantization 4bits(3bits 2split)                        | [256,32,112,112]\(first one last one) | 0.40           | 87.1%   |
-| CIFAR10 MobilenetV2 | Sort Quantization 8bits(6bits 4split)                        | [256,32,112,112]\(first one last one) | 0.40           | 95.5%   |
+| CIFAR10 MobilenetV2 | Sort Quantization 8bits(6bits 4split)                        | [256,32,112,112]\(first one last one) | 0.40           | 95.7%   |
 | CIFAR10 MobilenetV2 | Sort Quantization 12bits(9bits 8split)                       | [256,32,112,112]\(first one last one) | 0.44           | 95.9%   |
 | CIFAR10 MobilenetV2 | Sort Quantization 16bits(12bits 16split)                     | [256,32,112,112]\(first one last one) | 0.49           | 96.1%   |
 | CIFAR10 MobilenetV2 | Sort Quantization 8bits(40 epochs)+Sort Quantization 12bits(40 epochs) | [256,32,112,112]\(first one last one) | 0.42           | 95.72%  |
@@ -210,11 +210,15 @@ class SortQuantization(autograd.Function):
 | Finetune            | Quantization 11bits                                          |                                       |                | 91% 10% |
 | Finetune            | Quantization 12bits                                          |                                       |                | 95.4%   |
 | Finetune            | Quantization 16bits                                          |                                       |                | 96.0%   |
-| RTE Roberta         | Sort Quantization 4bits(9bits 8split)                        | firsrt 1 last 2                       |                | 52.2%   |
-| RTE Roberta         | Sort Quantization 8bits(6bits 4split)                        | firsrt 1 last 2                       |                | 79.7%   |
-| RTE Roberta         | Sort Quantization 12bits(9bits 8split)                       | firsrt 1 last 2                       |                | 79.7%   |
-| RTE Roberta         | Sort Quantization 16bits(12bits 16split)                     | firsrt 1 last 2                       |                | 79.7%   |
+| RTE Roberta         | Sort Quantization 4bits(2bits 2split)                        | firsrt 1 last 2                       |                | 52.2%   |
+| RTE Roberta         | Sort Quantization 8bits(6bits 2split)                        | firsrt 1 last 2                       |                | 79.7%   |
+| RTE Roberta         | Sort Quantization 12bits(9bits 3split)                       | firsrt 1 last 2                       |                | 79.7%   |
+| RTE Roberta         | Sort Quantization 16bits(12bits 4split)                      | firsrt 1 last 2                       |                | 79.7%   |
 |                     |                                                              |                                       |                |         |
+
+![image-20220415172007987](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220415172007987.png)
+
+![image-20220415173956248](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220415173956248.png)
 
 # bandwidth detect
 
@@ -251,5 +255,5 @@ python test_nlp_dgpipe.py --sortquant --quant <quant bit> --split <split bit> --
 
 ```
 
-  
+  for bandwidth detection, check 
 

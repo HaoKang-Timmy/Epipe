@@ -46,31 +46,31 @@ class Reshape2(nn.Module):
 
 class FSBRFunction(autograd.Function):
     @staticmethod
-    def forward(ctx, input: torch.tensor, send_rank: int, self_rank: int):
-        ctx.recv_rank, ctx.rank = send_rank, self_rank
-        dist.isend(input, send_rank)
+    def forward(ctx, input: torch.tensor, send_rank: int, self_rank: int, pg=None):
+        ctx.recv_rank, ctx.rank, ctx.pg = send_rank, self_rank, pg
+        dist.isend(input, send_rank, group=pg)
         # print("forward send to",send_rank,input.shape)
         return input * 1.0
 
     @staticmethod
     def backward(ctx, grad_ouput):
-        recv_rank, rank = ctx.recv_rank, ctx.rank
+        recv_rank, rank, pg = ctx.recv_rank, ctx.rank, ctx.pg
 
-        dist.recv(grad_ouput, recv_rank)
+        dist.recv(grad_ouput, recv_rank, group=pg)
         # print(grad_ouput.get_device(),"backward recv from",recv_rank,grad_ouput.shape)
         # print()
         grad_ouput = grad_ouput.to(rank)
 
-        return grad_ouput, None, None
+        return grad_ouput, None, None, None
 
 
 class FRBSFunction(autograd.Function):
     @staticmethod
-    def forward(ctx, input: torch.tensor, recv_rank: int, rank: int):
-        ctx.send_rank = recv_rank
+    def forward(ctx, input: torch.tensor, recv_rank: int, rank: int, pg=None):
+        ctx.send_rank, ctx.pg = recv_rank, pg
         # recv = input.cpu()
         recv = input
-        dist.recv(recv, recv_rank)
+        dist.recv(recv, recv_rank, group=pg)
         # print(rank,"forward recv from", recv_rank,recv.shape)
         input = recv.to(rank)
 
@@ -78,9 +78,9 @@ class FRBSFunction(autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        send_rank = ctx.send_rank
+        send_rank, pg = ctx.send_rank, ctx.pg
         # send = grad_output.cpu()
         send = grad_output
-        dist.isend(send, send_rank)
+        dist.isend(send, send_rank, group=pg)
         # print(grad_output.get_device(),"backward send to",send_rank)
-        return grad_output, None, None
+        return grad_output, None, None, None

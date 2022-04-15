@@ -7,6 +7,7 @@ Description: 打开koroFileHeader查看配置 进行设置: https://github.com/O
 FilePath: /research/gpipe_test/dist_gpipe/compression/gloo_layer.py
 """
 
+from lib2to3.pgen2 import pgen
 from numpy import dtype
 import torch.nn.functional as F
 from torch import autograd
@@ -93,14 +94,14 @@ def QuantizationGPU(input, bits):
     return output, min, step
 
 
-def QtensorSendonGPU(input, min, step, send_rank):
+def QtensorSendonGPU(input, min, step, send_rank, pg=None):
 
-    dist.isend(min, send_rank)
-    dist.isend(step, send_rank)
-    dist.isend(input, send_rank)
+    dist.isend(min, send_rank, group=pg)
+    dist.isend(step, send_rank, group=pg)
+    dist.isend(input, send_rank, group=pg)
 
 
-def QtensorRecvonGPU1(input, bits, min, step, recv_rank):
+def QtensorRecvonGPU1(input, bits, min, step, recv_rank, pg=None):
     # print(input.shape)
     # if bits <= 8:
     #     input =input.type(torch.int8)
@@ -111,9 +112,10 @@ def QtensorRecvonGPU1(input, bits, min, step, recv_rank):
     # elif bits <= 16:
     #     input =input.type(torch.int16)
     #     input = input.view(dtype = torch.int8)
-    dist.recv(min, recv_rank)
-    dist.recv(step, recv_rank)
-    dist.recv(input, recv_rank)
+    # print(pg)
+    dist.recv(min, recv_rank, group=pg)
+    dist.recv(step, recv_rank, group=pg)
+    dist.recv(input, recv_rank, group=pg)
     return min, step, input
 
 
@@ -127,12 +129,8 @@ def DequantizationonGPU(input, bits, min, step):
 
 class QSendGPU(autograd.Function):
     @staticmethod
-    def forward(ctx, input, bits, send_rank, rank):
-        ctx.bits, ctx.recv_rank, ctx.rank, = (
-            bits,
-            send_rank,
-            rank,
-        )
+    def forward(ctx, input, bits, send_rank, rank, pg=None):
+        ctx.bits, ctx.recv_rank, ctx.rank, ctx.pg = (bits, send_rank, rank, pg)
         (
             output,
             min,
@@ -142,7 +140,7 @@ class QSendGPU(autograd.Function):
         ctx.min, ctx.step = min, step
         ctx.input = output
         # print("pre send to",send_rank )
-        QtensorSendonGPU(output, min, step, send_rank)
+        QtensorSendonGPU(output, min, step, send_rank, pg)
         # print("send")
 
         # print("input",input.shape)
@@ -150,16 +148,17 @@ class QSendGPU(autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        bits, recv_rank, rank, min, step = (
+        bits, recv_rank, rank, min, step, pg = (
             ctx.bits,
             ctx.recv_rank,
             ctx.rank,
             ctx.min,
             ctx.step,
+            ctx.pg,
         )
         input = ctx.input
 
-        min, step, input = QtensorRecvonGPU1(input, bits, min, step, recv_rank)
+        min, step, input = QtensorRecvonGPU1(input, bits, min, step, recv_rank, pg)
         # print("backward recv",input,min,step)
         if bits <= 16 and bits > 8:
             input = input.view(dtype=torch.int16)
@@ -167,16 +166,17 @@ class QSendGPU(autograd.Function):
         grad_output = DequantizationonGPU(input, bits, min, step)
         # print(grad_output)
         # print(grad_output.shape)
-        return grad_output, None, None, None
+        return grad_output, None, None, None, None
 
 
 class QSendLayerGPU(nn.Module):
-    def __init__(self, bits, send_rank, rank, sparse=False) -> None:
+    def __init__(self, bits, send_rank, rank, pg_group, sparse=False) -> None:
         super(QSendLayerGPU, self).__init__()
         self.bits = bits
         self.send_rank = send_rank
         self.rank = rank
         self.sparse = sparse
+        self.pg_group = pg_group
 
     def forward(self, input):
 
@@ -191,7 +191,7 @@ def int32to12():
     pass
 
 
-def QtensorRecvonGPU(input, bits, min, step, recv_rank):
+def QtensorRecvonGPU(input, bits, min, step, recv_rank, pg=None):
     # print(input.shape)
     if bits <= 8:
         input = input.type(torch.int8)
@@ -202,24 +202,25 @@ def QtensorRecvonGPU(input, bits, min, step, recv_rank):
     elif bits <= 16:
         input = input.type(torch.int16)
         input = input.view(dtype=torch.int8)
-    dist.recv(min, recv_rank)
-    dist.recv(step, recv_rank)
-    dist.recv(input, recv_rank)
+    dist.recv(min, recv_rank, group=pg)
+    dist.recv(step, recv_rank, group=pg)
+    dist.recv(input, recv_rank, group=pg)
     return min, step, input
 
 
 class QrecvGPU(autograd.Function):
     @staticmethod
-    def forward(ctx, input, bits, recv_rank, rank):
+    def forward(ctx, input, bits, recv_rank, rank, pg=None):
         min = torch.tensor(0.0).to(rank)
         step = torch.tensor(0.0).to(rank)
-        ctx.bits, ctx.send_rank, ctx.min, ctx.step = (
+        ctx.bits, ctx.send_rank, ctx.min, ctx.step, ctx.pg = (
             bits,
             recv_rank,
             min,
             step,
+            pg,
         )
-        min, step, recv = QtensorRecvonGPU(input, bits, min, step, recv_rank)
+        min, step, recv = QtensorRecvonGPU(input, bits, min, step, recv_rank, pg)
         # print("recv quant",recv)
         if bits <= 16 and bits > 8:
             recv = recv.view(dtype=torch.int16)
@@ -228,27 +229,29 @@ class QrecvGPU(autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        bits, send_rank, min, step = (
+        bits, send_rank, min, step, pg = (
             ctx.bits,
             ctx.send_rank,
             ctx.min,
             ctx.step,
+            ctx.pg,
         )
         output, min, step = QuantizationGPU(grad_output, bits)
         # dist.send(min_step.cpu(), recv_rank)
         # dist.send(output.cpu(), recv_rank)
-        QtensorSendonGPU(output, min, step, send_rank)
+        QtensorSendonGPU(output, min, step, send_rank, pg)
         # print("backward send",output,min,step)
-        return grad_output, None, None, None
+        return grad_output, None, None, None, None
 
 
 class QRecvLayerGPU(nn.Module):
-    def __init__(self, bits, recv_rank, rank) -> None:
+    def __init__(self, bits, recv_rank, rank, pg_group) -> None:
         super(QRecvLayerGPU, self).__init__()
         self.bits = bits
         self.recv_rank = recv_rank
         self.rank = rank
         self.min_step = torch.tensor([0.0, 0.0])
+        self.pg_group = pg_group
 
     def forward(self, input):
         return QrecvGPU.apply(input, self.bits, self.recv_rank, self.rank)
@@ -257,8 +260,13 @@ class QRecvLayerGPU(nn.Module):
 # no sparse
 class SortQuantGPU(autograd.Function):
     @staticmethod
-    def forward(ctx, input, bits, split_bits, send_rank, time=False):
-        ctx.recv_rank, ctx.bits, ctx.split_bits = send_rank, bits, split_bits
+    def forward(ctx, input, bits, split_bits, send_rank, pg=None, time=False):
+        ctx.recv_rank, ctx.bits, ctx.split_bits, ctx.pg = (
+            send_rank,
+            bits,
+            split_bits,
+            pg,
+        )
         shape = input.shape
         input = input.view(-1)
         src, index = torch.sort(input, dim=0)
@@ -311,8 +319,8 @@ class SortQuantGPU(autograd.Function):
         output = output.view(shape)
         if bits + split_bits > 8 and bits + split_bits <= 16:
             output = output.view(dtype=torch.int8)
-        dist.isend(min_step, send_rank)
-        dist.isend(output, send_rank)
+        dist.isend(min_step, send_rank, group=pg)
+        dist.isend(output, send_rank, group=pg)
         # print("0",min_step)
         # print("0",output)
         input = input.view(shape)
@@ -321,7 +329,12 @@ class SortQuantGPU(autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        recv_rank, bits, split_bits = ctx.recv_rank, ctx.bits, ctx.split_bits
+        recv_rank, bits, split_bits, pg = (
+            ctx.recv_rank,
+            ctx.bits,
+            ctx.split_bits,
+            ctx.pg,
+        )
         shape = grad_output.shape
         grad_output = grad_output.view(-1)
         if bits + split_bits <= 8:
@@ -331,8 +344,8 @@ class SortQuantGPU(autograd.Function):
             recv = recv.view(torch.int8)
 
         min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
-        dist.recv(min_step, recv_rank)
-        dist.recv(recv, recv_rank)
+        dist.recv(min_step, recv_rank, group=pg)
+        dist.recv(recv, recv_rank, group=pg)
         if bits + split_bits > 8 and bits + split_bits <= 16:
             recv = recv.view(dtype=torch.int16)
         src, index = torch.sort(recv, dim=0)
@@ -368,8 +381,13 @@ class SortQuantGPU(autograd.Function):
 
 class SortDeQuantGPU(autograd.Function):
     @staticmethod
-    def forward(ctx, input, bits, split_bits, recv_rank, time_count=False):
-        ctx.send_rank, ctx.bits, ctx.split_bits = recv_rank, bits, split_bits
+    def forward(ctx, input, bits, split_bits, recv_rank, pg=None, time_count=False):
+        ctx.send_rank, ctx.bits, ctx.split_bits, ctx.pg = (
+            recv_rank,
+            bits,
+            split_bits,
+            pg,
+        )
         shape = input.shape
         input = input.view(-1)
         if bits + split_bits <= 8:
@@ -383,8 +401,8 @@ class SortDeQuantGPU(autograd.Function):
         # min_step = torch.zeros([2 ** split_bits,2]).to(input.get_device())
         if time_count is not False:
             start = time.time()
-        dist.recv(min_step, recv_rank)
-        dist.recv(recv, recv_rank)
+        dist.recv(min_step, recv_rank, group=pg)
+        dist.recv(recv, recv_rank, group=pg)
         if time_count is not False:
             end = time.time() - start
             time_count[0] = recv.element_size() * recv.nelement() / end
@@ -430,7 +448,12 @@ class SortDeQuantGPU(autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         # print("1",grad_output)
-        send_rank, bits, split_bits = ctx.send_rank, ctx.bits, ctx.split_bits
+        send_rank, bits, split_bits, pg = (
+            ctx.send_rank,
+            ctx.bits,
+            ctx.split_bits,
+            ctx.pg,
+        )
         shape = grad_output.shape
         grad_output = grad_output.view(-1)
         src, index = torch.sort(grad_output, dim=0)
@@ -476,8 +499,8 @@ class SortDeQuantGPU(autograd.Function):
         output = output.view(shape)
         if bits + split_bits > 8 and bits + split_bits <= 16:
             output = output.view(dtype=torch.int8)
-        dist.isend(min_step, send_rank)
-        dist.isend(output, send_rank)
+        dist.isend(min_step, send_rank, group=pg)
+        dist.isend(output, send_rank, group=pg)
         grad_output = grad_output.view(shape)
         # print(grad_output.shape)
         return grad_output, None, None, None, None

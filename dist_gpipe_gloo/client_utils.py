@@ -13,6 +13,7 @@ from .utils import SendTensor, get_lr, accuracy, RecvTensor
 def init_models_client(train_settings, client_settings):
     param_list = []
     group_list = []
+    print(client_settings["devices"])
     for chunk in range(client_settings["chunks"]):
         group_list.append(dist.new_group(ranks=client_settings["devices"]))
     for model in train_settings["models"]:
@@ -41,31 +42,13 @@ def init_models_client(train_settings, client_settings):
             num_training_steps=train_settings["epochs"]
             * len(train_settings["train_loader"]),
         )
-    topk_layer = TopkLayer(train_settings["prune"], client_settings["send_size"])
-    quant_layer = QSendLayerGPU(
-        train_settings["quant"], client_settings["send_rank"], client_settings["rank"]
-    )
-    dequant_layer = QRecvLayerGPU(
-        train_settings["quant"], client_settings["recv_rank"], client_settings["rank"]
-    )
     criterion = nn.CrossEntropyLoss().to(client_settings["device"])
-    return (
-        topk_layer,
-        quant_layer,
-        dequant_layer,
-        optimizer,
-        warmup_scheduler,
-        criterion,
-        group_list,
-    )
+    return (optimizer, warmup_scheduler, criterion, group_list)
 
 
 def client_trainer(
     train_settings,
     client_settings,
-    topk_layer,
-    quant_layer,
-    dequant_layer,
     optimizer,
     warmup_scheduler,
     criterion,
@@ -94,7 +77,7 @@ def client_trainer(
                         output = model(images[chunk])
 
                         output = SendTensor(
-                            output, client_settings, train_settings, True
+                            output, client_settings, train_settings, chunk, True
                         )
 
                         # print("client",client_settings['rank'],"send",output.shape)
@@ -105,7 +88,10 @@ def client_trainer(
                             .requires_grad_()
                         )
 
-                        input = RecvTensor(input, client_settings, train_settings, True)
+                        input = RecvTensor(
+                            input, client_settings, train_settings, chunk, True
+                        )
+                        # print("client",client_settings['rank'],"recv",input.shape)
                         output = model(input)
                         acc, _ = accuracy(output, targets[chunk], topk=(1, 2))
                         output = criterion(output, targets[chunk])
@@ -177,7 +163,7 @@ def client_trainer(
                         output = model(batch["input_ids"][chunk])
 
                         output = SendTensor(
-                            output, client_settings, train_settings, True
+                            output, client_settings, train_settings, chunk, True
                         )
 
                     else:
@@ -188,7 +174,9 @@ def client_trainer(
                             # .type(torch.long)
                         )
 
-                        input = RecvTensor(input, client_settings, train_settings, True)
+                        input = RecvTensor(
+                            input, client_settings, train_settings, chunk, True
+                        )
 
                         # input = input.type(torch.long)
                         output = model(input, batch["attention_mask"][chunk])
@@ -235,9 +223,7 @@ def client_trainer(
     return time_per_batch, train_acc1_avg, train_acc1_avg, train_losses_avg
 
 
-def client_validation(
-    train_settings, client_settings, topk_layer, quant_layer, dequant_layer, criterion
-):
+def client_validation(train_settings, client_settings, criterion):
     if train_settings["tasktype"] == "cv":
         for model in train_settings["models"]:
             model.eval()
@@ -257,7 +243,7 @@ def client_validation(
                             output = model(images[chunk])
 
                             output = SendTensor(
-                                output, client_settings, train_settings, True
+                                output, client_settings, train_settings, chunk, True
                             )
                         else:
 
@@ -268,7 +254,7 @@ def client_validation(
                             )
 
                             input = RecvTensor(
-                                input, client_settings, train_settings, True
+                                input, client_settings, train_settings, chunk, True
                             )
                             output = model(input)
                             acc, _ = accuracy(output, targets[chunk], topk=(1, 2))
@@ -322,7 +308,7 @@ def client_validation(
                             output = model(batch["input_ids"][chunk])
 
                             output = SendTensor(
-                                output, client_settings, train_settings, True
+                                output, client_settings, train_settings, chunk, True
                             )
                         else:
                             input = (
@@ -333,7 +319,7 @@ def client_validation(
                             )
 
                             input = RecvTensor(
-                                input, client_settings, train_settings, True
+                                input, client_settings, train_settings, chunk, True
                             )
                             # input = input.type(torch.long)
                             output = model(input, batch["attention_mask"][chunk])
@@ -374,23 +360,15 @@ def client(train_settings, client_settings):
         rank=client_settings["rank"],
     )
     print("process begin: ", client_settings["rank"])
-    (
-        topk_layer,
-        quant_layer,
-        dequant_layer,
-        optimizer,
-        warmup_scheduler,
-        criterion,
-        group_list,
-    ) = init_models_client(train_settings, client_settings)
+    (optimizer, warmup_scheduler, criterion, group_list) = init_models_client(
+        train_settings, client_settings
+    )
     client_settings["group_list"] = group_list
+    print("client", group_list)
     for epoch in range(train_settings["epochs"]):
         train_time, train_acc, train_metric, train_loss = client_trainer(
             train_settings,
             client_settings,
-            topk_layer,
-            quant_layer,
-            dequant_layer,
             optimizer,
             warmup_scheduler,
             criterion,
@@ -400,9 +378,6 @@ def client(train_settings, client_settings):
         val_acc, val_metric, val_loss = client_validation(
             train_settings,
             client_settings,
-            topk_layer,
-            quant_layer,
-            dequant_layer,
             criterion,
         )
         print(
