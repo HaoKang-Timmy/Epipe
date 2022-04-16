@@ -15,14 +15,14 @@ import torchvision
 import torchvision.transforms as transforms
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
-parser.add_argument("--chunks", default=4, type=int)
+parser.add_argument("--chunks", default=1, type=int)
 parser.add_argument("--log", default="./log/cv/quant12.txt", type=str)
 parser.add_argument("--train-method", default="finetune", type=str)
 # parser.add_argument("--warmup", default=0, action="store_true")
-parser.add_argument("--lr", default=0.01, type=float)
+parser.add_argument("--lr", default=0.005, type=float)
 parser.add_argument("--wd", default=0.0, type=float)
-parser.add_argument("--epochs", default=80, type=int)
-parser.add_argument("--batches", default=32, type=int)
+parser.add_argument("--epochs", default=40, type=int)
+parser.add_argument("--batches", default=64, type=int)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prune", default=0.0, type=float)
 parser.add_argument("--world-size", default=2, type=int)
@@ -34,6 +34,7 @@ parser.add_argument("--url", default="tcp://127.0.0.1:1226", type=str)
 parser.add_argument("--bachend", default="nccl", type=str)
 parser.add_argument("--split", default=0, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
+parser.add_argument("--bandwidth", default=0, action="store_true")
 
 
 def main():
@@ -41,11 +42,11 @@ def main():
     model = mobilenet_v2(pretrained=True)
     model.classifier[-1] = nn.Linear(1280, 10)
     devices = args.devices
-    layer1 = [model.features[0]]
-    layer2 = [model.features[1:]]
+    layer1 = [model.features[0:3]]
+    layer2 = [model.features[3:-2]]
     # layer3 = [model.features[3:7]]
     # layer4 = [model.features[7:]]
-    layer5 = [Reshape1(), model.classifier]
+    layer5 = [model.features[-2:], Reshape1(), model.classifier]
 
     layer1 = nn.Sequential(*layer1)
     layer2 = nn.Sequential(*layer2)
@@ -108,8 +109,8 @@ def main():
     partition = [[layer1, layer5], [layer2]]
     tensor_size = [
         [
-            (int(args.batches / args.chunks), 32, 112, 112),
-            (int(args.batches / args.chunks), 1280, 7, 7),
+            (int(args.batches / args.chunks), 24, 56, 56),
+            (int(args.batches / args.chunks), 160, 7, 7),
         ],
         # [
         #     (int(args.batches / args.chunks), 24, 56, 56),
@@ -120,8 +121,8 @@ def main():
         #     (int(args.batches / args.chunks), 24, 56, 56),
         # ],
         [
-            (int(args.batches / args.chunks), 1280, 7, 7),
-            (int(args.batches / args.chunks), 32, 112, 112),
+            (int(args.batches / args.chunks), 160, 7, 7),
+            (int(args.batches / args.chunks), 24, 56, 56),
         ],
     ]
     print(tensor_size)

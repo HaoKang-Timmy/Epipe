@@ -47,12 +47,11 @@ def init_models_server(train_settings, server_settings):
 
 
 def server_trainer(
-    train_settings,
-    server_settings,
-    optimizer,
-    warmup_scheduler,
+    train_settings, server_settings, optimizer, warmup_scheduler,
 ):
     if train_settings["tasktype"] == "cv":
+        timerecv_avg = 0.0
+        timecount = torch.tensor([0.0])
         for batch_iter in range(train_settings["len_trainloader"]):
             batches = []
             for i, model in enumerate(train_settings["models"]):
@@ -64,14 +63,20 @@ def server_trainer(
                         .to(server_settings["device"])
                         .requires_grad_()
                     )
-                    input = RecvTensor(input, server_settings, train_settings, chunk)
+
+                    input = RecvTensor(
+                        input, server_settings, train_settings, chunk, False, timecount
+                    )
                     # print("server",server_settings['rank'],"recv",server_settings['recv_rank'],input.shape)
                     output = model(input)
 
                     output = SendTensor(output, server_settings, train_settings, chunk)
                     # print("server",server_settings['rank'],"send",server_settings['send_rank'],output.shape)
+                    timerecv_avg += timecount.item()
                     batch.append(output)
                 batches.append(batch)
+                # timecount /= chunk
+
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 for chunk in range(server_settings["chunks"]):
 
@@ -82,7 +87,13 @@ def server_trainer(
                     )
             optimizer.step()
             optimizer.zero_grad()
+        timerecv_avg = (
+            timerecv_avg / train_settings["len_trainloader"] / server_settings["chunks"]
+        )
+        print("server avg bandwidth:", timerecv_avg)
     else:
+        timerecv_avg = 0.0
+        timecount = torch.tensor([0.0])
         for batch_iter in range(train_settings["len_trainloader"]):
             batches = []
             attention_mask = (
@@ -96,7 +107,7 @@ def server_trainer(
                 .to(server_settings["rank"])
             )
             dist.recv(attention_mask, 0)
-            # print("server rev mask")
+            # print("server rev mask",server_settings["rank"])
             attention_mask = attention_mask.chunk(server_settings["chunks"])
             for i, model in enumerate(train_settings["models"]):
                 model.train()
@@ -109,10 +120,13 @@ def server_trainer(
                         # .type(torch.long)
                     )
 
-                    output = RecvTensor(input, server_settings, train_settings, chunk)
+                    output = RecvTensor(
+                        input, server_settings, train_settings, chunk, False, timecount
+                    )
                     output = model(output, attention_mask[chunk])
 
                     output = SendTensor(output, server_settings, train_settings, chunk)
+                    timerecv_avg = timerecv_avg + timecount.item()
                     batch.append(output)
                 batches.append(batch)
             # print("server forward finish",server_settings["rank"])
@@ -128,6 +142,10 @@ def server_trainer(
             optimizer.zero_grad()
             warmup_scheduler.step()
             # print("server batch_iter",server_settings["rank"])
+        timerecv_avg = (
+            timerecv_avg / train_settings["len_trainloader"] / server_settings["chunks"]
+        )
+        print("server avg bandwidth:", timerecv_avg)
 
 
 def server_validation(train_settings, server_settings):
@@ -214,10 +232,7 @@ def server(train_settings, server_settings):
     # print("server",group_list)
     for epoch in range(train_settings["epochs"]):
         server_trainer(
-            train_settings,
-            server_settings,
-            optimizer,
-            warmup_scheduler,
+            train_settings, server_settings, optimizer, warmup_scheduler,
         )
         if train_settings["tasktype"] == "cv":
             warmup_scheduler.step()

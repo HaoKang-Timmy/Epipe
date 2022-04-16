@@ -47,11 +47,7 @@ def init_models_client(train_settings, client_settings):
 
 
 def client_trainer(
-    train_settings,
-    client_settings,
-    optimizer,
-    warmup_scheduler,
-    criterion,
+    train_settings, client_settings, optimizer, warmup_scheduler, criterion,
 ):
     acc1_avg = 0.0
     losses_avg = 0.0
@@ -59,9 +55,12 @@ def client_trainer(
     train_losses_avg = 0.0
     time_per_batch = 0.0
     batch_time = 0.0
+    bandwidth = torch.tensor([0.0])
+    bandwidth_avg = 0.0
     if train_settings["tasktype"] == "cv":
+        start = time.time()
         for batch_iter, (images, targets) in enumerate(train_settings["train_loader"]):
-            start = time.time()
+
             images = images.to(client_settings["device"], non_blocking=True)
             targets = targets.to(client_settings["device"], non_blocking=True)
             images = images.chunk(client_settings["chunks"])
@@ -89,7 +88,12 @@ def client_trainer(
                         )
 
                         input = RecvTensor(
-                            input, client_settings, train_settings, chunk, True
+                            input,
+                            client_settings,
+                            train_settings,
+                            chunk,
+                            True,
+                            bandwidth,
                         )
                         # print("client",client_settings['rank'],"recv",input.shape)
                         output = model(input)
@@ -97,13 +101,23 @@ def client_trainer(
                         output = criterion(output, targets[chunk])
                         losses += output.item()
                         acc1 = acc1 + acc.item()
+                        bandwidth_avg += bandwidth.item()
                     batch.append(output)
                 batches.append(batch)
+            # bandwidth /= client_settings["chunks"]
             acc1 = acc1 / client_settings["chunks"]
             losses = losses / client_settings["chunks"]
             acc1_avg, losses_avg = acc1 + acc1_avg, losses_avg + losses
+
             if batch_iter % client_settings["showperiod"] == 0:
-                print("tarining_loss:", losses, "training_acc", acc)
+                print(
+                    "training_loss:",
+                    losses,
+                    "training_acc",
+                    acc,
+                    "bandwidth",
+                    bandwidth.item(),
+                )
 
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 if back == len(train_settings["models"]) - 1:
@@ -120,14 +134,23 @@ def client_trainer(
             optimizer.zero_grad()
             batch_time = time.time() - start
             time_per_batch += batch_time
+            start = time.time()
         time_per_batch = time_per_batch / len(train_settings["train_loader"])
         warmup_scheduler.step()
         train_acc1_avg, train_losses_avg = (
             acc1_avg / len(train_settings["train_loader"]),
             losses_avg / len(train_settings["train_loader"]),
         )
+        bandwidth_avg = (
+            bandwidth_avg
+            / len(train_settings["train_loader"])
+            / client_settings["chunks"]
+        )
+
     else:
         start = time.time()
+        bandwidth = torch.tensor([0.0])
+        bandwidth_avg = 0.0
         for batch_iter, batch in enumerate(train_settings["train_loader"]):
             # print("client batch_iter")
             batch = {
@@ -146,21 +169,24 @@ def client_trainer(
                 ],
             ).to(client_settings["rank"])
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
-            dist.isend(batch["attention_mask"], 1)
-            dist.isend(batch["attention_mask"], 2)
-            dist.isend(batch["attention_mask"], 3)
+            for rank in client_settings["devices"]:
+                if rank != client_settings["rank"]:
+                    dist.isend(batch["attention_mask"], rank)
             batch["attention_mask"] = batch["attention_mask"].chunk(
                 client_settings["chunks"]
             )
             batch["input_ids"] = batch["input_ids"].chunk(client_settings["chunks"])
             batch["labels"] = batch["labels"].chunk(client_settings["chunks"])
             batches = []
+
             for i, model in enumerate(train_settings["models"]):
                 batch_save = []
                 model.train()
                 for chunk in range(client_settings["chunks"]):
                     if i == 0:
-                        output = model(batch["input_ids"][chunk])
+                        output = model(
+                            batch["input_ids"][chunk], batch["attention_mask"][chunk]
+                        )
 
                         output = SendTensor(
                             output, client_settings, train_settings, chunk, True
@@ -175,7 +201,12 @@ def client_trainer(
                         )
 
                         input = RecvTensor(
-                            input, client_settings, train_settings, chunk, True
+                            input,
+                            client_settings,
+                            train_settings,
+                            chunk,
+                            True,
+                            bandwidth,
                         )
 
                         # input = input.type(torch.long)
@@ -184,14 +215,23 @@ def client_trainer(
                         output = criterion(output, batch["labels"][chunk])
                         losses += output.item()
                         acc1 = acc1 + acc.item()
+                        bandwidth_avg += bandwidth.item()
                     batch_save.append(output)
                 batches.append(batch_save)
                 acc1 = acc1 / client_settings["chunks"]
                 losses = losses / client_settings["chunks"]
-                if batch_iter % client_settings["showperiod"] == 0:
-                    print("training_loss:", losses, "training_acc", acc1)
+                # bandwidth /= client_settings["chunks"]
+            if batch_iter % client_settings["showperiod"] == 0:
+                print(
+                    "training_loss:",
+                    losses,
+                    "training_acc:",
+                    acc1,
+                    "bandwidth:",
+                    bandwidth,
+                )
             acc1_avg, losses_avg = acc1 + acc1_avg, losses_avg + losses
-
+            # bandwidth_avg +=bandwidth
             # print("client forward over")
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 if back == len(train_settings["models"]) - 1:
@@ -220,7 +260,18 @@ def client_trainer(
             acc1_avg / len(train_settings["train_loader"]),
             losses_avg / len(train_settings["train_loader"]),
         )
-    return time_per_batch, train_acc1_avg, train_acc1_avg, train_losses_avg
+        bandwidth_avg = (
+            bandwidth_avg
+            / len(train_settings["train_loader"])
+            / client_settings["chunks"]
+        )
+    return (
+        time_per_batch,
+        train_acc1_avg,
+        train_acc1_avg,
+        train_losses_avg,
+        bandwidth_avg,
+    )
 
 
 def client_validation(train_settings, client_settings, criterion):
@@ -291,9 +342,12 @@ def client_validation(train_settings, client_settings, criterion):
                     ],
                 ).to(client_settings["rank"])
                 batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
-                dist.isend(batch["attention_mask"], 1)
-                dist.isend(batch["attention_mask"], 2)
-                dist.isend(batch["attention_mask"], 3)
+                # dist.isend(batch["attention_mask"],1)
+                # # dist.isend(batch["attention_mask"],2)
+                # # dist.isend(batch["attention_mask"],3)
+                for rank in client_settings["devices"]:
+                    if rank != client_settings["rank"]:
+                        dist.isend(batch["attention_mask"], rank)
                 batch["attention_mask"] = batch["attention_mask"].chunk(
                     client_settings["chunks"]
                 )
@@ -305,7 +359,10 @@ def client_validation(train_settings, client_settings, criterion):
                     # model.train()
                     for chunk in range(client_settings["chunks"]):
                         if i == 0:
-                            output = model(batch["input_ids"][chunk])
+                            output = model(
+                                batch["input_ids"][chunk],
+                                batch["attention_mask"][chunk],
+                            )
 
                             output = SendTensor(
                                 output, client_settings, train_settings, chunk, True
@@ -366,19 +423,13 @@ def client(train_settings, client_settings):
     client_settings["group_list"] = group_list
     print("client", group_list)
     for epoch in range(train_settings["epochs"]):
-        train_time, train_acc, train_metric, train_loss = client_trainer(
-            train_settings,
-            client_settings,
-            optimizer,
-            warmup_scheduler,
-            criterion,
+        train_time, train_acc, train_metric, train_loss, bandwidth_avg = client_trainer(
+            train_settings, client_settings, optimizer, warmup_scheduler, criterion,
         )
         if train_settings["tasktype"] == "cv":
             warmup_scheduler.step()
         val_acc, val_metric, val_loss = client_validation(
-            train_settings,
-            client_settings,
-            criterion,
+            train_settings, client_settings, criterion,
         )
         print(
             "epoch",
@@ -411,4 +462,7 @@ def client(train_settings, client_settings):
             + str(train_time)
             + "  lr:"
             + str(get_lr(optimizer))
+            + "  bandwidth:"
+            + str(bandwidth_avg)
         )
+        file_save.close()

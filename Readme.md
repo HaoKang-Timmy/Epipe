@@ -241,6 +241,22 @@ The setting is shown below
 | Quantization 16bits                  | 4.41GB/S,0.80GB/S  | 0.43s              |
 | Sort Quantization 12bits 4bits split | 4.40GB/S,0.76GB/S  | 0.61s              |
 
+# Alltogether
+
+| Dataset | Backend     | Batchsize | activation memory size          | Compression method       | compression ratio | Validation acc(in cola is Matthew) | Bandwidth |
+| ------- | ----------- | --------- | ------------------------------- | ------------------------ | ----------------- | ---------------------------------- | --------- |
+| CIFAR10 | MobileNetV2 | 256       | [256,32,112,112] [256,1280,7,7] | Sort Quantization 16bits | 0.5               | 96.0%~0.1%                         |           |
+| CIFAR10 | MobileNetV2 | 256       | [256,32,112,112] [256,1280,7,7] | Sort Quantization 12bits | 0.375             | 95.9%~0.1%                         |           |
+| CIFAR10 | MobileNetV2 | 256       | [256,32,112,112] [256,1280,7,7] | Sort Quantization 8bits  | 0.25              | 95.7%~0.03%                        |           |
+| CIFAR10 | MobileNetV2 | 256       | [256,32,112,112] [256,1280,7,7] | Sort Quantization 4bits  | 0.125             | 87.1%                              |           |
+| RTE     | Roberta     | 32        | [32,128,768],[32,128,768]f1l2   | Sort Quantization 16bits | 0.5               | 79.6%~0.1%                         |           |
+| RTE     | Roberta     | 32        | [32,128,768],[32,128,768]       | Sort Quantization 12bits | 0.375             | 79.6%~0.2%                         |           |
+| RTE     | Roberta     | 32        | [32,128,768],[32,128,768]       | Sort Quantization 8bits  | 0.25              | 79.4%~0.2%                         |           |
+| RTE     | Roberta     | 32        | [32,128,768],[32,128,768]       | Sort Quantization 4bits  | 0.125             | 52.2%                              |           |
+| Cola    | Roberta     | 32        | [32,128,768],[32,128,768]f1l2   | Sort Quantization 16bits | 0.5               |                                    |           |
+
+
+
 
 
 ## TEST CODE
@@ -255,6 +271,7 @@ python test_nlp_dgpipe.py --sortquant --quant <quant bit> --split <split bit> --
   for bandwidth detection, check 
 
 ```
-./test_cv_bandwidth.py
+./test_cv_bandwidth.py --bandwidth
+./test_nlp_bandwidth.py --bandwidth
 ```
 

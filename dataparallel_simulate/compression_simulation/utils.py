@@ -119,13 +119,7 @@ class QuantizationLayer(nn.Module):
 class Dequantization(autograd.Function):
     @staticmethod
     def forward(
-        ctx,
-        input,
-        bits,
-        min,
-        step,
-        backward_min,
-        backward_step,
+        ctx, input, bits, min, step, backward_min, backward_step,
     ):
         ctx.bits, ctx.backward_min, ctx.backward_step = (
             bits,
@@ -323,7 +317,7 @@ class KMeansFunction(autograd.Function):
         labels, centers = kmeans.fit_predict(input)
         centers = centers.view(-1)
         labels = labels.type(torch.cuda.FloatTensor)
-        for i in range(2**bits):
+        for i in range(2 ** bits):
             labels[labels == i] = centers[i]
         labels = labels.view(shape)
         labels = labels.requires_grad_()
@@ -338,7 +332,7 @@ class KMeansFunction(autograd.Function):
         labels, centers = kmeans.fit_predict(grad_output)
         centers = centers.view(-1)
         labels = labels.type(torch.cuda.FloatTensor)
-        for i in range(2**bits):
+        for i in range(2 ** bits):
             labels[labels == i] = centers[i]
         labels = labels.view(shape)
         grad_output = grad_output.view(shape)
@@ -349,7 +343,7 @@ class KMeansFunction(autograd.Function):
 class KMeansLayer(nn.Module):
     def __init__(self, bits, device) -> None:
         super(KMeansLayer, self).__init__()
-        self.kmeans = KMeans(n_clusters=2**bits, mode="euclidean", device=device)
+        self.kmeans = KMeans(n_clusters=2 ** bits, mode="euclidean", device=device)
         self.bits = bits
 
     def forward(self, input):

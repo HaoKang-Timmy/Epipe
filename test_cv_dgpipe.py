@@ -15,14 +15,14 @@ import torchvision
 import torchvision.transforms as transforms
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
-parser.add_argument("--chunks", default=4, type=int)
-parser.add_argument("--log", default="./log/cv/quant12.txt", type=str)
+parser.add_argument("--chunks", default=32, type=int)
+parser.add_argument("--log", default="./log/cv/gpipe_4gpu", type=str)
 parser.add_argument("--train-method", default="finetune", type=str)
 # parser.add_argument("--warmup", default=0, action="store_true")
 parser.add_argument("--lr", default=0.01, type=float)
 parser.add_argument("--wd", default=0.0, type=float)
-parser.add_argument("--epochs", default=80, type=int)
-parser.add_argument("--batches", default=240, type=int)
+parser.add_argument("--epochs", default=40, type=int)
+parser.add_argument("--batches", default=256, type=int)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prune", default=0.0, type=float)
 parser.add_argument("--world-size", default=4, type=int)
@@ -34,6 +34,7 @@ parser.add_argument("--url", default="tcp://127.0.0.1:1224", type=str)
 parser.add_argument("--bachend", default="nccl", type=str)
 parser.add_argument("--split", default=0, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
+parser.add_argument("--bandwidth", default=0, action="store_true")
 
 
 def main():
