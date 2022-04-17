@@ -36,7 +36,7 @@ If you separate the model averagely, it changes
 
 | Experiment    | Dataset | Backend     | GPUs | Batch size   | Learning rate | Throughput | Speed up |
 | ------------- | ------- | ----------- | ---- | ------------ | ------------- | ---------- | -------- |
-| Pipeline-2gpu | CIFAR10 | MobilenetV2 | 2    | 64(4 chunks) | 0.005         | 228.57/s   | 0.851×   |
+| Pipeline-2gpu | CIFAR10 | MobilenetV2 | 2    | 64(4 chunks) | 0.005         | 318.74/s   | 0.847×   |
 
 And also NLP models are slow at data parallel mode
 
