@@ -22,22 +22,17 @@ class nlp_sequential(nn.Module):
             output = layer(output, mask)
             output = output[0]
         return output
-
-
 class combine_embeding(nn.Module):
-    def __init__(self, layers: list, embed_layer):
+    def __init__(self, layers:list, embed_layer):
         super(combine_embeding, self).__init__()
         self.layers = layers[0]
         self.embed_layer = embed_layer[0]
-
-    def forward(self, input: torch.tensor, mask: torch.tensor):
+    def forward(self,input: torch.tensor, mask: torch.tensor):
         output = self.embed_layer(input)
-
-        output = self.layers(output, mask)
+        
+        output = self.layers(output,mask)
         output = output
         return output
-
-
 class combine_classifier(nn.Module):
     def __init__(self, layers: list, classifier):
         super(combine_classifier, self).__init__()
@@ -51,8 +46,8 @@ class combine_classifier(nn.Module):
         output = self.classifier(output)
         return output
 
-
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
+parser.add_argument("--root", default="./data", type=str)
 parser.add_argument("--log", default="./test.txt", type=str)
 parser.add_argument("--lr", default=2e-5, type=float)
 parser.add_argument("--epochs", default=20, type=int)
@@ -154,9 +149,9 @@ def main_worker(rank, process_num, args):
     model3 = nlp_sequential([model.roberta.encoder.layer[1:-1]])
     model4 = nlp_sequential([model.roberta.encoder.layer[-1:]])
     model5 = model.classifier
-    part1 = combine_embeding([model2], model1)
+    part1 = combine_embeding([model2],model1)
     part2 = model3
-    part3 = combine_classifier([model4], [model5])
+    part3= combine_classifier([model4], [model5])
 
     part1 = part1.to(rank)
     part2 = part2.to(rank)
@@ -190,46 +185,51 @@ def main_worker(rank, process_num, args):
         train_loss = 0.0
         train_acc1 = 0.0
         time_avg = 0.0
+        datatime_avg = 0.0
+        backward_avg = 0.0
         train_sampler.set_epoch(epoch)
         start = time.time()
         for i, batch in enumerate(train_dataloader):
 
-            batch = {k: v.to(rank) for k, v in batch.items()}
-            optimizer.zero_grad()
+            batch = {k: v.to(rank,non_blocking = True) for k, v in batch.items()}
+            datatime = time.time() - start
+            # print("datatime:",datatime)
+            datatime_avg += datatime
+            
             # outputs = model(batch['input_ids'],)
-            batch["attention_mask"] = (
-                torch.reshape(
-                    batch["attention_mask"],
-                    [
-                        int(batch["attention_mask"].shape[0]),
-                        1,
-                        1,
-                        int(batch["attention_mask"].shape[-1]),
-                    ],
-                )
-                .to(rank)
-                .type(torch.float32)
-            )
+            batch["attention_mask"] = torch.reshape(
+                batch["attention_mask"],
+                [
+                    int(batch["attention_mask"].shape[0]),
+                    1,
+                    1,
+                    int(batch["attention_mask"].shape[-1]),
+                ],
+            ).to(rank).type(torch.float32)
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
-            output = part1(batch["input_ids"], batch["attention_mask"])
+            output = part1(batch["input_ids"],batch["attention_mask"])
             # print(output.shape)
-
+            
             output = part2(output, batch["attention_mask"])
             # print(output.shape)
-            output = part3(output, batch["attention_mask"])
+            output = part3(output,batch["attention_mask"])
             # print(output.shape)
             logits = output
             # print(logits)
             loss = criterion(logits, batch["labels"])
             pred = torch.argmax(logits, dim=1)
             acc = metric_acc.compute(predictions=pred, references=batch["labels"])
+            backward_start = time.time()
             loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
             lr_scheduler.step()
             train_loss += loss.item()
             train_acc1 += acc["accuracy"]
 
             end = time.time() - start
+            backwardend = time.time() - backward_start
+            backward_avg += backwardend
             time_avg += end
             if i % 20 == 0 and rank == 1:
                 print("train_loss", loss.item(), "train_acc", acc["accuracy"])
@@ -237,6 +237,8 @@ def main_worker(rank, process_num, args):
         train_loss /= len(train_dataloader)
         train_acc1 /= len(train_dataloader)
         time_avg /= len(train_dataloader)
+        datatime_avg /=len(train_dataloader)
+        backward_avg /= len(train_dataloader)
         lr_scheduler.step()
         val_loss = 0.0
         val_matt = 0.0
@@ -249,24 +251,21 @@ def main_worker(rank, process_num, args):
         with torch.no_grad():
             for i, batch in enumerate(val_dataloader):
                 batch = {k: v.to(rank) for k, v in batch.items()}
-                batch["attention_mask"] = (
-                    torch.reshape(
-                        batch["attention_mask"],
-                        [
-                            int(batch["attention_mask"].shape[0]),
-                            1,
-                            1,
-                            int(batch["attention_mask"].shape[-1]),
-                        ],
-                    )
-                    .to(rank)
-                    .type(torch.float32)
-                )
+                batch["attention_mask"] = torch.reshape(
+                    batch["attention_mask"],
+                    [
+                        int(batch["attention_mask"].shape[0]),
+                        1,
+                        1,
+                        int(batch["attention_mask"].shape[-1]),
+                    ],
+                ).to(rank).type(torch.float32)
                 batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
-                output = part1(batch["input_ids"], batch["attention_mask"])
-
+                output = part1(batch["input_ids"],batch["attention_mask"])
+                
+                
                 output = part2(output, batch["attention_mask"])
-                output = part3(output, batch["attention_mask"])
+                output = part3(output,batch["attention_mask"])
                 logits = output
                 loss = criterion(logits, batch["labels"])
                 # logits = outputs.logits
@@ -312,6 +311,10 @@ def main_worker(rank, process_num, args):
                 + str(val_acc1)
                 + "  time_per_batch:"
                 + str(time_avg)
+                + "  datatime:"
+                + str(datatime_avg)
+                + "  backward_time:"
+                + str(backward_avg)
                 + "  matthew:"
                 + str(val_matt)
             )
