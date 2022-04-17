@@ -53,16 +53,7 @@ def main():
     layer3 = nn.Sequential(*layer3)
     layer4 = nn.Sequential(*layer4)
     layer5 = nn.Sequential(*layer5)
-    # input = torch.rand([1,3,224,224])
-    # output = layer1(input)
-    # print(output.shape)
-    # output = layer2(output)
-    # print(output.shape)
-    # output = layer3(output)
-    # print(output.shape)
-    # output = layer4(output)
-    # print(output.shape)
-    # output = layer5(output)
+
     transform_train = transforms.Compose(
         [
             transforms.RandomResizedCrop(224),

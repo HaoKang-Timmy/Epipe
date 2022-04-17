@@ -22,11 +22,11 @@ You can see the data parallel code here.
 | Pipeline-4gpu     | CIFAR10 | MobilenetV2 | 4    | 256(8 chunks) | 0.02          | 96.07±0.05    | 397.30/s   | 1.06×    |
 | Dataparallel-4gpu | CIFAR10 | MobilenetV2 | 4    | 256           | 0.02          | 95.94±0.09    | 627.22/s   | 1.66×    |
 | Pipeline-2gpu     | RTE     | Roberta     | 2    | 32(4 chunks)  | 2e-5          | 78.59±0.21    | 61.53/s    | 0.80×    |
-| Pipeline-2gpu     | RTE     | Roberta     | 2    | 64(4 chunks)  | 4e-5          | 76.56±0.39    | 68.82/s    | 0.90×    |
+| Pipeline-2gpu     | RTE     | Roberta     | 2    | 64(4 chunks)  | 4e-5          | 77.56±0.39    | 68.82/s    | 0.90×    |
 | Dataparallel-2gpu | RTE     | Roberta     | 2    | 32            | 2e-5          | 79.0±0.27     | 76.19/s    | 1×       |
 | Pipeline-4gpu     | RTE     | Roberta     | 4    | 64(4 chunks)  | 4e-5          | 78.17±0.44    | 106.40/s   | 1.40×    |
-| Pipeline-4gpu     | RTE     | Roberta     | 4    | 64(2 chunks)  | 4e-5          | 78.15±0.22    | 96.40/s    | 1.01×    |
-| Dataparallel-4gpu | RTE     | Roberta     | 4    | 64            | 4e-5          | 77.4±0.21     | 95.53/s    | 1.25×    |
+| Pipeline-4gpu     | RTE     | Roberta     | 4    | 64(2 chunks)  | 4e-5          | 78.15±0.22    | 96.40/s    | 1.27×    |
+| Dataparallel-4gpu | RTE     | Roberta     | 4    | 64            | 4e-5          | 78.4±0.21     | 95.53/s    | 1.25×    |
 
 You could see that nlp model performs better at model parallel. This is because I only put first and last layer at the client gpu.
 
@@ -56,9 +56,9 @@ How come that dataparallel in Roberta so slow
 
 | Train method | number of gpu | batchsize per gpu | time per batch | Data transfer time | Backward time |
 | ------------ | ------------- | ----------------- | -------------- | ------------------ | ------------- |
-| Dataparallel | 2             | 16                | 0.417          | 0.037              | 0.244         |
-| Dataparallel | 3             | 16                | 0.537          | 0.100              | 0.307         |
-| Dataparallel | 4             | 16                | 0.657          | 0.161              | 0.378         |
+| Dataparallel | 2             | 16                | 0.401          | 0.037              | 0.244         |
+| Dataparallel | 3             | 16                | 0.519          | 0.100              | 0.277         |
+| Dataparallel | 4             | 16                | 0.657          | 0.161              | 0.310         |
 
 In MobileNetV2
 
@@ -67,6 +67,27 @@ In MobileNetV2
 | Dataparallel | 2             | 64                | 0.341          | 0.064              | 0.243         |
 | Dataparallel | 3             | 64                | 0.364          | 0.098              | 0.241         |
 | Dataparallel | 4             | 64                | 0.389          | 0.13               | 0.240         |
+
+Is it because the size of the model?
+
+| Model        | Parameters    |
+| ------------ | ------------- |
+| MobileNetV2  | 2~ milion     |
+| Roberta base | 123~ milion   |
+| VGG 13       | 133.05 milion |
+| AMoebanet    | 3~ milion     |
+| Resnet101    | 44milion      |
+
+For VGG13
+
+| Train method | number of gpu | batchsize per gpu | time per batch | Data transfer time | Backward time |
+| ------------ | ------------- | ----------------- | -------------- | ------------------ | ------------- |
+| Dataparallel | 2             | 64                | 0.704          | 0.064              | 0.636         |
+| Dataparallel | 4             | 64                | 0.779          | 0.135              | 0.640         |
+
+Seems not.
+
+
 
 # Reproduce
 
