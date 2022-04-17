@@ -21,7 +21,6 @@ from utils import (
 )
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
-parser.add_argument("--chunks", default=4, type=int)
 parser.add_argument("--log-dir", default="./my_gpipe", type=str)
 parser.add_argument("--pretrained", default=0, action="store_true")
 parser.add_argument("--warmup", default=0, action="store_true")
@@ -29,11 +28,12 @@ parser.add_argument("--lr", default=0.01, type=float)
 parser.add_argument("--epochs", default=80, type=int)
 parser.add_argument("--batches", default=64, type=int)
 parser.add_argument("--quant", default=0, type=int)
-parser.add_argument("--prun", default=0.0, type=float)
+parser.add_argument("--prune", default=0.0, type=float)
 parser.add_argument("--avgpool", default=0, action="store_true")
 parser.add_argument("--split", default=4, type=int)
 parser.add_argument("--multi", default=0, action="store_true")
 parser.add_argument("--kmeans", default=0, type=int)
+parser.add_argument("--root", default="./data", type=str)
 
 
 def get_lr(optimizer):
@@ -68,7 +68,7 @@ def main_worker(rank, process_num, args):
     )
 
     trainset = torchvision.datasets.CIFAR10(
-        root="./data", train=True, download=True, transform=transform_train
+        root=args.root, train=True, download=True, transform=transform_train
     )
     train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
     train_loader = torch.utils.data.DataLoader(
@@ -82,7 +82,7 @@ def main_worker(rank, process_num, args):
     )
 
     testset = torchvision.datasets.CIFAR10(
-        root="./data", train=False, download=True, transform=transform_test
+        root=args.root, train=False, download=True, transform=transform_test
     )
     val_loader = torch.utils.data.DataLoader(
         testset,

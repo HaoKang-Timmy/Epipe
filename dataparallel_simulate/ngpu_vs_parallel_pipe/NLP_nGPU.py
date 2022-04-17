@@ -24,12 +24,41 @@ class nlp_sequential(nn.Module):
         return output
 
 
+class combine_embeding(nn.Module):
+    def __init__(self, layers: list, embed_layer):
+        super(combine_embeding, self).__init__()
+        self.layers = layers[0]
+        self.embed_layer = embed_layer[0]
+
+    def forward(self, input: torch.tensor, mask: torch.tensor):
+        output = self.embed_layer(input)
+
+        output = self.layers(output, mask)
+        output = output
+        return output
+
+
+class combine_classifier(nn.Module):
+    def __init__(self, layers: list, classifier):
+        super(combine_classifier, self).__init__()
+        self.layers = layers[0]
+        self.classifier = classifier[0]
+
+    def forward(self, output: torch.tensor, mask: torch.tensor):
+        # for i, layer in enumerate(self.layers):
+        output = self.layers(output, mask)
+        output = output
+        output = self.classifier(output)
+        return output
+
+
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
-parser.add_argument("--log-dir", default="./my_gpipe", type=str)
-parser.add_argument("--lr", default=4e-5, type=float)
+parser.add_argument("--log", default="./test.txt", type=str)
+parser.add_argument("--lr", default=2e-5, type=float)
 parser.add_argument("--epochs", default=20, type=int)
 parser.add_argument("--worker", default=4, type=int)
 parser.add_argument("--task", default="rte", type=str)
+parser.add_argument("--batches", default=16, type=int)
 
 task_to_keys = {
     "cola": ("sentence", None),
@@ -98,7 +127,7 @@ def main_worker(rank, process_num, args):
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=16,
+        batch_size=args.batches,
         num_workers=12,
         pin_memory=True,
         drop_last=True,
@@ -107,7 +136,7 @@ def main_worker(rank, process_num, args):
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=16,
+        batch_size=args.batches,
         num_workers=12,
         pin_memory=True,
         drop_last=True,
@@ -120,20 +149,26 @@ def main_worker(rank, process_num, args):
     # model
     epochs = args.epochs
     model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
-    model1 = model.roberta.embeddings
-    model2 = nlp_sequential([model.roberta.encoder.layer[0:]])
-    model3 = model.classifier
-    model1 = model1.to(rank)
-    model2 = model2.to(rank)
-    model3 = model3.to(rank)
-    model1 = torch.nn.parallel.DistributedDataParallel(model1)
-    model2 = torch.nn.parallel.DistributedDataParallel(model2)
-    model3 = torch.nn.parallel.DistributedDataParallel(model3)
+    model1 = [model.roberta.embeddings]
+    model2 = nlp_sequential([model.roberta.encoder.layer[0:1]])
+    model3 = nlp_sequential([model.roberta.encoder.layer[1:-1]])
+    model4 = nlp_sequential([model.roberta.encoder.layer[-1:]])
+    model5 = model.classifier
+    part1 = combine_embeding([model2], model1)
+    part2 = model3
+    part3 = combine_classifier([model4], [model5])
+
+    part1 = part1.to(rank)
+    part2 = part2.to(rank)
+    part3 = part3.to(rank)
+    part1 = torch.nn.parallel.DistributedDataParallel(part1)
+    part2 = torch.nn.parallel.DistributedDataParallel(part2)
+    part3 = torch.nn.parallel.DistributedDataParallel(part3)
     optimizer = AdamW(
         [
-            {"params": model1.parameters()},
-            {"params": model2.parameters()},
-            {"params": model3.parameters()},
+            {"params": part1.parameters()},
+            {"params": part2.parameters()},
+            {"params": part3.parameters()},
         ],
         lr=args.lr,
     )
@@ -149,9 +184,9 @@ def main_worker(rank, process_num, args):
     # topk_layer = TopkLayer(args.prun).to(rank)
     for epoch in range(epochs):
 
-        model1.train()
-        model2.train()
-        model3.train()
+        part1.train()
+        part2.train()
+        part3.train()
         train_loss = 0.0
         train_acc1 = 0.0
         time_avg = 0.0
@@ -162,19 +197,27 @@ def main_worker(rank, process_num, args):
             batch = {k: v.to(rank) for k, v in batch.items()}
             optimizer.zero_grad()
             # outputs = model(batch['input_ids'],)
-            output = model1(batch["input_ids"])
-            batch["attention_mask"] = torch.reshape(
-                batch["attention_mask"],
-                [
-                    int(batch["attention_mask"].shape[0]),
-                    1,
-                    1,
-                    int(batch["attention_mask"].shape[-1]),
-                ],
-            ).to(rank)
+            batch["attention_mask"] = (
+                torch.reshape(
+                    batch["attention_mask"],
+                    [
+                        int(batch["attention_mask"].shape[0]),
+                        1,
+                        1,
+                        int(batch["attention_mask"].shape[-1]),
+                    ],
+                )
+                .to(rank)
+                .type(torch.float32)
+            )
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
-            output = model2(output, batch["attention_mask"])
-            output = model3(output)
+            output = part1(batch["input_ids"], batch["attention_mask"])
+            # print(output.shape)
+
+            output = part2(output, batch["attention_mask"])
+            # print(output.shape)
+            output = part3(output, batch["attention_mask"])
+            # print(output.shape)
             logits = output
             # print(logits)
             loss = criterion(logits, batch["labels"])
@@ -199,26 +242,31 @@ def main_worker(rank, process_num, args):
         val_matt = 0.0
         val_acc1 = 0.0
 
-        model1.eval()
-        model2.eval()
-        model3.eval()
+        part1.eval()
+        part2.eval()
+        part3.eval()
         metric_mat = load_metric("glue", args.task)
         with torch.no_grad():
             for i, batch in enumerate(val_dataloader):
                 batch = {k: v.to(rank) for k, v in batch.items()}
-                output = model1(batch["input_ids"])
-                batch["attention_mask"] = torch.reshape(
-                    batch["attention_mask"],
-                    [
-                        int(batch["attention_mask"].shape[0]),
-                        1,
-                        1,
-                        int(batch["attention_mask"].shape[-1]),
-                    ],
-                ).to(rank)
+                batch["attention_mask"] = (
+                    torch.reshape(
+                        batch["attention_mask"],
+                        [
+                            int(batch["attention_mask"].shape[0]),
+                            1,
+                            1,
+                            int(batch["attention_mask"].shape[-1]),
+                        ],
+                    )
+                    .to(rank)
+                    .type(torch.float32)
+                )
                 batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
-                output = model2(output, batch["attention_mask"])
-                output = model3(output)
+                output = part1(batch["input_ids"], batch["attention_mask"])
+
+                output = part2(output, batch["attention_mask"])
+                output = part3(output, batch["attention_mask"])
                 logits = output
                 loss = criterion(logits, batch["labels"])
                 # logits = outputs.logits
@@ -249,7 +297,7 @@ def main_worker(rank, process_num, args):
                 "matt",
                 val_matt,
             )
-            file_save = open(args.log_dir, mode="a")
+            file_save = open(args.log, mode="a")
             file_save.write(
                 "\n"
                 + "step:"
