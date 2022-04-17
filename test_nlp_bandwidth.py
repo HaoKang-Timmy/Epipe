@@ -132,7 +132,6 @@ def main():
             (int(args.batches / args.chunks), 128, 768),
             (int(args.batches / args.chunks), 128, 768),
         ],
-
         [
             (int(args.batches / args.chunks), 128, 768),
             (int(args.batches / args.chunks), 128, 768),
