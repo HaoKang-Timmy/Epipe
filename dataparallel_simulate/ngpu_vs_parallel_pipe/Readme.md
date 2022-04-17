@@ -26,7 +26,7 @@ You can see the data parallel code here.
 | Dataparallel-2gpu | RTE     | Roberta     | 2    | 32            | 2e-5          | 79.0±0.27     | 76.19/s    | 1×       |
 | Pipeline-4gpu     | RTE     | Roberta     | 4    | 64(4 chunks)  | 4e-5          | 78.17±0.44    | 106.40/s   | 1.40×    |
 | Pipeline-4gpu     | RTE     | Roberta     | 4    | 64(2 chunks)  | 4e-5          | 78.15±0.22    | 96.40/s    | 1.01×    |
-| Dataparallel-4gpu | RTE     | Roberta     | 4    | 64            | 4e-5          | 79.4±0.21     | 95.53/s    | 1.25×    |
+| Dataparallel-4gpu | RTE     | Roberta     | 4    | 64            | 4e-5          | 77.4±0.21     | 95.53/s    | 1.25×    |
 
 You could see that nlp model performs better at model parallel. This is because I only put first and last layer at the client gpu.
 
@@ -51,6 +51,21 @@ And also NLP models are slow at data parallel mode
 | Roberta | Parallelism pipeline | 2(chunk2)     | 32              | 64.03/s    |
 | Roberta | Parallelism pipeline | 2(chunk4)     | 32              | 62.19/s    |
 | Roberta | Parallelism pipeline | 2(chunk4)     | 64              | 69.57/s    |
+
+How come that dataparallel in Roberta so slow
+
+| Train method | number of gpu | batchsize per gpu | time per batch | Data transfer time | Backward time |
+| ------------ | ------------- | ----------------- | -------------- | ------------------ | ------------- |
+| Dataparallel | 2             | 16                | 0.417          | 0.037              | 0.244         |
+| Dataparallel | 3             | 16                | 0.537          | 0.100              | 0.307         |
+| Dataparallel | 4             | 16                | 0.657          | 0.161              | 0.378         |
+
+In MobileNetV2
+
+| Train method | number of gpu | batchsize per gpu | time per batch | Data transfer time | Backward time |
+| ------------ | ------------- | ----------------- | -------------- | ------------------ | ------------- |
+| Dataparallel | 2             | 64                | 0.311          | 0.064              | 0.236         |
+| Dataparallel | 4             | 64                | 0.397          | 0.145              | 0.235         |
 
 # Reproduce
 
