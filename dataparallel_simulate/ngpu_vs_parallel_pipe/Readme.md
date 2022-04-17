@@ -64,8 +64,9 @@ In MobileNetV2
 
 | Train method | number of gpu | batchsize per gpu | time per batch | Data transfer time | Backward time |
 | ------------ | ------------- | ----------------- | -------------- | ------------------ | ------------- |
-| Dataparallel | 2             | 64                | 0.311          | 0.064              | 0.236         |
-| Dataparallel | 4             | 64                | 0.397          | 0.145              | 0.235         |
+| Dataparallel | 2             | 64                | 0.341          | 0.064              | 0.243         |
+| Dataparallel | 3             | 64                | 0.364          | 0.098              | 0.241         |
+| Dataparallel | 4             | 64                | 0.389          | 0.13               | 0.240         |
 
 # Reproduce
 
