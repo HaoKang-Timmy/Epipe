@@ -4,7 +4,7 @@ from functools import total_ordering
 from typing import Any
 import uuid
 
-__all__ = ['Namespace']
+__all__ = ["Namespace"]
 
 
 @total_ordering
@@ -12,7 +12,8 @@ class Namespace(metaclass=abc.ABCMeta):
     """Namespace for isolating skip tensors used by :meth:`isolate()
     <torchgpipe.skip.skippable.Skippable.isolate>`.
     """
-    __slots__ = ('id',)
+
+    __slots__ = ("id",)
 
     def __init__(self) -> None:
         self.id = uuid.uuid4()

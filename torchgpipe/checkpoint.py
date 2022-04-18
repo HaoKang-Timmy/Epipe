@@ -31,14 +31,14 @@ from torchgpipe.dependency import fork, join
 from torchgpipe.microbatch import Batch
 from torchgpipe.phony import get_phony
 
-__all__ = ['is_checkpointing', 'is_recomputing']
+__all__ = ["is_checkpointing", "is_recomputing"]
 
 
 Tensors = Tuple[Tensor, ...]
 TensorOrTensors = Union[Tensor, Tensors]
 
 # Types for shared memory between Checkpoint and Recompute.
-Recomputed = Tuple[TensorOrTensors, Tensors]         # (output, input_leaf)
+Recomputed = Tuple[TensorOrTensors, Tensors]  # (output, input_leaf)
 RNGStates = Tuple[ByteTensor, Optional[ByteTensor]]  # (cpu_rng_state, gpu_rng_state)
 
 
@@ -91,8 +91,9 @@ class Checkpointing:
         # require grad.
         phony = get_phony(self.batch[0].device, requires_grad=True)
 
-        output = Checkpoint.apply(phony, self.recomputed, self.rng_states,
-                                  self.function, input_atomic, *input)
+        output = Checkpoint.apply(
+            phony, self.recomputed, self.rng_states, self.function, input_atomic, *input
+        )
         return Batch(output)
 
     def recompute(self, batch: Batch) -> None:
@@ -103,8 +104,9 @@ class Checkpointing:
         # batch[0] is always requiring grad, because it has been passed
         # checkpoint with a phony requiring grad.
         batch[0], phony = fork(batch[0])
-        phony = Recompute.apply(phony, self.recomputed, self.rng_states,
-                                self.function, input_atomic, *input)
+        phony = Recompute.apply(
+            phony, self.recomputed, self.rng_states, self.function, input_atomic, *input
+        )
         batch[0] = join(batch[0], phony)
 
 
@@ -177,6 +179,7 @@ class Context:
     """The common interface between the :class:`Checkpoint` and
     :class:`Recompute` context.
     """
+
     recomputed: Deque[Recomputed]
     rng_states: Deque[RNGStates]
     function: Function
@@ -188,9 +191,7 @@ class Context:
         pass
 
 
-def save_rng_states(device: torch.device,
-                    rng_states: Deque[RNGStates],
-                    ) -> None:
+def save_rng_states(device: torch.device, rng_states: Deque[RNGStates],) -> None:
     """:meth:`Checkpoint.forward` captures the current PyTorch's random number
     generator states at CPU and GPU to reuse in :meth:`Recompute.backward`.
 
@@ -200,7 +201,7 @@ def save_rng_states(device: torch.device,
     cpu_rng_state = torch.get_rng_state()
 
     gpu_rng_state: Optional[ByteTensor]
-    if device.type == 'cuda':
+    if device.type == "cuda":
         gpu_rng_state = torch.cuda.get_rng_state(device)
     else:
         gpu_rng_state = None
@@ -209,9 +210,9 @@ def save_rng_states(device: torch.device,
 
 
 @contextmanager
-def restore_rng_states(device: torch.device,
-                       rng_states: Deque[RNGStates],
-                       ) -> Generator[None, None, None]:
+def restore_rng_states(
+    device: torch.device, rng_states: Deque[RNGStates],
+) -> Generator[None, None, None]:
     """:meth:`Recompute.backward` restores the random number generator states
     captured by :func:`save_rng_states` within its context.
 
@@ -221,7 +222,7 @@ def restore_rng_states(device: torch.device,
     cpu_rng_state, gpu_rng_state = rng_states.pop()
 
     gpu_devices: List[torch.device] = []
-    if device.type == 'cuda':
+    if device.type == "cuda":
         gpu_devices.append(device)
 
     with torch.random.fork_rng(gpu_devices):
@@ -233,14 +234,15 @@ def restore_rng_states(device: torch.device,
 
 class Checkpoint(torch.autograd.Function):
     @staticmethod
-    def forward(ctx: Context,  # type: ignore
-                phony: Tensor,
-                recomputed: Deque[Recomputed],
-                rng_states: Deque[RNGStates],
-                function: Function,
-                input_atomic: bool,
-                *input: Tensor,
-                ) -> TensorOrTensors:
+    def forward(
+        ctx: Context,  # type: ignore
+        phony: Tensor,
+        recomputed: Deque[Recomputed],
+        rng_states: Deque[RNGStates],
+        function: Function,
+        input_atomic: bool,
+        *input: Tensor,
+    ) -> TensorOrTensors:
         ctx.recomputed = recomputed
         ctx.rng_states = rng_states
 
@@ -256,9 +258,9 @@ class Checkpoint(torch.autograd.Function):
         return output
 
     @staticmethod
-    def backward(ctx: Context,
-                 *grad_output: Tensor,
-                 ) -> Tuple[Optional[Tensor], ...]:  # pragma: no cover
+    def backward(
+        ctx: Context, *grad_output: Tensor,
+    ) -> Tuple[Optional[Tensor], ...]:  # pragma: no cover
         output, input_leaf = ctx.recomputed.pop()
 
         if isinstance(output, tuple):
@@ -275,14 +277,15 @@ class Checkpoint(torch.autograd.Function):
 
 class Recompute(torch.autograd.Function):
     @staticmethod
-    def forward(ctx: Context,  # type: ignore
-                phony: Tensor,
-                recomputed: Deque[Recomputed],
-                rng_states: Deque[RNGStates],
-                function: Function,
-                input_atomic: bool,
-                *input: Tensor,
-                ) -> Tensor:
+    def forward(
+        ctx: Context,  # type: ignore
+        phony: Tensor,
+        recomputed: Deque[Recomputed],
+        rng_states: Deque[RNGStates],
+        function: Function,
+        input_atomic: bool,
+        *input: Tensor,
+    ) -> Tensor:
         ctx.recomputed = recomputed
         ctx.rng_states = rng_states
 
@@ -293,7 +296,9 @@ class Recompute(torch.autograd.Function):
         return phony
 
     @staticmethod
-    def backward(ctx: Context, *grad_output: Tensor) -> Tuple[None, ...]:  # pragma: no cover
+    def backward(
+        ctx: Context, *grad_output: Tensor
+    ) -> Tuple[None, ...]:  # pragma: no cover
         input = ctx.saved_tensors
         input_leaf = tuple(x.detach().requires_grad_(x.requires_grad) for x in input)
 

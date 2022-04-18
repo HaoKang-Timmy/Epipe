@@ -7,8 +7,14 @@ from typing import Deque, List, Optional, Tuple
 import torch
 from torch import Tensor
 
-from torchgpipe.stream import (AbstractStream, current_stream, get_device, record_stream,
-                               use_stream, wait_stream)
+from torchgpipe.stream import (
+    AbstractStream,
+    current_stream,
+    get_device,
+    record_stream,
+    use_stream,
+    wait_stream,
+)
 
 __all__: List[str] = []
 
@@ -24,12 +30,14 @@ class Context:
 
 class Copy(torch.autograd.Function):
     """Copies tensors on specific streams."""
+
     @staticmethod
-    def forward(ctx: Context,  # type: ignore
-                prev_stream: AbstractStream,
-                next_stream: AbstractStream,
-                *input: Tensor,
-                ) -> Tensors:
+    def forward(
+        ctx: Context,  # type: ignore
+        prev_stream: AbstractStream,
+        next_stream: AbstractStream,
+        *input: Tensor,
+    ) -> Tensors:
         ctx.prev_stream = prev_stream
         ctx.next_stream = next_stream
 
@@ -50,9 +58,7 @@ class Copy(torch.autograd.Function):
         return tuple(output)
 
     @staticmethod
-    def backward(ctx: Context,
-                 *grad_output: Tensor,
-                 ) -> Tuple[Optional[Tensor], ...]:
+    def backward(ctx: Context, *grad_output: Tensor,) -> Tuple[Optional[Tensor], ...]:
         prev_stream = ctx.prev_stream
         next_stream = ctx.next_stream
 
@@ -81,12 +87,14 @@ class Wait(torch.autograd.Function):
     provided that all operations on the previous stream are done.
 
     """
+
     @staticmethod
-    def forward(ctx: Context,  # type: ignore
-                prev_stream: AbstractStream,
-                next_stream: AbstractStream,
-                *input: Tensor,
-                ) -> Tensors:
+    def forward(
+        ctx: Context,  # type: ignore
+        prev_stream: AbstractStream,
+        next_stream: AbstractStream,
+        *input: Tensor,
+    ) -> Tensors:
         ctx.prev_stream = prev_stream
         ctx.next_stream = next_stream
 
@@ -95,9 +103,7 @@ class Wait(torch.autograd.Function):
         return tuple(x.detach() for x in input)
 
     @staticmethod
-    def backward(ctx: Context,
-                 *grad_input: Tensor,
-                 ) -> Tuple[Optional[Tensor], ...]:
+    def backward(ctx: Context, *grad_input: Tensor,) -> Tuple[Optional[Tensor], ...]:
         prev_stream = ctx.prev_stream
         next_stream = ctx.next_stream
 

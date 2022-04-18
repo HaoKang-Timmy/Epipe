@@ -5,7 +5,7 @@ Paper: https://arxiv.org/pdf/1308.2452.pdf
 """
 from typing import Iterator, List, Tuple
 
-__all__ = ['solve']
+__all__ = ["solve"]
 
 
 def solve(sequence: List[int], partitions: int = 1) -> List[List[int]]:
@@ -17,11 +17,13 @@ def solve(sequence: List[int], partitions: int = 1) -> List[List[int]]:
 
     """
     if partitions < 1:
-        raise ValueError(f'partitions must be a positive integer ({partitions} < 1)')
+        raise ValueError(f"partitions must be a positive integer ({partitions} < 1)")
 
     n = len(sequence)
     if n < partitions:
-        raise ValueError(f'sequence is shorter than intended partitions ({n} < {partitions})')
+        raise ValueError(
+            f"sequence is shorter than intended partitions ({n} < {partitions})"
+        )
 
     # Normalize the sequence in [0, 1].
     minimum = min(sequence)
@@ -31,12 +33,12 @@ def solve(sequence: List[int], partitions: int = 1) -> List[List[int]]:
     if maximum == 0:
         normal_sequence = [0 for _ in sequence]
     else:
-        normal_sequence = [(x-minimum)/maximum for x in sequence]
+        normal_sequence = [(x - minimum) / maximum for x in sequence]
 
-    splits = [n//partitions * (x+1) for x in range(partitions-1)] + [n]
+    splits = [n // partitions * (x + 1) for x in range(partitions - 1)] + [n]
 
     def block_size(i: int) -> float:
-        start = splits[i-1] if i > 0 else 0
+        start = splits[i - 1] if i > 0 else 0
         stop = splits[i]
         return sum(normal_sequence[start:stop])
 
@@ -58,7 +60,7 @@ def solve(sequence: List[int], partitions: int = 1) -> List[List[int]]:
             min_size, q = min(leaderboard())
 
             if max_size <= min_size + 1:
-                return [sequence[i:j] for i, j in zip([0]+splits[:-1], splits)]
+                return [sequence[i:j] for i, j in zip([0] + splits[:-1], splits)]
 
             """
             (3) If M(P) > m(P) + 1, then let m(P) = bq for the q ∈ [k] which is
