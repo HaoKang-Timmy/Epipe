@@ -14,19 +14,21 @@ You can see the data-parallel code here.
 
 #  parallel pipeline vs data-parallel
 
-| Experiment        | Dataset | Backend     | GPUs | Batch size    | Learning rate | Top-1 acc (%) | Throughput | Speed up |
-| ----------------- | ------- | ----------- | ---- | ------------- | ------------- | ------------- | ---------- | -------- |
-| Pipeline-2gpu     | CIFAR10 | MobilenetV2 | 2    | 64(4 chunks)  | 0.005         | 95.89±0.07    | 228.57/s   | 0.607×   |
-| Dataparallel-2gpu | CIFAR10 | MobilenetV2 | 2    | 64            | 0.005         | 95.83±0.04    | 376.47/s   | 1×       |
-| Pipeline-4gpu     | CIFAR10 | MobilenetV2 | 4    | 256(4 chunks) | 0.02          | 96.03±0.14    | 400.30/s   | 1.07×    |
-| Pipeline-4gpu     | CIFAR10 | MobilenetV2 | 4    | 256(8 chunks) | 0.02          | 96.07±0.05    | 397.30/s   | 1.06×    |
-| Dataparallel-4gpu | CIFAR10 | MobilenetV2 | 4    | 256           | 0.02          | 95.94±0.09    | 627.22/s   | 1.66×    |
-| Pipeline-2gpu     | RTE     | Roberta     | 2    | 32(4 chunks)  | 2e-5          | 78.59±0.21    | 61.53/s    | 0.80×    |
-| Pipeline-2gpu     | RTE     | Roberta     | 2    | 64(4 chunks)  | 4e-5          | 77.56±0.39    | 68.82/s    | 0.90×    |
-| Dataparallel-2gpu | RTE     | Roberta     | 2    | 32            | 2e-5          | 79.0±0.27     | 76.19/s    | 1×       |
-| Pipeline-4gpu     | RTE     | Roberta     | 4    | 64(4 chunks)  | 4e-5          | 78.17±0.44    | 106.40/s   | 1.40×    |
-| Pipeline-4gpu     | RTE     | Roberta     | 4    | 64(2 chunks)  | 4e-5          | 78.15±0.22    | 96.40/s    | 1.27×    |
-| Dataparallel-4gpu | RTE     | Roberta     | 4    | 64            | 4e-5          | 78.4±0.21     | 95.53/s    | 1.25×    |
+| Experiment                 | Dataset | Backend     | GPUs | Batch size    | Learning rate | Top-1 acc (%) | Throughput | Speed up |
+| -------------------------- | ------- | ----------- | ---- | ------------- | ------------- | ------------- | ---------- | -------- |
+| Pipeline-2gpu              | CIFAR10 | MobilenetV2 | 2    | 64(4 chunks)  | 0.005         | 95.89±0.07    | 228.57/s   | 0.607×   |
+| Pipeline-2gpu(origin code) | CIFAR10 | MobilenetV2 | 2    | 64(4 chunks)  | 0.005         | None          | 213.33/s   | 0.566×   |
+| Dataparallel-2gpu          | CIFAR10 | MobilenetV2 | 2    | 64            | 0.005         | 95.83±0.04    | 376.47/s   | 1×       |
+| Pipeline-4gpu              | CIFAR10 | MobilenetV2 | 4    | 256(4 chunks) | 0.02          | 96.03±0.14    | 400.30/s   | 1.07×    |
+| Pipeline-4gpu(origin code) | CIFAR10 | MobilenetV2 | 4    | 256(4 chunks) | 0.005         | None          | 419.67/s   | 1.11×    |
+| Pipeline-4gpu              | CIFAR10 | MobilenetV2 | 4    | 256(8 chunks) | 0.02          | 96.07±0.05    | 397.30/s   | 1.06×    |
+| Dataparallel-4gpu          | CIFAR10 | MobilenetV2 | 4    | 256           | 0.02          | 95.94±0.09    | 627.22/s   | 1.66×    |
+| Pipeline-2gpu              | RTE     | Roberta     | 2    | 32(4 chunks)  | 2e-5          | 78.59±0.21    | 61.53/s    | 0.80×    |
+| Pipeline-2gpu              | RTE     | Roberta     | 2    | 64(4 chunks)  | 4e-5          | 77.56±0.39    | 68.82/s    | 0.90×    |
+| Dataparallel-2gpu          | RTE     | Roberta     | 2    | 32            | 2e-5          | 79.0±0.27     | 76.19/s    | 1×       |
+| Pipeline-4gpu              | RTE     | Roberta     | 4    | 64(4 chunks)  | 4e-5          | 78.17±0.44    | 106.40/s   | 1.40×    |
+| Pipeline-4gpu              | RTE     | Roberta     | 4    | 64(2 chunks)  | 4e-5          | 78.15±0.22    | 96.40/s    | 1.27×    |
+| Dataparallel-4gpu          | RTE     | Roberta     | 4    | 64            | 4e-5          | 78.4±0.21     | 95.53/s    | 1.25×    |
 
 You could see that nlp model performs better at model parallel. This is because I only put first and last layer at the client gpu.
 
@@ -83,7 +85,7 @@ For VGG13
 | Train method | number of GPU | batch size per GPU | time per batch | Data transfer time | Backward time |
 | ------------ | ------------- | ------------------ | -------------- | ------------------ | ------------- |
 | Dataparallel | 2             | 64                 | 0.704          | 0.064              | 0.636         |
-| Dataparallel | 4             | 64                 | 0.779          | 0.135              | 0.640         |
+| Dataparallel | 4             | 64                 | 0.684          | 0.169              | 0.640         |
 
 Seems not.
 
@@ -95,6 +97,13 @@ If I changed AdamW to **SGD** for Roberta, the reason is shown below
 | ------------- | ------------- | ------------------ | -------------- | ------------------ | ------------- |
 | Data parallel | 2             | 16                 | 0.252          | 0.039              | 0.097         |
 | Data parallel | 4             | 16                 | 0.435          | 0.171              | 0.091         |
+
+Also there are tests for **Adam**
+
+| Train method  | number of GPU | batch size per GPU | time per batch | Data transfer time | Backward time |
+| ------------- | ------------- | ------------------ | -------------- | ------------------ | ------------- |
+| Data parallel | 2             | 16                 | 0.397          | 0.045              | 0.254         |
+| Data parallel | 4             | 16                 | 0.688          | 0.171              | 0.325         |
 
 But **SGD** performs really bad at Roberta Model
 
