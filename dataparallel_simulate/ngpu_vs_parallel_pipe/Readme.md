@@ -1,6 +1,6 @@
 # speed and acc
 
-Here is a test of model parallel + parallelism pipeline and data parallel
+Here is a test of model parallel + parallelism pipeline and data-parallel
 
 You could use the code provided at
 
@@ -8,7 +8,7 @@ https://github.com/timmywanttolearn/gpipe_test
 
 to see the speed and acc of model parallel + parallelism pipeline.
 
-You can see the data parallel code here.
+You can see the data-parallel code here.
 
 # Result
 
@@ -38,7 +38,7 @@ If you separate the model averagely, it changes
 | ------------- | ------- | ----------- | ---- | ------------ | ------------- | ---------- | -------- |
 | Pipeline-2gpu | CIFAR10 | MobilenetV2 | 2    | 64(4 chunks) | 0.005         | 318.74/s   | 0.847×   |
 
-And also NLP models are slow at data parallel mode
+And also NLP models are slow in data-parallel mode
 
 | Model   | Train-method         | number of gpu | Total batchsize | Throughput |
 | ------- | -------------------- | ------------- | --------------- | ---------- |
@@ -54,19 +54,19 @@ And also NLP models are slow at data parallel mode
 
 How come that dataparallel in Roberta so slow
 
-| Train method | number of gpu | batchsize per gpu | time per batch | Data transfer time | Backward time |
-| ------------ | ------------- | ----------------- | -------------- | ------------------ | ------------- |
-| Dataparallel | 2             | 16                | 0.401          | 0.037              | 0.244         |
-| Dataparallel | 3             | 16                | 0.519          | 0.100              | 0.277         |
-| Dataparallel | 4             | 16                | 0.657          | 0.161              | 0.310         |
+| Train method | number of gpu | batch size per GPU | time per batch | Data transfer time | Backward time |
+| ------------ | ------------- | ------------------ | -------------- | ------------------ | ------------- |
+| Dataparallel | 2             | 16                 | 0.401          | 0.037              | 0.244         |
+| Dataparallel | 3             | 16                 | 0.519          | 0.100              | 0.277         |
+| Dataparallel | 4             | 16                 | 0.657          | 0.161              | 0.310         |
 
 In MobileNetV2
 
-| Train method | number of gpu | batchsize per gpu | time per batch | Data transfer time | Backward time |
-| ------------ | ------------- | ----------------- | -------------- | ------------------ | ------------- |
-| Dataparallel | 2             | 64                | 0.341          | 0.064              | 0.243         |
-| Dataparallel | 3             | 64                | 0.364          | 0.098              | 0.241         |
-| Dataparallel | 4             | 64                | 0.389          | 0.13               | 0.240         |
+| Train method | number of GPU | batch size per GPU | time per batch | Data transfer time | Backward time |
+| ------------ | ------------- | ------------------ | -------------- | ------------------ | ------------- |
+| Dataparallel | 2             | 64                 | 0.341          | 0.064              | 0.243         |
+| Dataparallel | 3             | 64                 | 0.364          | 0.098              | 0.241         |
+| Dataparallel | 4             | 64                 | 0.389          | 0.13               | 0.240         |
 
 Is it because the size of the model?
 
@@ -80,14 +80,37 @@ Is it because the size of the model?
 
 For VGG13
 
-| Train method | number of gpu | batchsize per gpu | time per batch | Data transfer time | Backward time |
-| ------------ | ------------- | ----------------- | -------------- | ------------------ | ------------- |
-| Dataparallel | 2             | 64                | 0.704          | 0.064              | 0.636         |
-| Dataparallel | 4             | 64                | 0.779          | 0.135              | 0.640         |
+| Train method | number of GPU | batch size per GPU | time per batch | Data transfer time | Backward time |
+| ------------ | ------------- | ------------------ | -------------- | ------------------ | ------------- |
+| Dataparallel | 2             | 64                 | 0.704          | 0.064              | 0.636         |
+| Dataparallel | 4             | 64                 | 0.779          | 0.135              | 0.640         |
 
 Seems not.
 
+The true reason is the optimizer the model uses.
 
+If I changed AdamW to **SGD** for Roberta, the reason is shown below
+
+| Train method  | number of GPU | batch size per GPU | time per batch | Data transfer time | Backward time |
+| ------------- | ------------- | ------------------ | -------------- | ------------------ | ------------- |
+| Data parallel | 2             | 16                 | 0.252          | 0.039              | 0.097         |
+| Data parallel | 4             | 16                 | 0.435          | 0.171              | 0.091         |
+
+But **SGD** performs really bad at Roberta Model
+
+To double-check my statement, I use **AdamW** to train MobileNetV2.
+
+| Train method | number of GPU | batch size per GPU | time per batch | Data transfer time | Backward time |
+| ------------ | ------------- | ------------------ | -------------- | ------------------ | ------------- |
+| Dataparallel | 2             | 64                 | 0.323          | 0.064              | 0.246         |
+| Dataparallel | 4             | 16                 | 0.397          | 0.132              | 0.248         |
+
+Still not right, is it because of the parameters of the model? Lets try bigger one VGG13
+
+| Train method | number of GPU | batchsize per GPU | time per batch | Data transfer time | Backward time |
+| ------------ | ------------- | ----------------- | -------------- | ------------------ | ------------- |
+| Dataparallel | 2             | 64                | 0.730          | 0.064              | 0.664         |
+| Dataparallel | 4             | 64                | 0.817          | 0.142              | 0.674         |
 
 # Reproduce
 
