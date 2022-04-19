@@ -159,15 +159,19 @@ def client_trainer(
             }
             acc1 = 0.0
             losses = 0.0
-            batch["attention_mask"] = torch.reshape(
-                batch["attention_mask"],
-                [
-                    int(batch["attention_mask"].shape[0]),
-                    1,
-                    1,
-                    int(batch["attention_mask"].shape[-1]),
-                ],
-            ).to(client_settings["rank"])
+            batch["attention_mask"] = (
+                torch.reshape(
+                    batch["attention_mask"],
+                    [
+                        int(batch["attention_mask"].shape[0]),
+                        1,
+                        1,
+                        int(batch["attention_mask"].shape[-1]),
+                    ],
+                )
+                .to(client_settings["rank"])
+                .type(torch.float32)
+            )
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
             for rank in client_settings["devices"]:
                 if rank != client_settings["rank"]:

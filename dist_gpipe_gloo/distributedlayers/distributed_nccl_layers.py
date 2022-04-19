@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import time
 
 # used for fit the model parallel of mobilenetv2
 class Reshape1(nn.Module):
@@ -45,10 +46,18 @@ class FSBRFunction(autograd.Function):
 
 class FRBSFunction(autograd.Function):
     @staticmethod
-    def forward(ctx, input: torch.tensor, recv_rank: int, rank: int, pg=None):
+    def forward(
+        ctx, input: torch.tensor, recv_rank: int, rank: int, pg=None, bandwidth=None
+    ):
         ctx.send_rank, ctx.pg = recv_rank, pg
         recv = input
+        if bandwidth is not None:
+            start = time.time()
         dist.recv(recv, recv_rank, group=pg)
+        if bandwidth is not None:
+            end = time.time() - start
+            bandwidth[0] = recv.element_size() * recv.nelement() / end
+            # print("time",end,"rank",rank)
         return input
 
     @staticmethod
@@ -56,4 +65,4 @@ class FRBSFunction(autograd.Function):
         send_rank, pg = ctx.send_rank, ctx.pg
         send = grad_output
         dist.isend(send, send_rank, group=pg)
-        return grad_output, None, None, None
+        return grad_output, None, None, None, None

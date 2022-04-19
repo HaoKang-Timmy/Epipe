@@ -58,6 +58,7 @@ def server_trainer(
                 model.train()
                 batch = []
                 for chunk in range(server_settings["chunks"]):
+
                     input = (
                         torch.zeros(server_settings["recv_size"])
                         .to(server_settings["device"])
