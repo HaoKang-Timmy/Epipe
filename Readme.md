@@ -50,7 +50,7 @@ Haokang_quantization
 
 Here is the pseudocode
 
-![image-20220419152537621](./pic/image-20220419152537621.png)
+![image-20220419152830075](./pic/image-20220419152830075.png)
 
 
 
