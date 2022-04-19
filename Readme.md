@@ -4,17 +4,17 @@ typora-copy-images-to: ./pic
 
 
 
-
-
-### 1.distgpipe training
+# 1.distgpipe training
 
 On CIFAR10 MobilenetV2 training
 
 Traditional quantization is one step, one min per tensor. Multiple quantization has multiple steps and mins
 
-Here are some important data. And I have done some train efficiency tests on dist-gpipe, which speed up the process at least 30%.
+Here are some important data. And I have done some train efficiency tests on Gpipe, which speed up the process by at least 30% compared to naive model parallelism training.
 
-CIFAR10
+## 1.1 CIFAR10
+
+I have tested CIFAR10 on MobileNet with several compression method.
 
 | Training method         | Compression method                    | Acc%       |
 | ----------------------- | ------------------------------------- | ---------- |
@@ -30,7 +30,9 @@ CIFAR10
 | Finetune                | Sort Quant12(9bits quant 3bits split) | 95.7%      |
 | Finetune                | Sort Quant8(6bits quant 2bits split)  | 95.7%      |
 
-RTE
+## 1.2 RTE
+
+RTE with Roberta backend.
 
 | Training method | Compression method             | Acc%       |
 | --------------- | ------------------------------ | ---------- |
@@ -40,72 +42,15 @@ RTE
 | Finetune        | Quant8                         | 78.4%~1%   |
 | Finetune        | Sort Quant8(6bits 2bits split) | 78.4%~1%   |
 
-# new method introduce
+
+
+## 1.2 Sort Quantization
 
 Haokang_quantization
 
 Here is the pseudocode
 
-```python
-class SortQuantization(autograd.Function):
-    @staticmethod
-    def forward(ctx,input,bits,ratio,partition):
-        shape = input.shape
-        test = input
-        input = input.view(-1)
-        mask = torch.zeros(input.shape).to(input.get_device())
-        src, index = torch.topk(torch.abs(input), int(ratio * input.shape[0]))
-        # index and src to send 
-        mask.index_fill_(0, index, 1.0)
-        input = input * mask
-        src = input.index_select(0,index)
-        src1, index1 = torch.sort(src, dim = 0,descending=True)
-        index1 = index1.chunk(partition)
-        src1 = src1.chunk(partition)
-        for i in range(partition):
-            min, max = src1[i].min(),src1[i].max()
-            if min != max:
-                step = (max - min) / (pow(2, bits) - 1)
-                temp_src = torch.round((src1[i] - min) / step) - pow(2, bits - 1)
-                temp_src = (temp_src + pow(2, bits - 1)) * step + min
-            else:
-                temp_src = src1[i]
-            src.scatter_(0,index1[i],temp_src)
-        input.scatter_(0,index,src)
-        ctx.mask = mask.view(shape)
-        ctx.ratio = ratio
-        ctx.bits = bits
-        ctx.partition = partition
-        input = input.view(shape)
-        # if input.get_device() == 0:
-        #     print("forward",torch.abs(torch.abs(input) - torch.abs(test)).sum()/torch.abs(test).sum())
-        return input
-    @staticmethod
-    def backward(ctx,grad_backward):
-        test = grad_backward
-        shape = grad_backward.shape
-        grad_backward = grad_backward * ctx.mask
-        grad_backward = grad_backward.view(-1)
-        index = grad_backward.nonzero()
-        index = index.view(-1)
-        src = grad_backward.index_select(0,index)
-        src = src.view(-1)
-        src1, index1 = torch.sort(src, dim = 0,descending=True)
-        index1= index1.chunk(ctx.partition)
-        src1 = src1.chunk(ctx.partition)
-        for i in range(ctx.partition):
-            min, max = src1[i].min(),src1[i].max()
-            if min != max:
-                step = (max - min) / (pow(2, ctx.bits) - 1)
-                src_temp = torch.round((src1[i] - min) / step) - pow(2, ctx.bits - 1)
-                src_temp = (src_temp + pow(2, ctx.bits - 1)) * step + min
-            else:
-                src_temp = src1[i]
-            src.scatter_(0,index1[i],src_temp)
-        grad_backward.scatter_(0,index,src)
-        grad_backward = grad_backward.view(shape)
-        return grad_backward,None,None,None
-```
+![image-20220419152537621](./pic/image-20220419152537621.png)
 
 
 
@@ -120,6 +65,8 @@ class SortQuantization(autograd.Function):
 
 
 # Altogether Ablation Study
+
+
 
 | Dataset  | Backend     | Batchsize     | activation memory size(al together) | Compression method(default3:1) | compression ratio | Validation acc(in cola is Matthew) | Bandwidth          |
 | -------- | ----------- | ------------- | ----------------------------------- | ------------------------------ | ----------------- | ---------------------------------- | ------------------ |
