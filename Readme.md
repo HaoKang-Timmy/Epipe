@@ -1,4 +1,4 @@
-# 1.distgpipe training
+# 1.Distributed Pipeline Parallelism Training
 
 Gpipe training efficiency compares to data-parallelism.
 
@@ -28,7 +28,7 @@ Here is the pseudocode
 
 
 
-## 2.1Ablation study
+## 2.1Ablation Study
 
 
 
