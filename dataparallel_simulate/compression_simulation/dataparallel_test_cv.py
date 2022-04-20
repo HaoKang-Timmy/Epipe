@@ -18,6 +18,7 @@ from utils import (
     TopkLayer,
     Topk_quantization,
     KMeansLayer,
+    PCAQuantize
 )
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
@@ -33,7 +34,8 @@ parser.add_argument("--avgpool", default=0, action="store_true")
 parser.add_argument("--split", default=4, type=int)
 parser.add_argument("--multi", default=0, action="store_true")
 parser.add_argument("--kmeans", default=0, type=int)
-parser.add_argument("--root", default="./data", type=str)
+parser.add_argument("--pca", default=0, type=int)
+parser.add_argument("--root", default="../../data", type=str)
 
 
 def get_lr(optimizer):
@@ -169,6 +171,8 @@ def main_worker(rank, process_num, args):
                     # print("avg")
                 if args.kmeans != 0:
                     outputs = kmeanslayer(outputs)
+                if args.pca != 0:
+                        outputs = PCAQuantize.apply(outputs,args.pca)
             elif args.multi != 0:
                 outputs = Topk_quantization.apply(
                     outputs, args.quant, args.prun, args.split
@@ -206,6 +210,8 @@ def main_worker(rank, process_num, args):
                     # print("avg")
                 if args.kmeans != 0:
                     outputs = kmeanslayer(outputs)
+                if args.pca != 0:
+                    outputs = PCAQuantize.apply(outputs,args.pca)
             elif args.multi != 0:
                 outputs = Topk_quantization.apply(
                     outputs, args.quant, args.prun, args.split
@@ -267,6 +273,8 @@ def main_worker(rank, process_num, args):
                         # print("avg")
                     if args.kmeans != 0:
                         outputs = kmeanslayer(outputs)
+                    if args.pca != 0:
+                        outputs = PCAQuantize.apply(outputs,args.pca)
                 elif args.multi != 0:
                     outputs = Topk_quantization.apply(
                         outputs, args.quant, args.prun, args.split
@@ -291,6 +299,8 @@ def main_worker(rank, process_num, args):
                         # print("avg")
                     if args.kmeans != 0:
                         outputs = kmeanslayer(outputs)
+                    if args.pca != 0:
+                        outputs = PCAQuantize.apply(outputs,args.pca)
                 elif args.multi != 0:
                     outputs = Topk_quantization.apply(
                         outputs, args.quant, args.prun, args.split

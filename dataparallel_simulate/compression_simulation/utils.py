@@ -354,3 +354,23 @@ class KMeansLayer(nn.Module):
 
     def forward(self, input):
         return KMeansFunction.apply(input, self.kmeans, self.bits)
+
+class PCAQuantize(autograd.Function):
+    @staticmethod
+    def forward(ctx,input,q):
+        ctx.q = q
+        U,S,V = torch.pca_lowrank(input,q = q)
+        S = torch.diag_embed(S)
+        output = torch.matmul(U[...,:,:],S[...,:,:])
+        output = torch.matmul(output[...,:,:],V[...,:,:])
+        return output
+    @staticmethod
+    def backward(ctx,grad_output):
+        q = ctx.q
+        U,S,V = torch.pca_lowrank(grad_output,q = q)
+        S = torch.diag_embed(S)
+        output = torch.matmul(U[...,:,:],S[...,:,:])
+        grad_output = torch.matmul(output[...,:,:],V[...,:,:])
+        return grad_output
+        
+
