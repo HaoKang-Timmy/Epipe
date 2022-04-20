@@ -27,8 +27,6 @@ Gpipe training efficiency compares to data-parallelism.
 
 # 2.Sort Quantization
 
-Haokang_quantization
-
 Here is the pseudocode
 
 ![image-20220420141154128](./pic/image-20220420141154128.png)
