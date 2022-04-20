@@ -136,7 +136,6 @@ def client_trainer(
             time_per_batch += batch_time
             start = time.time()
         time_per_batch = time_per_batch / len(train_settings["train_loader"])
-        warmup_scheduler.step()
         train_acc1_avg, train_losses_avg = (
             acc1_avg / len(train_settings["train_loader"]),
             losses_avg / len(train_settings["train_loader"]),
