@@ -75,7 +75,10 @@ class Task:
 
 
 def worker(
-    in_queue: InQueue, out_queue: OutQueue, device: torch.device, grad_mode: bool,
+    in_queue: InQueue,
+    out_queue: OutQueue,
+    device: torch.device,
+    grad_mode: bool,
 ) -> None:
     """The main loop of a worker thread."""
     torch.set_grad_enabled(grad_mode)
