@@ -29,7 +29,7 @@ Gpipe training efficiency compares to data-parallelism.
 
 Here is the pseudocode
 
-![image-20220420141154128](./pic/image-20220420141154128.png)
+![image-20220420160829480](./pic/image-20220420160829480.png)
 
 
 
