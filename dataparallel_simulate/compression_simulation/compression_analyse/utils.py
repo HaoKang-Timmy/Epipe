@@ -220,7 +220,7 @@ class SortQuantization(autograd.Function):
                 # if i == 0:
                 #     print(temp_src)
             else:
-                # print(src1[i])
+                # print(src1[i]
                 temp_src = src1[i]
             # print("origin_src",src1[i])
             # print("quant_dequant_src",temp_src)
