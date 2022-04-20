@@ -1,50 +1,24 @@
----
-typora-copy-images-to: ./pic
----
-
-
-
 # 1.distgpipe training
 
-On CIFAR10 MobilenetV2 training
+Gpipe training efficiency compares to data-parallelism.
 
-Traditional quantization is one step, one min per tensor. Multiple quantization has multiple steps and mins
+| Experiment                 | Dataset | Backend     | GPUs | Batch size    | Learning rate | Top-1 acc (%) | Throughput | Speed up |
+| -------------------------- | ------- | ----------- | ---- | ------------- | ------------- | ------------- | ---------- | -------- |
+| Pipeline-2gpu              | CIFAR10 | MobilenetV2 | 2    | 64(4 chunks)  | 0.005         | 95.89±0.07    | 228.57/s   | 0.607×   |
+| Pipeline-2gpu(origin code) | CIFAR10 | MobilenetV2 | 2    | 64(4 chunks)  | 0.005         | None          | 213.33/s   | 0.566×   |
+| Dataparallel-2gpu          | CIFAR10 | MobilenetV2 | 2    | 64            | 0.005         | 95.83±0.04    | 376.47/s   | 1×       |
+| Pipeline-4gpu              | CIFAR10 | MobilenetV2 | 4    | 256(4 chunks) | 0.02          | 96.03±0.14    | 400.30/s   | 1.07×    |
+| Pipeline-4gpu(origin code) | CIFAR10 | MobilenetV2 | 4    | 256(4 chunks) | 0.005         | None          | 419.67/s   | 1.11×    |
+| Pipeline-4gpu              | CIFAR10 | MobilenetV2 | 4    | 256(8 chunks) | 0.02          | 96.07±0.05    | 397.30/s   | 1.06×    |
+| Dataparallel-4gpu          | CIFAR10 | MobilenetV2 | 4    | 256           | 0.02          | 95.94±0.09    | 627.22/s   | 1.66×    |
+| Pipeline-2gpu              | RTE     | Roberta     | 2    | 32(4 chunks)  | 2e-5          | 78.59±0.21    | 61.53/s    | 0.80×    |
+| Pipeline-2gpu              | RTE     | Roberta     | 2    | 64(4 chunks)  | 4e-5          | 77.56±0.39    | 68.82/s    | 0.90×    |
+| Dataparallel-2gpu          | RTE     | Roberta     | 2    | 32            | 2e-5          | 79.0±0.27     | 76.19/s    | 1×       |
+| Pipeline-4gpu              | RTE     | Roberta     | 4    | 64(4 chunks)  | 4e-5          | 78.17±0.44    | 106.40/s   | 1.40×    |
+| Pipeline-4gpu              | RTE     | Roberta     | 4    | 64(2 chunks)  | 4e-5          | 78.15±0.22    | 96.40/s    | 1.27×    |
+| Dataparallel-4gpu          | RTE     | Roberta     | 4    | 64            | 4e-5          | 78.4±0.21     | 95.53/s    | 1.25     |
 
-Here are some important data. And I have done some train efficiency tests on Gpipe, which speed up the process by at least 30% compared to naive model parallelism training.
-
-## 1.1 CIFAR10
-
-I have tested CIFAR10 on MobileNet with several compression method.
-
-| Training method         | Compression method                    | Acc%       |
-| ----------------------- | ------------------------------------- | ---------- |
-| tfs(train from scratch) | No                                    | 94.07%     |
-| tfs(train from scratch) | Quantization16(traditional)           | 93.94%     |
-| tfs(train from scratch) | Prune 0.5                             | 94.02%     |
-| tfs(train from scratch) | Prune 0.1                             | 90.1%      |
-| Finetune                | No                                    | 95.9%~0.1% |
-| Finetune                | Quantization16(traditional)           | 95.8%~0.1% |
-| Finetune                | Prune 0.5                             | 95.9%~0.1% |
-| Finetune                | Prune 0.2                             | 95.1%~0.1% |
-| Finetune                | Prune 0.1                             | 94.3%      |
-| Finetune                | Sort Quant12(9bits quant 3bits split) | 95.7%      |
-| Finetune                | Sort Quant8(6bits quant 2bits split)  | 95.7%      |
-
-## 1.2 RTE
-
-RTE with Roberta backend.
-
-| Training method | Compression method             | Acc%       |
-| --------------- | ------------------------------ | ---------- |
-| Finetune        | No                             | 79.7%~0.2% |
-| Finetune        | Quant6                         | 75.1%~3.2% |
-| Finetune        | Sort Quant6(4bits 2bits split) | 77.4%~2.0% |
-| Finetune        | Quant8                         | 78.4%~1%   |
-| Finetune        | Sort Quant8(6bits 2bits split) | 78.4%~1%   |
-
-
-
-## 1.2 Sort Quantization
+# 2.Sort Quantization
 
 Haokang_quantization
 
@@ -54,7 +28,7 @@ Here is the pseudocode
 
 
 
-# Ablation study
+## 2.1Ablation study
 
 
 
@@ -64,9 +38,9 @@ Here is the pseudocode
 
 
 
-# Altogether Ablation Study
+## 2.2Altogether Ablation Study
 
-## CIFAR10
+### CIFAR10
 
 Backend:MobileNetV2
 
@@ -79,7 +53,7 @@ Client Server Partition: First and last layer
 | 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 8bits        | 0.25              | 95.7%±0.03%    |           |
 | 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 4bits        | 0.125             | 87.10%         |           |
 
-## CIFAR100
+### CIFAR100
 
 Backend:MobileNetV2
 
@@ -94,7 +68,7 @@ Since the activation memory size is the same as the CIFAR10 dataset, the bandwid
 | 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 12bits       | 0.375             | 80.61%         |
 | 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 8bits        | 0.25              | 78.83%         |
 
-## FOOD101
+### FOOD101
 
 Backend:MobileNetV2
 
@@ -109,7 +83,7 @@ Since the activation memory size is the same as the CIFAR10 dataset, the bandwid
 | 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 12bits       | 0.375             | 83.72%         |
 | 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 8bits        | 0.25              |                |
 
-## RTE
+### RTE
 
 Backend:Roberta-base
 
@@ -122,7 +96,7 @@ Client Server Partition: First two and last two layers
 | 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 8bits        | 0.25              | 79.4%±0.21%                        |           |
 | 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 4bits        | 0.125             | 52.2%                              |           |
 
-## COLA
+### COLA
 
 Backend:Roberta-base
 
