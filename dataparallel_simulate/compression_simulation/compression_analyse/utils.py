@@ -111,7 +111,13 @@ class QuantizationLayer(nn.Module):
 class Dequantization(autograd.Function):
     @staticmethod
     def forward(
-        ctx, input, bits, min, step, backward_min, backward_step,
+        ctx,
+        input,
+        bits,
+        min,
+        step,
+        backward_min,
+        backward_step,
     ):
         ctx.bits, ctx.backward_min, ctx.backward_step = (
             bits,
@@ -148,7 +154,7 @@ class DequantizationLayer(nn.Module):
         )
 
 
-class Fakequantize(autograd.Function):
+class FakeQuantize(autograd.Function):
     @staticmethod
     def forward(ctx, input, bits):
         ctx.bits = bits
@@ -200,71 +206,53 @@ class SortQuantization(autograd.Function):
     @staticmethod
     def forward(ctx, input, bits, split_bits):
         # print(bits,ratio,partition)
+        ctx.bits, ctx.split_bits = bits, split_bits
         shape = input.shape
         test = input
         input = input.view(-1)
-        src, index = torch.sort(input,dim = 0)
+        src, index = torch.sort(input, dim=0)
         # print("src_sort",src1,"index1_sort",index1)
-        index = torch.tensor_split(index, 2 ** split_bits)
-        src = torch.tensor_split(src, 2 ** split_bits)
+        index = torch.tensor_split(index, 2**split_bits)
+        src = torch.tensor_split(src, 2**split_bits)
         # print(src1[1])
-        for i in range(2 ** split_bits):
+        for i in range(2**split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
 
                 # print(torch.round((src1[i] - min) / step)- pow(2, bits - 1) )
-                temp_src = torch.round((src1[i] - min) / step) - pow(2, bits - 1)
+                temp_src = torch.round((src[i] - min) / step) - pow(2, bits - 1)
 
                 temp_src = (temp_src + pow(2, bits - 1)) * step + min
                 # if i == 0:
                 #     print(temp_src)
             else:
                 # print(src1[i]
-                temp_src = src1[i]
+                temp_src = src[i]
             # print("origin_src",src1[i])
             # print("quant_dequant_src",temp_src)
 
-            src.scatter_(0, index1[i], temp_src)
-
-        # src = src.view(-1)
-        # index = index.view(-1)
-        # print("final_index",index,"final_src",src)
-        input.scatter_(0, index, src)
-        ctx.mask = mask.view(shape)
-        ctx.ratio = ratio
-        ctx.bits = bits
-        ctx.partition = partition
+            input.scatter_(0, index[i], temp_src)
         input = input.view(shape)
-        # if input.get_device() == 0:
-        #     print("forward",torch.abs(torch.abs(input) - torch.abs(test)).sum()/torch.abs(test).sum())
         return input
 
     @staticmethod
     def backward(ctx, grad_backward):
-        test = grad_backward
+        bits, split_bits = ctx.bits, ctx.split_bits
         shape = grad_backward.shape
-        grad_backward = grad_backward * ctx.mask
-        grad_backward = grad_backward.view(-1)
-        index = grad_backward.nonzero()
-        index = index.view(-1)
-        src = grad_backward.index_select(0, index)
-        src = src.view(-1)
-        src1, index1 = torch.topk(src, int(src.shape[0]))
-        index1 = index1.chunk(ctx.partition)
-        src1 = src1.chunk(ctx.partition)
-        for i in range(ctx.partition):
-            min, max = src1[i].min(), src1[i].max()
+        src, index = torch.sort(grad_backward, dim=0)
+        index = index.chunk(2**split_bits)
+        src = src.chunk(2**split_bits)
+        for i in range(2**split_bits):
+            min, max = src[i].min(), src[i].max()
             if min != max:
-                step = (max - min) / (pow(2, ctx.bits) - 1)
-                src_temp = torch.round((src1[i] - min) / step) - pow(2, ctx.bits - 1)
-                src_temp = (src_temp + pow(2, ctx.bits - 1)) * step + min
+                step = (max - min) / (pow(2, bits) - 1)
+                src_temp = torch.round((src[i] - min) / step) - pow(2, bits - 1)
+                src_temp = (src_temp + pow(2, bits - 1)) * step + min
             else:
-                src_temp = src1[i]
-            src.scatter_(0, index1[i], src_temp)
+                src_temp = src[i]
+            grad_backward.scatter_(0, index[i], src_temp)
 
-        # index = index.view(-1)
-        grad_backward.scatter_(0, index, src)
         grad_backward = grad_backward.view(shape)
         # print(grad_backward)
         # while(1):
@@ -282,7 +270,7 @@ class TopkQuantLayer(nn.Module):
         self.divide_part = divide_part
 
     def forward(self, input):
-        return Topk_quantization.apply(input, self.bits, self.ratio, self.divide_part)
+        return SortQuantization.apply(input, self.bits, self.ratio, self.divide_part)
 
 
 class KMeansFunction(autograd.Function):
@@ -297,7 +285,7 @@ class KMeansFunction(autograd.Function):
         labels, centers = kmeans.fit_predict(input)
         centers = centers.view(-1)
         labels = labels.type(torch.cuda.FloatTensor)
-        for i in range(2 ** bits):
+        for i in range(2**bits):
             labels[labels == i] = centers[i]
         labels = labels.view(shape)
         labels = labels.requires_grad_()
@@ -312,7 +300,7 @@ class KMeansFunction(autograd.Function):
         labels, centers = kmeans.fit_predict(grad_output)
         centers = centers.view(-1)
         labels = labels.type(torch.cuda.FloatTensor)
-        for i in range(2 ** bits):
+        for i in range(2**bits):
             labels[labels == i] = centers[i]
         labels = labels.view(shape)
         grad_output = grad_output.view(shape)
@@ -323,7 +311,7 @@ class KMeansFunction(autograd.Function):
 class KMeansLayer(nn.Module):
     def __init__(self, bits, device) -> None:
         super(KMeansLayer, self).__init__()
-        self.kmeans = KMeans(n_clusters=2 ** bits, mode="euclidean", device=device)
+        self.kmeans = KMeans(n_clusters=2**bits, mode="euclidean", device=device)
         self.bits = bits
 
     def forward(self, input):
