@@ -17,8 +17,8 @@ from utils import (
     DequantizationLayer,
     Fakequantize,
     TopkLayer,
-    Topk_quantization,
-    PCAQuantize
+    SortQuantization,
+    PCAQuantize,
 )
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
@@ -26,12 +26,12 @@ parser.add_argument("--log", default="./test", type=str)
 parser.add_argument("--pretrained", default=0, action="store_true")
 parser.add_argument("--warmup", default=0, action="store_true")
 parser.add_argument("--lr", default=0.01, type=float)
-parser.add_argument("--epochs", default=20, type=int)
+parser.add_argument("--epochs", default=40, type=int)
 parser.add_argument("--batches", default=64, type=int)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prune", default=0.0, type=float)
 parser.add_argument("--avgpool", default=0, action="store_true")
-parser.add_argument("--split", default=4, type=int)
+parser.add_argument("--split", default=0, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
 parser.add_argument("--kmeans", default=0, type=int)
 parser.add_argument("--pca1", default=0, type=int)
@@ -170,11 +170,9 @@ def main_worker(rank, process_num, args):
                     outputs = upsample2(outputs)
                     # print("avg")
                 if args.pca1 != 0:
-                        outputs = PCAQuantize.apply(outputs,args.pca1)
+                    outputs = PCAQuantize.apply(outputs, args.pca1)
             elif args.sortquant != 0:
-                outputs = Topk_quantization.apply(
-                    outputs, args.quant, args.prune, args.split
-                )
+                outputs = SortQuantization.apply(outputs, args.quant, args.split)
 
             outputs = layer2(outputs)
             # if args.sortquant == 0:
@@ -193,22 +191,16 @@ def main_worker(rank, process_num, args):
             #     if args.pca2 != 0:
             #         outputs = PCAQuantize.apply(outputs,args.pca2)
             # elif args.sortquant != 0:
-            #     outputs = Topk_quantization.apply(
-            #         outputs, args.quant, args.prune, args.split
+            #     outputs = SortQuantization.apply(
+            #         outputs, args.quant, args.split
             #     )
-            # outputs,min,step = quant_layer2(outputs)
-            # outputs = dequant_layer2(outputs,min,step,quant_layer2.backward_min,quant_layer2.backward_step)
             outputs = layer3(outputs)
             # print(outputs)
             # while(1):
             #     pass
             loss = criterion(outputs, label)
             acc, _ = accuracy(outputs, label, topk=(1, 2))
-            # pred = np.argmax(logits.cpu(), axis=1)
-            # pred = torch.argmax(logits,dim = 1)
-            # pred = np.argmax(logits.item(),axis = 1)
 
-            # metric.add_batch(predictions = logits,references=batch['labels'])
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -252,16 +244,13 @@ def main_worker(rank, process_num, args):
                         outputs = upsample2(outputs)
                         # print("avg")
                     if args.pca1 != 0:
-                        outputs = PCAQuantize.apply(outputs,args.pca1)
+                        outputs = PCAQuantize.apply(outputs, args.pca1)
                 elif args.sortquant != 0:
-                    outputs = Topk_quantization.apply(
-                        outputs, args.quant, args.prune, args.split
-                    )
+                    outputs = SortQuantization.apply(outputs, args.quant, args.split)
                 # outputs,min,step = quant_layer1(outputs)
                 # outputs = dequant_layer1(outputs,min,step,quant_layer1.backward_min,quant_layer1.backward_step)
                 outputs = layer2(outputs)
-                # outputs,min,step = quant_layer2(outputs)
-                # outputs = dequant_layer2(outputs,min,step,quant_layer2.backward_min,quant_layer2.backward_step)
+
                 # if args.sortquant == 0:
                 #     if args.prune != 0:
                 #         outputs = topk_layer(outputs)
@@ -278,8 +267,8 @@ def main_worker(rank, process_num, args):
                 #     if args.pca2 != 0:
                 #         outputs = PCAQuantize.apply(outputs,args.pca2)
                 # elif args.sortquant != 0:
-                #     outputs = Topk_quantization.apply(
-                #         outputs, args.quant, args.prune, args.split
+                #     outputs = SortQuantization.apply(
+                #         outputs, args.quant, args.split
                 #     )
                 outputs = layer3(outputs)
                 loss = criterion(outputs, label)

@@ -9,7 +9,7 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 import argparse
 import os
-from utils import Fakequantize, TopkLayer, Topk_quantization, KMeansLayer
+from utils import Fakequantize, TopkLayer, SortQuantization, KMeansLayer
 from torch.optim import AdamW
 
 
@@ -27,7 +27,7 @@ class nlp_sequential(nn.Module):
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 
-parser.add_argument("--log-dir", default="./my_gpipe", type=str)
+parser.add_argument("--log", default="./my_gpipe", type=str)
 parser.add_argument("--dataset", default="cola", type=str)
 parser.add_argument("--lr", default=2e-5, type=float)
 parser.add_argument("--epochs", default=40, type=int)
@@ -207,7 +207,7 @@ def main_worker(rank, process_num, args):
                         # if rank == 1:
                         # print("first output",outputs)
                 else:
-                    outputs = Topk_quantization.apply(
+                    outputs = SortQuantization.apply(
                         outputs, args.quant, args.prun, args.sort
                     )
 
@@ -223,7 +223,7 @@ def main_worker(rank, process_num, args):
                         # if rank == 1:
                         #     print("first output",outputs)
                 else:
-                    outputs = Topk_quantization.apply(
+                    outputs = SortQuantization.apply(
                         outputs, args.quant, args.prun, args.sort
                     )
 
@@ -298,7 +298,7 @@ def main_worker(rank, process_num, args):
                         if args.kmeans != 0:
                             outputs = kmeanslayer(outputs)
                     else:
-                        outputs = Topk_quantization.apply(
+                        outputs = SortQuantization.apply(
                             outputs, args.quant, args.prun, args.sort
                         )
                     outputs = model3(outputs, batch["attention_mask"])
@@ -310,7 +310,7 @@ def main_worker(rank, process_num, args):
                         if args.kmeans != 0:
                             outputs = kmeanslayer(outputs)
                     else:
-                        outputs = Topk_quantization.apply(
+                        outputs = SortQuantization.apply(
                             outputs, args.quant, args.prun, args.sort
                         )
                     outputs = model5(outputs)
@@ -347,7 +347,7 @@ def main_worker(rank, process_num, args):
                 "matt",
                 val_matt,
             )
-            file_save = open(args.log_dir, mode="a")
+            file_save = open(args.log, mode="a")
             file_save.write(
                 "\n"
                 + "step:"

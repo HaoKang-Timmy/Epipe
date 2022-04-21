@@ -119,13 +119,7 @@ class QuantizationLayer(nn.Module):
 class Dequantization(autograd.Function):
     @staticmethod
     def forward(
-        ctx,
-        input,
-        bits,
-        min,
-        step,
-        backward_min,
-        backward_step,
+        ctx, input, bits, min, step, backward_min, backward_step,
     ):
         ctx.bits, ctx.backward_min, ctx.backward_step = (
             bits,
@@ -210,57 +204,43 @@ class TopkLayer(nn.Module):
         return TopkPruning.apply(x, self.ratio)
 
 
-class Topk_quantization(autograd.Function):
+class SortQuantization(autograd.Function):
     @staticmethod
-    def forward(ctx, input, bits, ratio, partition):
+    def forward(ctx, input, bits, split_bits):
         # print(bits,ratio,partition)
         shape = input.shape
-        test = input
         input = input.view(-1)
-
-        mask = torch.zeros(input.shape).to(input.get_device())
-        src, index = torch.topk(torch.abs(input), int(ratio * input.shape[0]))
-
-        mask.index_fill_(0, index, 1.0)
-        input = input * mask
-        index = input.nonzero()
-        index = index.view(-1)
-        src = input.index_select(0, index)
         # print("src_prun",src_temp,"index_prun",index)
         # quantization src1
         # print(src.shape)
-        src1, index1 = torch.topk(src, int(src.shape[0]))
-        # print("src_sort",src1,"index1_sort",index1)
-        index1 = index1.chunk(partition)
-        src1 = src1.chunk(partition)
+        src, index = torch.sort(input, dim=0)
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
         # print(src1[1])
-        for i in range(partition):
-            min, max = src1[i].min(), src1[i].max()
+        for i in range(2 ** split_bits):
+            min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
 
                 # print(torch.round((src1[i] - min) / step)- pow(2, bits - 1) )
-                temp_src = torch.round((src1[i] - min) / step) - pow(2, bits - 1)
+                temp_src = torch.round((src[i] - min) / step) - pow(2, bits - 1)
 
                 temp_src = (temp_src + pow(2, bits - 1)) * step + min
                 # if i == 0:
                 #     print(temp_src)
             else:
                 # print(src1[i])
-                temp_src = src1[i]
+                temp_src = src[i]
             # print("origin_src",src1[i])
             # print("quant_dequant_src",temp_src)
 
-            src.scatter_(0, index1[i], temp_src)
+            input.scatter_(0, index[i], temp_src)
 
         # src = src.view(-1)
         # index = index.view(-1)
         # print("final_index",index,"final_src",src)
-        input.scatter_(0, index, src)
-        ctx.mask = mask.view(shape)
-        ctx.ratio = ratio
         ctx.bits = bits
-        ctx.partition = partition
+        ctx.split_bits = split_bits
         input = input.view(shape)
         # if input.get_device() == 0:
         #     print("forward",torch.abs(torch.abs(input) - torch.abs(test)).sum()/torch.abs(test).sum())
@@ -268,47 +248,36 @@ class Topk_quantization(autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_backward):
-        test = grad_backward
+        bits, split_bits = ctx.bits, ctx.split_bits
         shape = grad_backward.shape
-        grad_backward = grad_backward * ctx.mask
         grad_backward = grad_backward.view(-1)
-        index = grad_backward.nonzero()
-        index = index.view(-1)
-        src = grad_backward.index_select(0, index)
-        src = src.view(-1)
-        src1, index1 = torch.topk(src, int(src.shape[0]))
-        index1 = index1.chunk(ctx.partition)
-        src1 = src1.chunk(ctx.partition)
-        for i in range(ctx.partition):
-            min, max = src1[i].min(), src1[i].max()
+        src, index = torch.sort(grad_backward, dim=0)
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
+        for i in range(2 ** split_bits):
+            min, max = src[i].min(), src[i].max()
             if min != max:
-                step = (max - min) / (pow(2, ctx.bits) - 1)
-                src_temp = torch.round((src1[i] - min) / step) - pow(2, ctx.bits - 1)
-                src_temp = (src_temp + pow(2, ctx.bits - 1)) * step + min
+                step = (max - min) / (pow(2, bits) - 1)
+                src_temp = torch.round((src[i] - min) / step) - pow(2, bits - 1)
+                src_temp = (src_temp + pow(2, bits - 1)) * step + min
             else:
-                src_temp = src1[i]
-            src.scatter_(0, index1[i], src_temp)
+                src_temp = src[i]
+            grad_backward.scatter_(0, index[i], src_temp)
 
-        # index = index.view(-1)
-        grad_backward.scatter_(0, index, src)
         grad_backward = grad_backward.view(shape)
-        # print(grad_backward)
-        # while(1):
-        #     pass
-        # if grad_backward.get_device() == 0:
-        #     print("backward",torch.abs(torch.abs(grad_backward) - torch.abs(test)).sum()/torch.abs(test).sum())
-        return grad_backward, None, None, None
+
+        return grad_backward, None, None
 
 
-class TopkQuantLayer(nn.Module):
-    def __init__(self, bits, ratio, divide_part):
-        super(TopkQuantLayer, self).__init__()
-        self.bits = bits
-        self.ratio = ratio
-        self.divide_part = divide_part
+# class TopkQuantLayer(nn.Module):
+#     def __init__(self, bits, ratio, divide_part):
+#         super(TopkQuantLayer, self).__init__()
+#         self.bits = bits
+#         self.ratio = ratio
+#         self.divide_part = divide_part
 
-    def forward(self, input):
-        return Topk_quantization.apply(input, self.bits, self.ratio, self.divide_part)
+#     def forward(self, input):
+#         return Topk_quantization.apply(input, self.bits, self.ratio, self.divide_part)
 
 
 class KMeansFunction(autograd.Function):
@@ -323,7 +292,7 @@ class KMeansFunction(autograd.Function):
         labels, centers = kmeans.fit_predict(input)
         centers = centers.view(-1)
         labels = labels.type(torch.cuda.FloatTensor)
-        for i in range(2**bits):
+        for i in range(2 ** bits):
             labels[labels == i] = centers[i]
         labels = labels.view(shape)
         labels = labels.requires_grad_()
@@ -338,7 +307,7 @@ class KMeansFunction(autograd.Function):
         labels, centers = kmeans.fit_predict(grad_output)
         centers = centers.view(-1)
         labels = labels.type(torch.cuda.FloatTensor)
-        for i in range(2**bits):
+        for i in range(2 ** bits):
             labels[labels == i] = centers[i]
         labels = labels.view(shape)
         grad_output = grad_output.view(shape)
@@ -349,36 +318,38 @@ class KMeansFunction(autograd.Function):
 class KMeansLayer(nn.Module):
     def __init__(self, bits, device) -> None:
         super(KMeansLayer, self).__init__()
-        self.kmeans = KMeans(n_clusters=2**bits, mode="euclidean", device=device)
+        self.kmeans = KMeans(n_clusters=2 ** bits, mode="euclidean", device=device)
         self.bits = bits
 
     def forward(self, input):
         return KMeansFunction.apply(input, self.kmeans, self.bits)
 
+
 class PCAQuantize(autograd.Function):
     @staticmethod
-    def forward(ctx,input,q):
+    def forward(ctx, input, q):
         ctx.q = q
-        U,S,V = torch.svd_lowrank(input,q = q)
-        V = V.transpose(-1,-2)
+        U, S, V = torch.svd_lowrank(input, q=q)
+        V = V.transpose(-1, -2)
         S = torch.diag_embed(S)
-        output = torch.matmul(U[...,:,:],S[...,:,:])
-        output = torch.matmul(output[...,:,:],V[...,:,:])
+        output = torch.matmul(U[..., :, :], S[..., :, :])
+        output = torch.matmul(output[..., :, :], V[..., :, :])
         return output
+
     @staticmethod
-    def backward(ctx,grad_output):
+    def backward(ctx, grad_output):
         q = ctx.q
-        U,S,V = torch.svd_lowrank(grad_output,q = q)
-        V = V.transpose(-1,-2)
+        U, S, V = torch.svd_lowrank(grad_output, q=q)
+        V = V.transpose(-1, -2)
         S = torch.diag_embed(S)
-        output = torch.matmul(U[...,:,:],S[...,:,:])
-        grad_output = torch.matmul(output[...,:,:],V[...,:,:])
-        return grad_output,None
+        output = torch.matmul(U[..., :, :], S[..., :, :])
+        grad_output = torch.matmul(output[..., :, :], V[..., :, :])
+        return grad_output, None
 
-class fastpca(autograd.Function):
-    @staticmethod
-    def forward(ctx,input,q):
-        shape = input.shape
-        input = input.view(-1,shape[-2],shape[-1])
-        pass
 
+# class fastpca(autograd.Function):
+#     @staticmethod
+#     def forward(ctx,input,q):
+#         shape = input.shape
+#         input = input.view(-1,shape[-2],shape[-1])
+#         pass

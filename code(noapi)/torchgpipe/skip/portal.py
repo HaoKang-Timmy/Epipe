@@ -64,10 +64,7 @@ class Portal:
         return PortalOrange.apply(self, phony)
 
     def copy(
-        self,
-        prev_stream: AbstractStream,
-        next_stream: AbstractStream,
-        phony: Tensor,
+        self, prev_stream: AbstractStream, next_stream: AbstractStream, phony: Tensor,
     ) -> Tensor:
         """Copies the hidden tensor by a :class:`PortalCopy`.
 
