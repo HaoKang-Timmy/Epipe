@@ -1,3 +1,7 @@
+---
+typora-copy-images-to: ./pic
+---
+
 # 1.Distributed Pipeline Parallelism Training
 
 Gpipe training efficiency compares to data-parallelism.
@@ -35,11 +39,23 @@ Here is the pseudocode
 
 ## 2.1Ablation Study
 
+### Settings For CIFAR10
+
+| Epochs | Lr   | Batch Size | Scheduler | Optimizer |
+| ------ | ---- | ---------- | --------- | --------- |
+| 40     | 0.01 | 256        | Cosine    | SGD       |
+
+![image-20220421173843653](./pic/image-20220421173843653.png)
 
 
-![image-20220415172007987](./pic/image-20220415172007987.png)
 
-![image-20220415173956248](./pic/image-20220415173956248.png)
+### Settings For RTE
+
+| Epochs | Lr   | Batch Size | Scheduler | Optimizer |
+| ------ | ---- | ---------- | --------- | --------- |
+| 20     | 2e-5 | 32         | Poly      | AdamW     |
+
+![image-20220421173802083](./pic/image-20220421173802083.png)
 
 
 
