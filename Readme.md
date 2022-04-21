@@ -1,6 +1,4 @@
----
-typora-copy-images-to: ./pic
----
+
 
 # 1.Distributed Pipeline Parallelism Training
 
