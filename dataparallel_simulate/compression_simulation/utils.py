@@ -359,7 +359,8 @@ class PCAQuantize(autograd.Function):
     @staticmethod
     def forward(ctx,input,q):
         ctx.q = q
-        U,S,V = torch.pca_lowrank(input,q = q)
+        U,S,V = torch.svd_lowrank(input,q = q)
+        V = V.transpose(-1,-2)
         S = torch.diag_embed(S)
         output = torch.matmul(U[...,:,:],S[...,:,:])
         output = torch.matmul(output[...,:,:],V[...,:,:])
@@ -367,10 +368,17 @@ class PCAQuantize(autograd.Function):
     @staticmethod
     def backward(ctx,grad_output):
         q = ctx.q
-        U,S,V = torch.pca_lowrank(grad_output,q = q)
+        U,S,V = torch.svd_lowrank(grad_output,q = q)
+        V = V.transpose(-1,-2)
         S = torch.diag_embed(S)
         output = torch.matmul(U[...,:,:],S[...,:,:])
         grad_output = torch.matmul(output[...,:,:],V[...,:,:])
-        return grad_output
-        
+        return grad_output,None
+
+class fastpca(autograd.Function):
+    @staticmethod
+    def forward(ctx,input,q):
+        shape = input.shape
+        input = input.view(-1,shape[-2],shape[-1])
+        pass
 
