@@ -19,7 +19,8 @@ TensorOrTensors = Union[Tensor, Tensors]
 
 
 def layerwise_sandbox(
-    module: nn.Sequential, device: torch.device,
+    module: nn.Sequential,
+    device: torch.device,
 ) -> Generator[nn.Module, None, None]:
     """Copies layers for ease to profile. It doesn't modify the given
     module.

@@ -47,7 +47,11 @@ def init_models_client(train_settings, client_settings):
 
 
 def client_trainer(
-    train_settings, client_settings, optimizer, warmup_scheduler, criterion,
+    train_settings,
+    client_settings,
+    optimizer,
+    warmup_scheduler,
+    criterion,
 ):
     acc1_avg = 0.0
     losses_avg = 0.0
@@ -403,10 +407,10 @@ def client_validation(train_settings, client_settings, criterion):
 
 
 def client(train_settings, client_settings):
-    s = torch.cuda.Stream()
+    s = torch.cuda.Stream(device=client_settings["device"])
     with torch.cuda.stream(s):
         torch.cuda.set_device(client_settings["device"])
-        
+
         # may be not right
         torch.multiprocessing.set_sharing_strategy("file_system")
         print(
@@ -429,13 +433,25 @@ def client(train_settings, client_settings):
         client_settings["group_list"] = group_list
         print("client", group_list)
         for epoch in range(train_settings["epochs"]):
-            train_time, train_acc, train_metric, train_loss, bandwidth_avg = client_trainer(
-                train_settings, client_settings, optimizer, warmup_scheduler, criterion,
+            (
+                train_time,
+                train_acc,
+                train_metric,
+                train_loss,
+                bandwidth_avg,
+            ) = client_trainer(
+                train_settings,
+                client_settings,
+                optimizer,
+                warmup_scheduler,
+                criterion,
             )
             if train_settings["tasktype"] == "cv":
                 warmup_scheduler.step()
             val_acc, val_metric, val_loss = client_validation(
-                train_settings, client_settings, criterion,
+                train_settings,
+                client_settings,
+                criterion,
             )
             print(
                 "epoch",
