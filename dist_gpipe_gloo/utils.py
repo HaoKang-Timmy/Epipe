@@ -33,153 +33,73 @@ def tensor2tuple(input: torch.tensor):
 
 
 def SendTensor(input, settings, train_settings, chunk, edge=False):
-    if len(settings["devices"]) <= 2:  # dead lock bug
-        if settings["send_rank"] == 0 or edge is not False:
-            if train_settings["prune"] != 0:
-                output = TopkPruning.apply(input, train_settings["prune"])
-            if train_settings["sortquant"] != 0:
-                output = SortQuantGPU.apply(
-                    input,
-                    train_settings["quant"],
-                    train_settings["split"],
-                    settings["send_rank"],
-                    settings["group_list"][chunk],
-                )
-                # print("rank:",settings["rank"],"send",settings["send_rank"])
 
-            elif train_settings["quant"] != 0:
-                output = QSendGPU.apply(
-                    input,
-                    train_settings["quant"],
-                    settings["send_rank"],
-                    settings["rank"],
-                    settings["group_list"][chunk],
-                )
-            else:
-                output = FSBRFunction.apply(
-                    input,
-                    settings["send_rank"],
-                    settings["rank"],
-                    settings["group_list"][chunk],
-                )
-        else:
-            # print("rank:",settings["rank"],"send",settings["send_rank"])
-            output = FSBRFunction.apply(
+    if settings["send_rank"] == 0 or edge is not False:
+        if train_settings["prune"] != 0:
+            output = TopkPruning.apply(input, train_settings["prune"])
+        if train_settings["sortquant"] != 0:
+            # print("sort quant send")
+            output = SortQuantGPU.apply(
                 input,
+                train_settings["quant"],
+                train_settings["split"],
+                settings["send_rank"],
+            )
+            # print("rank:",settings["rank"],"send",settings["send_rank"])
+
+        elif train_settings["quant"] != 0:
+            output = QSendGPU.apply(
+                input,
+                train_settings["quant"],
                 settings["send_rank"],
                 settings["rank"],
-                settings["group_list"][chunk],
+            )
+        else:
+            output = FSBRFunction.apply(
+                input, settings["send_rank"], settings["rank"]
             )
     else:
-        if settings["send_rank"] == 0 or edge is not False:
-            if train_settings["prune"] != 0:
-                output = TopkPruning.apply(input, train_settings["prune"])
-            if train_settings["sortquant"] != 0:
-                # print("sort quant send")
-                output = SortQuantGPU.apply(
-                    input,
-                    train_settings["quant"],
-                    train_settings["split"],
-                    settings["send_rank"],
-                )
-                # print("rank:",settings["rank"],"send",settings["send_rank"])
-
-            elif train_settings["quant"] != 0:
-                output = QSendGPU.apply(
-                    input,
-                    train_settings["quant"],
-                    settings["send_rank"],
-                    settings["rank"],
-                )
-            else:
-                output = FSBRFunction.apply(
-                    input, settings["send_rank"], settings["rank"]
-                )
-        else:
-            # print("rank:",settings["rank"],"send",settings["send_rank"])
-            output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
+        # print("rank:",settings["rank"],"send",settings["send_rank"])
+        output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
     return output
 
 
 def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=False):
-    if len(settings["devices"]) <= 2:  # dead lock bug
-        if settings["recv_rank"] == 0 or edge is not False:
-            if train_settings["sortquant"] != 0:
-                if settings["bandwidth"] == 0:
-                    output = SortDeQuantGPU.apply(
-                        input,
-                        train_settings["quant"],
-                        train_settings["split"],
-                        settings["recv_rank"],
-                        settings["group_list"][chunk],
-                    )
-                else:
-                    output = SortDeQuantGPU.apply(
-                        input,
-                        train_settings["quant"],
-                        train_settings["split"],
-                        settings["recv_rank"],
-                        settings["group_list"][chunk],
-                        time_count,
-                    )
-                # print("rank:",settings["rank"],"recv",settings["recv_rank"])
-            elif train_settings["quant"] != 0:
-                output = QrecvGPU.apply(
+
+
+    if settings["recv_rank"] == 0 or edge is not False:
+        if train_settings["sortquant"] != 0:
+            if settings["bandwidth"] == 0:
+                output = SortDeQuantGPU.apply(
                     input,
                     train_settings["quant"],
+                    train_settings["split"],
                     settings["recv_rank"],
-                    settings["rank"],
-                    settings["group_list"][chunk],
                 )
             else:
-                output = FRBSFunction.apply(
+                output = SortDeQuantGPU.apply(
                     input,
+                    train_settings["quant"],
+                    train_settings["split"],
                     settings["recv_rank"],
-                    settings["rank"],
-                    settings["group_list"][chunk],
+                    None,
+                    time_count,
                 )
-        else:
             # print("rank:",settings["rank"],"recv",settings["recv_rank"])
-            output = FRBSFunction.apply(
+        elif train_settings["quant"] != 0:
+            output = QrecvGPU.apply(
                 input,
+                train_settings["quant"],
                 settings["recv_rank"],
                 settings["rank"],
-                settings["group_list"][chunk],
+            )
+        else:
+            output = FRBSFunction.apply(
+                input, settings["recv_rank"], settings["rank"]
             )
     else:
-        if settings["recv_rank"] == 0 or edge is not False:
-            if train_settings["sortquant"] != 0:
-                if settings["bandwidth"] == 0:
-                    output = SortDeQuantGPU.apply(
-                        input,
-                        train_settings["quant"],
-                        train_settings["split"],
-                        settings["recv_rank"],
-                    )
-                else:
-                    output = SortDeQuantGPU.apply(
-                        input,
-                        train_settings["quant"],
-                        train_settings["split"],
-                        settings["recv_rank"],
-                        None,
-                        time_count,
-                    )
-                # print("rank:",settings["rank"],"recv",settings["recv_rank"])
-            elif train_settings["quant"] != 0:
-                output = QrecvGPU.apply(
-                    input,
-                    train_settings["quant"],
-                    settings["recv_rank"],
-                    settings["rank"],
-                )
-            else:
-                output = FRBSFunction.apply(
-                    input, settings["recv_rank"], settings["rank"]
-                )
-        else:
-            # print("rank:",settings["rank"],"recv",settings["recv_rank"])
-            output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
+        # print("rank:",settings["rank"],"recv",settings["recv_rank"])
+        output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
     return output
 
 

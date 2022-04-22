@@ -209,32 +209,34 @@ def server_validation(train_settings, server_settings):
 
 
 def server(train_settings, server_settings):
-    torch.cuda.set_device(server_settings["device"])
-    # maybe not right
-    torch.multiprocessing.set_sharing_strategy("file_system")
-    print(
-        "server",
-        server_settings["backend"],
-        server_settings["dist_url"],
-        server_settings["world_size"],
-        server_settings["rank"],
-    )
-    dist.init_process_group(
-        backend=server_settings["backend"],
-        init_method=server_settings["dist_url"],
-        world_size=server_settings["world_size"],
-        rank=server_settings["rank"],
-    )
-    print("process begin: ", server_settings["rank"])
-    (optimizer, warmup_scheduler, group_list) = init_models_server(
-        train_settings, server_settings
-    )
-    server_settings["group_list"] = group_list
-    # print("server",group_list)
-    for epoch in range(train_settings["epochs"]):
-        server_trainer(
-            train_settings, server_settings, optimizer, warmup_scheduler,
+    s = torch.cuda.Stream()
+    with torch.cuda.stream(s):
+        torch.cuda.set_device(server_settings["device"])
+        # maybe not right
+        torch.multiprocessing.set_sharing_strategy("file_system")
+        print(
+            "server",
+            server_settings["backend"],
+            server_settings["dist_url"],
+            server_settings["world_size"],
+            server_settings["rank"],
         )
-        if train_settings["tasktype"] == "cv":
-            warmup_scheduler.step()
-        server_validation(train_settings, server_settings)
+        dist.init_process_group(
+            backend=server_settings["backend"],
+            init_method=server_settings["dist_url"],
+            world_size=server_settings["world_size"],
+            rank=server_settings["rank"],
+        )
+        print("process begin: ", server_settings["rank"])
+        (optimizer, warmup_scheduler, group_list) = init_models_server(
+            train_settings, server_settings
+        )
+        server_settings["group_list"] = group_list
+        # print("server",group_list)
+        for epoch in range(train_settings["epochs"]):
+            server_trainer(
+                train_settings, server_settings, optimizer, warmup_scheduler,
+            )
+            if train_settings["tasktype"] == "cv":
+                warmup_scheduler.step()
+            server_validation(train_settings, server_settings)
