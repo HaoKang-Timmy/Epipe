@@ -145,3 +145,13 @@ You can find data-parallelsim simulate at
 
 https://github.com/timmywanttolearn/gpipe_test/tree/master/dataparallel_simulate/compression_simulation
 
+# Github Repo
+
+https://github.com/timmywanttolearn/fast_pytorch_kmeans
+
+I modify the repo to allow the fast k-means running on multiple devices.
+
+https://github.com/KinglittleQ/torch-batch-svd
+
+
+

@@ -1,6 +1,8 @@
-# Compression algorithm simluate
+# Compression Algorithm Simulate
 
-## Result of quantization ,sort quantization, and pruning
+All experiments are finished in data-parallelism conditions.
+
+## Result of Quantization ,Sort Quantization, and Pruning
 
 MobilenetV2 CIFAR10
 
@@ -9,7 +11,7 @@ MobilenetV2 CIFAR10
 | Finetune        | No                                      | 96.1%       |
 | Finetune        | Quantization 16bits                     | 96.0%       |
 | Finetune        | Quantization 12bits                     | 95.4%       |
-| Finetune        | Quantization 11bits                     | 91% 10%     |
+| Finetune        | Quantization 11bits                     | 91.0% 10%   |
 | Finetune        | Quantization 10bits                     | 68%         |
 | Finetune        | Quantization 9bits                      | 68%         |
 | Finetune        | Prune0.5                                | 96.1%       |
@@ -39,7 +41,7 @@ NLP tasks with Roberta
 | RTE   | Finetune        | Sort Quantization 6bits( 4splits) | 79.5% ~0.5%      |
 | RTE   | Finetune        | Quantization 4                    | 52.2% ~0.1%      |
 
-## Ablation Study of sort quantization
+## Ablation Study of Sort Quantization
 
 | Settings            | Method                                                       | Input size                            | Time per batch | Acc     |
 | ------------------- | ------------------------------------------------------------ | ------------------------------------- | -------------- | ------- |
@@ -57,7 +59,7 @@ NLP tasks with Roberta
 | RTE Roberta         | Sort Quantization 12bits(9bits 3split)                       | firsrt 1 last 2                       |                | 79.7%   |
 | RTE Roberta         | Sort Quantization 16bits(12bits 4split)                      | firsrt 1 last 2                       |                |         |
 
-## Comparing with k-means
+## Comparing with K-means
 
 | Settings                    | Method                                  | Input size                        | Time per batch | Acc                          |
 | --------------------------- | --------------------------------------- | --------------------------------- | -------------- | ---------------------------- |
