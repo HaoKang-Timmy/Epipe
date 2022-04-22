@@ -59,6 +59,8 @@ Here is the pseudocode
 
 ## 2.2Altogether Ablation Study
 
+These tests are all done in the environment of parallelism pipeline.
+
 ### CIFAR10
 
 Backend:MobileNetV2

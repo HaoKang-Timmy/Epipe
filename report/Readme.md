@@ -181,3 +181,18 @@ python test_nlp_dgpipe.py --sortquant --quant <quant bit> --split <split bit> --
 ./test_nlp_bandwidth.py --bandwidth
 ```
 
+| Method                                  | Separate Strategy                 | Acc                    |
+| --------------------------------------- | --------------------------------- | ---------------------- |
+| Sota                                    | None                              | 78.9%                  |
+| None                                    | first two layers last layer       | 78.5% ~ 0.1%           |
+| Quantization 6bits                      | first two layers last layer       | 77.5%~0.1%             |
+| Sort Quantization 6bits(3bits,8splits)  | [8,128,786]\(the first layer)     | 78.1%~0.2%             |
+| K-meas 6bits(50 iter)                   | first two layers last layer       | 52.7%,53.6%            |
+| K-meas 6bits(100 iter)                  | first two layers last layer       | 55.1%                  |
+| K-meas 6bits(50 iter)                   | first two layers last two layer   | 79.4%                  |
+| Quantization 6bits                      | [8,128,786]\(the  last two layer) | 52.2%                  |
+| Sort Quantization 6bits(3bits, 8splits) | [8,128,786]\(the  last two layer) | 75.0%                  |
+| Sota                                    | [8,128,786]                       | 0.636(Matthew)         |
+| K-meas 6bits(100 iter)                  | [8,128,786]\(the  last two layer) | 0.633～0.006(Matthew)  |
+| Sort Quantization 6bits(3bits, 8splits) | [8,128,786]\(the  last two layer) | 0.591～0.006(Matthew)  |
+| Quantization 6bits                      | [8,128,786]\(the  last two layer) | 0.587 ～0.007(Matthew) |
