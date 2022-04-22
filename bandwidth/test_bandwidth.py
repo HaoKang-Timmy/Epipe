@@ -20,13 +20,15 @@ parser.add_argument("--prune", default=0.0, type=float)
 parser.add_argument("--world-size", default=2, type=int)
 parser.add_argument("--showperiod", default=30, type=int)
 parser.add_argument("--tasktype", default="cv", type=str)
-parser.add_argument("--root", default="./data", type=str)
+parser.add_argument("--root", default="../data", type=str)
 parser.add_argument("--devices", default=[0, 1], type=list)
 parser.add_argument("--url", default="tcp://127.0.0.1:1226", type=str)
 parser.add_argument("--bachend", default="nccl", type=str)
 parser.add_argument("--split", default=0, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
 parser.add_argument("--bandwidth", default=0, action="store_true")
+# if bandwidth is 0 test client send bandwidth and server receive bandwidth.
+# if bandwidth is 1 test client recv bandwidth and server sned bandwidth
 
 
 def main():
@@ -34,11 +36,11 @@ def main():
     model = mobilenet_v2(pretrained=True)
     model.classifier[-1] = nn.Linear(1280, 10)
     devices = args.devices
-    layer1 = [model.features[0:3]]
-    layer2 = [model.features[3:-2]]
+    layer1 = [model.features[0:1]]
+    layer2 = [model.features[1:]]
     # layer3 = [model.features[3:7]]
     # layer4 = [model.features[7:]]
-    layer5 = [model.features[-2:], Reshape1(), model.classifier]
+    layer5 = [Reshape1(), model.classifier]
 
     layer1 = nn.Sequential(*layer1)
     layer2 = nn.Sequential(*layer2)
@@ -101,8 +103,8 @@ def main():
     partition = [[layer1, layer5], [layer2]]
     tensor_size = [
         [
-            (int(args.batches / args.chunks), 24, 56, 56),
-            (int(args.batches / args.chunks), 160, 7, 7),
+            (int(args.batches / args.chunks), 32, 112, 112),
+            (int(args.batches / args.chunks), 1280, 7, 7),
         ],
         # [
         #     (int(args.batches / args.chunks), 24, 56, 56),
@@ -113,8 +115,8 @@ def main():
         #     (int(args.batches / args.chunks), 24, 56, 56),
         # ],
         [
-            (int(args.batches / args.chunks), 160, 7, 7),
-            (int(args.batches / args.chunks), 24, 56, 56),
+            (int(args.batches / args.chunks), 1280, 7, 7),
+            (int(args.batches / args.chunks), 32, 112, 112),
         ],
     ]
     print(tensor_size)
