@@ -189,11 +189,9 @@ def main_worker(rank, process_num, args):
                     outputs = upsample2(outputs)
                     # print("avg")
                 if args.pca2 != 0:
-                    outputs = PCAQuantize.apply(outputs,args.pca2)
+                    outputs = PCAQuantize.apply(outputs, args.pca2)
             elif args.sortquant != 0:
-                outputs = SortQuantization.apply(
-                    outputs, args.quant, args.split
-                )
+                outputs = SortQuantization.apply(outputs, args.quant, args.split)
             outputs = layer3(outputs)
             # print(outputs)
             # while(1):
@@ -265,11 +263,9 @@ def main_worker(rank, process_num, args):
                         outputs = upsample2(outputs)
                         # print("avg")
                     if args.pca2 != 0:
-                        outputs = PCAQuantize.apply(outputs,args.pca2)
+                        outputs = PCAQuantize.apply(outputs, args.pca2)
                 elif args.sortquant != 0:
-                    outputs = SortQuantization.apply(
-                        outputs, args.quant, args.split
-                    )
+                    outputs = SortQuantization.apply(outputs, args.quant, args.split)
                 outputs = layer3(outputs)
                 loss = criterion(outputs, label)
                 acc, _ = accuracy(outputs, label, topk=(1, 2))

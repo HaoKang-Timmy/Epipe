@@ -71,10 +71,12 @@ def server_trainer(
                     input = RecvTensor(
                         input, server_settings, train_settings, chunk, False, timecount
                     )
+                    # print("server, recv",chunk)
                     # print("server",server_settings['rank'],"recv",server_settings['recv_rank'],input.shape)
                     output = model(input)
 
                     output = SendTensor(output, server_settings, train_settings, chunk)
+                    # print("server, send",chunk)
                     # print("server",server_settings['rank'],"send",server_settings['send_rank'],output.shape)
                     timerecv_avg += timecount.item()
                     batch.append(output)

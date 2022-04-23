@@ -44,6 +44,24 @@ class FSBRFunction(autograd.Function):
         return grad_ouput, None, None, None
 
 
+class FSBRFunctionClient(autograd.Function):
+    @staticmethod
+    def forward(ctx, input: torch.tensor, send_rank: int, device: int, pg=None):
+        ctx.recv_rank, ctx.device, ctx.pg = send_rank, device, pg
+        send = input.to(device)
+        dist.isend(send, send_rank, group=pg)
+        input = input.cpu()
+        return input * 1.0
+
+    @staticmethod
+    def backward(ctx, grad_ouput):
+        recv_rank, device, pg = ctx.recv_rank, ctx.device, ctx.pg
+        recv = grad_ouput.to(device)
+        dist.recv(recv, recv_rank, group=pg)
+        grad_ouput = recv.cpu().requires_grad_()
+        return grad_ouput, None, None, None
+
+
 class FRBSFunction(autograd.Function):
     @staticmethod
     def forward(
@@ -66,3 +84,24 @@ class FRBSFunction(autograd.Function):
         send = grad_output
         dist.isend(send, send_rank, group=pg)
         return grad_output, None, None, None, None
+
+
+class FRBSFunctionClient(autograd.Function):
+    @staticmethod
+    def forward(ctx, input: torch.tensor, recv_rank: int, device: int, pg=None):
+        ctx.send_rank, ctx.pg = recv_rank, pg
+        ctx.device = device
+        recv = input
+        recv = recv.to(device)
+        dist.recv(recv, recv_rank, group=pg)
+        input = recv.cpu()
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        send_rank, pg = ctx.send_rank, ctx.pg
+        device = ctx.device
+        send = grad_output.to(device)
+        dist.isend(send, send_rank, group=pg)
+        grad_output = grad_output.cpu()
+        return grad_output, None, None, None

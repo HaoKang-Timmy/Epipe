@@ -53,7 +53,7 @@ class FSBRFunctionSync(autograd.Function):
         start = time.time()
         dist.send(input, send_rank, group=pg)
         end = time.time() - start
-        print("sendtime",end)
+        print("sendtime", end)
         bandwidth[0] = input.element_size() * input.nelement() / end
         # print(bandwidth[0],end)
         return input * 1.0
@@ -99,7 +99,7 @@ class FRBSFunctionSync(autograd.Function):
         start = time.time()
         dist.recv(recv, recv_rank, group=pg)
         end = time.time() - start
-        print("recvtime",end)
+        print("recvtime", end)
         bandwidth[0] = recv.element_size() * recv.nelement() / end
         # print("time",end,"rank",rank)
         return input

@@ -28,6 +28,7 @@ class Reshape2(nn.Module):
         return out
 
 
+# send by using gloo
 class FSBRFunction(autograd.Function):
     @staticmethod
     def forward(ctx, input: torch.tensor, send_rank: int, self_rank: int):
@@ -39,12 +40,14 @@ class FSBRFunction(autograd.Function):
         return input * 1.0
 
     @staticmethod
-    def backward(ctx, grad_ouput):
+    def backward(ctx, grad_ouput: torch.tensor):
         recv_rank, rank = ctx.recv_rank, ctx.rank
         recv = ctx.send
         dist.recv(recv, recv_rank)
-        grad_ouput = recv.to(rank)
-
+        if grad_ouput.get_device() >= 0:  # recv on gpu
+            grad_ouput = recv.to(grad_ouput.get_device())
+        else:
+            grad_ouput = recv
         return grad_ouput, None, None
 
 
@@ -53,15 +56,16 @@ class FRBSFunction(autograd.Function):
     def forward(ctx, input: torch.tensor, recv_rank: int, rank: int):
         ctx.send_rank = recv_rank
         recv = input.cpu()
-        recv = input
         dist.recv(recv, recv_rank)
-        input = recv.to(rank)
+        if input.get_device() >= 0:
+            input = recv.to(input.get_device())
+        else:
+            input = recv
         return input
 
     @staticmethod
     def backward(ctx, grad_output):
         send_rank = ctx.send_rank
         send = grad_output.cpu()
-        send = grad_output
         dist.isend(send, send_rank)
         return grad_output, None, None

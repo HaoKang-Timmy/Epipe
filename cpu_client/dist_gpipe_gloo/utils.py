@@ -24,12 +24,45 @@ from .compression import (
 from torch.optim import AdamW, SGD
 from transformers import get_scheduler
 import torch.nn as nn
-from .distributedlayers.distributed_nccl_layers import FSBRFunction, FRBSFunction
-from .compression.compression_layer_nccl import QrecvGPU, QSendGPU, TopkPruning
+from .distributedlayers.distributed_nccl_layers import (
+    FSBRFunction,
+    FRBSFunction,
+    FSBRFunctionClient,
+    FRBSFunctionClient,
+)
+from .compression.compression_layer_nccl import (
+    QrecvGPU,
+    QSendGPU,
+    SortDeQuantClient,
+    TopkPruning,
+    SortQuantClient,
+)
 
 
 def tensor2tuple(input: torch.tensor):
     return tuple(list(input))
+
+
+# only used on cpu
+def SendTensorCPU(input, settings, train_settings, chunk, edge=False):
+    if train_settings["prune"] != 0:
+        output = TopkPruning.apply(input, train_settings["prune"])
+    if train_settings["sortquant"] != 0:
+        output = SortQuantClient.apply(
+            input,
+            train_settings["quant"],
+            train_settings["split"],
+            settings["send_rank"],
+            settings["rank"],
+        )
+    else:
+        output = FSBRFunctionClient.apply(
+            input,
+            settings["send_rank"],
+            settings["rank"],
+            settings["group_list"][chunk],
+        )
+    return output
 
 
 def SendTensor(input, settings, train_settings, chunk, edge=False):
@@ -55,7 +88,12 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
                 settings["rank"],
             )
         else:
-            output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
+            output = FSBRFunction.apply(
+                input,
+                settings["send_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
+            )
     else:
         # print("rank:",settings["rank"],"send",settings["send_rank"])
         output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
@@ -91,10 +129,34 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
                 settings["rank"],
             )
         else:
-            output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
+            output = FRBSFunction.apply(
+                input,
+                settings["recv_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
+            )
     else:
         # print("rank:",settings["rank"],"recv",settings["recv_rank"])
         output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
+    return output
+
+
+def RecvTensorCPU(input, settings, train_settings, chunk, edge=False):
+    if train_settings["sortquant"] != 0:
+        output = SortDeQuantClient.apply(
+            input,
+            train_settings["quant"],
+            train_settings["split"],
+            settings["recv_rank"],
+            settings["rank"],
+        )
+    else:
+        output = FRBSFunctionClient.apply(
+            input,
+            settings["recv_rank"],
+            settings["rank"],
+            settings["group_list"][chunk],
+        )
     return output
 
 
