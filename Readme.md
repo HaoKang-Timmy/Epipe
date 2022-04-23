@@ -10,9 +10,9 @@ Gpipe training efficiency compares to data-parallelism.
 | -------------------------- | ------- | ----------- | ---- | ------------- | ------------- | ------------- | ---------- | -------- |
 | Dataparallel-2gpu          | CIFAR10 | MobilenetV2 | 2    | 64            | 0.005         | 95.83±0.04    | 376.47/s   | 1×       |
 | Pipeline-2gpu              | CIFAR10 | MobilenetV2 | 2    | 64(4 chunks)  | 0.005         | 95.89±0.07    | 228.57/s   | 0.607×   |
-| Pipeline-2gpu(origin code) | CIFAR10 | MobilenetV2 | 2    | 64(4 chunks)  | 0.005         | None          | 213.33/s   | 0.566×   |
+| Pipeline-2gpu(origin code) | CIFAR10 | MobilenetV2 | 2    | 64(4 chunks)  | 0.005         | 95.87         | 213.33/s   | 0.566×   |
 | Pipeline-4gpu              | CIFAR10 | MobilenetV2 | 4    | 256(4 chunks) | 0.02          | 96.03±0.14    | 400.30/s   | 1.07×    |
-| Pipeline-4gpu(origin code) | CIFAR10 | MobilenetV2 | 4    | 256(4 chunks) | 0.005         | None          | 419.67/s   | 1.11×    |
+| Pipeline-4gpu(origin code) | CIFAR10 | MobilenetV2 | 4    | 256(4 chunks) | 0.005         | 95.89         | 419.67/s   | 1.11×    |
 | Pipeline-4gpu              | CIFAR10 | MobilenetV2 | 4    | 256(8 chunks) | 0.02          | 96.07±0.05    | 397.30/s   | 1.06×    |
 | Dataparallel-4gpu          | CIFAR10 | MobilenetV2 | 4    | 256           | 0.02          | 95.94±0.09    | 627.22/s   | 1.66×    |
 
@@ -61,18 +61,23 @@ Here is the pseudocode
 
 These tests are all done in the environment of parallelism pipeline.
 
+All bandwidths are detected by nccl_test.
+
+https://github.com/NVIDIA/nccl-tests
+
 ### CIFAR10
 
 Backend:MobileNetV2
 
-Client Server Partition: First and last layer
+Client-Server Partition: First and last layer
 
-| Batchsize     | Activation Memory Size(al together) | Compression Method(default3:1) | Compression Ratio | Validation Acc | Bandwidth |
-| ------------- | ----------------------------------- | ------------------------------ | ----------------- | -------------- | --------- |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 16bits       | 0.5               | 96.0%±0.13%    |           |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 12bits       | 0.375             | 95.9%±0.14%    |           |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 8bits        | 0.25              | 95.7%±0.03%    |           |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 4bits        | 0.125             | 87.10%         |           |
+| Batchsize     | Activation Memory Size(al together) | Compression Method(default3:1) | Compression Ratio | Validation Acc | Client Send Bandwidth | Server Send Bandwidth |
+| ------------- | ----------------------------------- | ------------------------------ | ----------------- | -------------- | --------------------- | --------------------- |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | None                           | 1                 | 95.87%         | 11.92GB/s             | 11.79GB/s             |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 16bits       | 0.5               | 95.84%         | 11.89GB/s             | 11.51GB/s             |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 12bits       | 0.375             | 95.73%         | 11.87GB/s             | 11.54GB/s             |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 8bits        | 0.25              | 95.68%         | 11.82GB/s             | 11.44GB/s             |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 4bits        | 0.125             | 87.10%         | 11.79GB/s             | 10.13GB/s             |
 
 ### CIFAR100
 
@@ -112,10 +117,11 @@ Client Server Partition: First two and last two layers
 
 | Batchsize    | activation memory size(al together) | Compression method(default3:1) | compression ratio | Validation acc(in cola is Matthew) | Bandwidth |
 | ------------ | ----------------------------------- | ------------------------------ | ----------------- | ---------------------------------- | --------- |
-| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 16bits       | 0.5               | 79.6%±0.18%                        |           |
-| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 12bits       | 0.375             | 79.6%±0.20%                        |           |
-| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 8bits        | 0.25              | 79.4%±0.21%                        |           |
-| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 4bits        | 0.125             | 52.2%                              |           |
+| 32(4 chunks) | [32,128,768],[32,128,768]           | None                           | 1                 | 78.9%                              | 11.17GB/s |
+| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 16bits       | 0.5               | 79.6%±0.18%                        | 10.81GB/s |
+| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 12bits       | 0.375             | 79.6%±0.20%                        | 10.23GB/s |
+| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 8bits        | 0.25              | 79.4%±0.21%                        | 9.66GB/s  |
+| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 4bits        | 0.125             | 52.2%                              | 8.19GB/s  |
 
 ### COLA
 
