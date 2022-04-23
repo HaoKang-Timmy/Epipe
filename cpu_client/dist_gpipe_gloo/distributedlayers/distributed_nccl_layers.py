@@ -44,27 +44,6 @@ class FSBRFunction(autograd.Function):
         return grad_ouput, None, None, None
 
 
-class FSBRFunctionSync(autograd.Function):
-    @staticmethod
-    def forward(
-        ctx, input: torch.tensor, send_rank: int, self_rank: int, bandwidth, pg=None
-    ):
-        ctx.recv_rank, ctx.rank, ctx.pg = send_rank, self_rank, pg
-        start = time.time()
-        dist.send(input, send_rank, group=pg)
-        end = time.time() - start
-        print("sendtime",end)
-        bandwidth[0] = input.element_size() * input.nelement() / end
-        # print(bandwidth[0],end)
-        return input * 1.0
-
-    @staticmethod
-    def backward(ctx, grad_ouput):
-        recv_rank, rank, pg = ctx.recv_rank, ctx.rank, ctx.pg
-        dist.recv(grad_ouput, recv_rank, group=pg)
-        return grad_ouput, None, None, None, None
-
-
 class FRBSFunction(autograd.Function):
     @staticmethod
     def forward(
@@ -79,29 +58,6 @@ class FRBSFunction(autograd.Function):
             end = time.time() - start
             bandwidth[0] = recv.element_size() * recv.nelement() / end
             # print("time",end,"rank",rank)
-        return input
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        send_rank, pg = ctx.send_rank, ctx.pg
-        send = grad_output
-        dist.isend(send, send_rank, group=pg)
-        return grad_output, None, None, None, None
-
-
-class FRBSFunctionSync(autograd.Function):
-    @staticmethod
-    def forward(
-        ctx, input: torch.tensor, recv_rank: int, rank: int, bandwidth, pg=None
-    ):
-        ctx.send_rank, ctx.pg = recv_rank, pg
-        recv = input
-        start = time.time()
-        dist.recv(recv, recv_rank, group=pg)
-        end = time.time() - start
-        print("recvtime",end)
-        bandwidth[0] = recv.element_size() * recv.nelement() / end
-        # print("time",end,"rank",rank)
         return input
 
     @staticmethod

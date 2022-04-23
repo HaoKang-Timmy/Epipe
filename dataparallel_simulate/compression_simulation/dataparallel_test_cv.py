@@ -175,25 +175,25 @@ def main_worker(rank, process_num, args):
                 outputs = SortQuantization.apply(outputs, args.quant, args.split)
 
             outputs = layer2(outputs)
-            # if args.sortquant == 0:
-            #     if args.prune != 0:
-            #         outputs = topk_layer(outputs)
-            #         # print("prun")
-            #     if args.avgpool != 0:
-            #         outputs = avgpool2(outputs)
-            #         # print("avg")
-            #     if args.quant != 0:
-            #         outputs = Fakequantize.apply(outputs, args.quant)
-            #         # print("quant")
-            #     if args.avgpool != 0:
-            #         outputs = upsample2(outputs)
-            #         # print("avg")
-            #     if args.pca2 != 0:
-            #         outputs = PCAQuantize.apply(outputs,args.pca2)
-            # elif args.sortquant != 0:
-            #     outputs = SortQuantization.apply(
-            #         outputs, args.quant, args.split
-            #     )
+            if args.sortquant == 0:
+                if args.prune != 0:
+                    outputs = topk_layer(outputs)
+                    # print("prun")
+                if args.avgpool != 0:
+                    outputs = avgpool2(outputs)
+                    # print("avg")
+                if args.quant != 0:
+                    outputs = Fakequantize.apply(outputs, args.quant)
+                    # print("quant")
+                if args.avgpool != 0:
+                    outputs = upsample2(outputs)
+                    # print("avg")
+                if args.pca2 != 0:
+                    outputs = PCAQuantize.apply(outputs,args.pca2)
+            elif args.sortquant != 0:
+                outputs = SortQuantization.apply(
+                    outputs, args.quant, args.split
+                )
             outputs = layer3(outputs)
             # print(outputs)
             # while(1):
@@ -251,25 +251,25 @@ def main_worker(rank, process_num, args):
                 # outputs = dequant_layer1(outputs,min,step,quant_layer1.backward_min,quant_layer1.backward_step)
                 outputs = layer2(outputs)
 
-                # if args.sortquant == 0:
-                #     if args.prune != 0:
-                #         outputs = topk_layer(outputs)
-                #         # print("prun")
-                #     if args.avgpool != 0:
-                #         outputs = avgpool2(outputs)
-                #         # print("avg")
-                #     if args.quant != 0:
-                #         outputs = Fakequantize.apply(outputs, args.quant)
-                #         # print("quant")
-                #     if args.avgpool != 0:
-                #         outputs = upsample2(outputs)
-                #         # print("avg")
-                #     if args.pca2 != 0:
-                #         outputs = PCAQuantize.apply(outputs,args.pca2)
-                # elif args.sortquant != 0:
-                #     outputs = SortQuantization.apply(
-                #         outputs, args.quant, args.split
-                #     )
+                if args.sortquant == 0:
+                    if args.prune != 0:
+                        outputs = topk_layer(outputs)
+                        # print("prun")
+                    if args.avgpool != 0:
+                        outputs = avgpool2(outputs)
+                        # print("avg")
+                    if args.quant != 0:
+                        outputs = Fakequantize.apply(outputs, args.quant)
+                        # print("quant")
+                    if args.avgpool != 0:
+                        outputs = upsample2(outputs)
+                        # print("avg")
+                    if args.pca2 != 0:
+                        outputs = PCAQuantize.apply(outputs,args.pca2)
+                elif args.sortquant != 0:
+                    outputs = SortQuantization.apply(
+                        outputs, args.quant, args.split
+                    )
                 outputs = layer3(outputs)
                 loss = criterion(outputs, label)
                 acc, _ = accuracy(outputs, label, topk=(1, 2))
