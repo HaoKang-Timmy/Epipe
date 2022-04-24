@@ -43,7 +43,6 @@ If you separate the model averagely, it changes
 # Reproduce
 
 ```
-python3 ./CIFAR10_nGPU.py --worker 2 --log-dir ./test.txt
-python3 ./NLP_nGPU.py --worker 2 --log-dir ./test.txt
+bash ./test.sh
 ```
 

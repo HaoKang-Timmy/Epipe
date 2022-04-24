@@ -141,15 +141,14 @@ Client Server Partition: First two and last two layers
 Here is how to reproduce the sort quantization ablation study.
 
 ```
-python test_vision_dgpipe.py --sortquant --quant <quant bit> --split <split bit> --log <logdir> --chunk <chunk>
-python test_nlp_dgpipe.py --sortquant --quant <quant bit> --split <split bit> --log <logdir> --chunk <chunk>
+bash ./test.sh
 ```
 
 You can find efficiency tests at 
 
 https://github.com/timmywanttolearn/gpipe_test/tree/master/dataparallel_simulate/ngpu_vs_parallel_pipe
 
-You can find data-parallelsim simulate at 
+You can find data-parallelism simulate at 
 
 https://github.com/timmywanttolearn/gpipe_test/tree/master/dataparallel_simulate/compression_simulation
 
@@ -157,7 +156,7 @@ https://github.com/timmywanttolearn/gpipe_test/tree/master/dataparallel_simulate
 
 https://github.com/timmywanttolearn/fast_pytorch_kmeans
 
-I modify the repo to allow the fast k-means running on multiple devices.
+I modify the repo to allow the fast k-means to run on multiple devices.
 
 https://github.com/KinglittleQ/torch-batch-svd
 

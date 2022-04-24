@@ -1,6 +1,6 @@
 # Compression Algorithm Simulate
 
-All experiments are finished in data-parallelism conditions.
+All experiments are tested in data-parallelism conditions.
 
 ## Result of Uniform Quantization and Pruning
 
@@ -63,13 +63,13 @@ Testing CIFAR10 with MobileNetV2 for 40 epochs
 
 | Method                  | Separate Strategy         | Compression Ratio(after/before) | Throughput | Acc   |
 | ----------------------- | ------------------------- | ------------------------------- | ---------- | ----- |
-| SVD 14rank              | firsrt layer, last layers | 0.25                            | 102.4/s    | 95.73 |
-| SVD 12rank              | firsrt layer, last layers | 0.214                           | 106.2/s    | 95.51 |
-| SVD 8rank               | firsrt layer, last layers | 0.143                           | 125.5/s    | 94.99 |
-| SVD 6rank               | firsrt layer, last layers | 0.107                           | 136.9/s    | 94.16 |
+| SVD 14rank              | firsrt layer, last layers | 0.25(only first layer)          | 102.4/s    | 95.73 |
+| SVD 12rank              | firsrt layer, last layers | 0.214(only first layer)         | 106.2/s    | 95.51 |
+| SVD 8rank               | firsrt layer, last layers | 0.143(only first layer)         | 125.5/s    | 94.99 |
+| SVD 6rank               | firsrt layer, last layers | 0.107(only first layer)         | 136.9/s    | 94.16 |
 | Sort Quantization 8bits | firsrt layer, last layers | 0.25                            | 627.22/s   | 95.73 |
 
-
+![image-20220424113557392](../../pic/image-20220424113557392.png)
 
 ## Comparing with K-means
 
@@ -90,7 +90,6 @@ The batch size here is 64, in order to make it possible for K-means.
 # Reproduce
 
 ```
-python3 datdaparallel_test_cv.py --root <dataset root> --log-dir ./test.txt --quant <quantization bits> --prune <prune ratio> --kmeans <use or not> --multi <whether to use sort quant>
-python3 datdaparallel_test_nlp.py --root <dataset root> --log-dir ./test.txt --quant <quantization bits> --prune <prune ratio> --kmeans <use or not> --multi <whether to use sort quant> --task rte
+bash ./test.sh
 ```
 
