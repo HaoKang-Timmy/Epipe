@@ -2,7 +2,7 @@
 
 All experiments are tested in data-parallelism conditions.
 
-## Result of Uniform Quantization and Pruning
+## 1. Result of Uniform Quantization and Pruning
 
 MobilenetV2 CIFAR10
 
@@ -36,7 +36,7 @@ NLP tasks with Roberta
 | RTE   | Finetune        | Quantization 8     | 77.5% ~ 0.8%     |
 | RTE   | Finetune        | Quantization 4     | 52.2% ~0.1%      |
 
-## Ablation Study of Sort Quantization
+## 2. Ablation Study of Sort Quantization
 
 Testing CIFAR10 with MobileNetV2 for 80 epochs
 
@@ -57,7 +57,7 @@ Testing RTE with Roberta for 20 epochs
 | Sort Quantization 12bits(9bits 3split)  | firsrt layer, last two layers | 79.7% |
 | Sort Quantization 16bits(12bits 4split) | firsrt layer, last two layers | 79.7% |
 
-## Comparing with PCA
+## 3. Comparing with PCA
 
 Testing CIFAR10 with MobileNetV2 for 40 epochs
 
@@ -71,7 +71,7 @@ Testing CIFAR10 with MobileNetV2 for 40 epochs
 
 ![image-20220424113557392](../../pic/image-20220424113557392.png)
 
-## Comparing with K-means
+## 4. Comparing with K-means
 
 Testing CIFAR10 with MobileNetV2 for 10 epochs
 
@@ -87,7 +87,7 @@ The batch size here is 64, in order to make it possible for K-means.
 | Sort Quantization 4bits(4splits,2bits) | first three layers and last two layers | 641.4/s    | 93.38% |
 | None                                   | first three layers and last two layers | 659.1/s    | 94.21% |
 
-# Reproduce
+# 5. Reproduce
 
 ```
 bash ./test.sh

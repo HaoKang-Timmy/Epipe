@@ -10,9 +10,9 @@ to see the speed and acc of model parallel + parallelism pipeline.
 
 You can see the data-parallel code here.
 
-# Result
+# 1.Result
 
-#  Parallelism Pipeline vs Data-parallel
+#  1.1Parallelism Pipeline vs Data-parallel
 
 | Experiment                 | Dataset | Backend     | GPUs | Batch size    | Learning rate | Top-1 acc (%) | Throughput | Speed up |
 | -------------------------- | ------- | ----------- | ---- | ------------- | ------------- | ------------- | ---------- | -------- |
@@ -40,7 +40,7 @@ If you separate the model averagely, it changes
 | ------------- | ------- | ----------- | ---- | ------------ | ------------- | ---------- | -------- |
 | Pipeline-2gpu | CIFAR10 | MobilenetV2 | 2    | 64(4 chunks) | 0.005         | 318.74/s   | 0.847×   |
 
-# Reproduce
+# 1.2Reproduce
 
 ```
 bash ./test.sh
