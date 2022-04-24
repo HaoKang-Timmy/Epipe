@@ -57,7 +57,7 @@ Testing RTE with Roberta for 20 epochs
 | Sort Quantization 12bits(9bits 3split)  | firsrt layer, last two layers | 79.7% |
 | Sort Quantization 16bits(12bits 4split) | firsrt layer, last two layers | 79.7% |
 
-## 3. Comparing with PCA
+## 3, Comparing with PCA
 
 Testing CIFAR10 with MobileNetV2 for 40 epochs
 
@@ -67,11 +67,11 @@ Testing CIFAR10 with MobileNetV2 for 40 epochs
 | SVD 12rank              | firsrt layer, last layers | 0.214(only first layer)         | 106.2/s    | 95.51 |
 | SVD 8rank               | firsrt layer, last layers | 0.143(only first layer)         | 125.5/s    | 94.99 |
 | SVD 6rank               | firsrt layer, last layers | 0.107(only first layer)         | 136.9/s    | 94.16 |
-| Sort Quantization 8bits | firsrt layer, last layers | 0.25                            | 627.22/s   | 95.73 |
+| Sort Quantization 8bits | firsrt layer              | 0.25                            | 627.22/s   | 95.73 |
 
 ![image-20220424113557392](../../pic/image-20220424113557392.png)
 
-## 4. Comparing with K-means
+## Comparing with K-means
 
 Testing CIFAR10 with MobileNetV2 for 10 epochs
 
@@ -87,7 +87,7 @@ The batch size here is 64, in order to make it possible for K-means.
 | Sort Quantization 4bits(4splits,2bits) | first three layers and last two layers | 641.4/s    | 93.38% |
 | None                                   | first three layers and last two layers | 659.1/s    | 94.21% |
 
-# 5. Reproduce
+# Reproduce
 
 ```
 bash ./test.sh
