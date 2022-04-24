@@ -20,8 +20,6 @@ from .compression import (
     QRecvLayerGPU,
     SortQuantGPU,
     SortDeQuantGPU,
-    SortQuantGPUSync,
-    SortDeQuantGPUSync,
 )
 from torch.optim import AdamW, SGD
 from transformers import get_scheduler
@@ -29,14 +27,42 @@ import torch.nn as nn
 from .distributedlayers.distributed_nccl_layers import (
     FSBRFunction,
     FRBSFunction,
-    FSBRFunctionSync,
-    FRBSFunctionSync,
+    FSBRFunctionClient,
+    FRBSFunctionClient,
 )
-from .compression.compression_layer_nccl import QrecvGPU, QSendGPU, TopkPruning
+from .compression.compression_layer_nccl import (
+    QrecvGPU,
+    QSendGPU,
+    SortDeQuantClient,
+    TopkPruning,
+    SortQuantClient,
+)
 
 
 def tensor2tuple(input: torch.tensor):
     return tuple(list(input))
+
+
+# only used on cpu
+def SendTensorCPU(input, settings, train_settings, chunk, edge=False):
+    if train_settings["prune"] != 0:
+        output = TopkPruning.apply(input, train_settings["prune"])
+    if train_settings["sortquant"] != 0:
+        output = SortQuantClient.apply(
+            input,
+            train_settings["quant"],
+            train_settings["split"],
+            settings["send_rank"],
+            settings["rank"],
+        )
+    else:
+        output = FSBRFunctionClient.apply(
+            input,
+            settings["send_rank"],
+            settings["rank"],
+            settings["group_list"][chunk],
+        )
+    return output
 
 
 def SendTensor(input, settings, train_settings, chunk, edge=False):
@@ -62,42 +88,11 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
                 settings["rank"],
             )
         else:
-            output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
-    else:
-        # print("rank:",settings["rank"],"send",settings["send_rank"])
-        output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
-    return output
-
-
-def SendTensorSync(input, settings, train_settings, chunk, bandwidth, edge=False):
-
-    if settings["send_rank"] == 0 or edge is not False:
-        if train_settings["prune"] != 0:
-            output = TopkPruning.apply(input, train_settings["prune"])
-        if train_settings["sortquant"] != 0:
-
-            # client send bandwidth detect
-            # server send bandwidth detect
-            output = SortQuantGPUSync.apply(
+            output = FSBRFunction.apply(
                 input,
-                train_settings["quant"],
-                train_settings["split"],
-                settings["send_rank"],
-                bandwidth,
-            )
-
-            # print("rank:",settings["rank"],"send",settings["send_rank"])
-
-        elif train_settings["quant"] != 0:
-            output = QSendGPU.apply(
-                input,
-                train_settings["quant"],
                 settings["send_rank"],
                 settings["rank"],
-            )
-        else:
-            output = FSBRFunctionSync.apply(
-                input, settings["send_rank"], settings["rank"], bandwidth
+                settings["group_list"][chunk],
             )
     else:
         # print("rank:",settings["rank"],"send",settings["send_rank"])
@@ -134,39 +129,34 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
                 settings["rank"],
             )
         else:
-            output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
+            output = FRBSFunction.apply(
+                input,
+                settings["recv_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
+            )
     else:
         # print("rank:",settings["rank"],"recv",settings["recv_rank"])
         output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
     return output
 
 
-def RecvTensorSync(input, settings, train_settings, chunk, bandwidth, edge=False):
-
-    if settings["recv_rank"] == 0 or edge is not False:
-        if train_settings["sortquant"] != 0:
-            output = SortDeQuantGPUSync.apply(
-                input,
-                train_settings["quant"],
-                train_settings["split"],
-                settings["recv_rank"],
-                bandwidth,
-            )
-            # print("rank:",settings["rank"],"recv",settings["recv_rank"])
-        elif train_settings["quant"] != 0:
-            output = QrecvGPU.apply(
-                input,
-                train_settings["quant"],
-                settings["recv_rank"],
-                settings["rank"],
-            )
-        else:
-            output = FRBSFunctionSync.apply(
-                input, settings["recv_rank"], settings["rank"], bandwidth
-            )
+def RecvTensorCPU(input, settings, train_settings, chunk, edge=False):
+    if train_settings["sortquant"] != 0:
+        output = SortDeQuantClient.apply(
+            input,
+            train_settings["quant"],
+            train_settings["split"],
+            settings["recv_rank"],
+            settings["rank"],
+        )
     else:
-        # print("rank:",settings["rank"],"recv",settings["recv_rank"])
-        output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
+        output = FRBSFunctionClient.apply(
+            input,
+            settings["recv_rank"],
+            settings["rank"],
+            settings["group_list"][chunk],
+        )
     return output
 
 

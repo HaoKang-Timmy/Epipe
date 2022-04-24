@@ -12,8 +12,8 @@ from .utils import (
     get_lr,
     accuracy,
     RecvTensor,
-    SendTensorSync,
-    RecvTensorSync,
+    SendTensorCPU,
+    RecvTensorCPU,
 )
 
 
@@ -24,7 +24,7 @@ def init_models_client(train_settings, client_settings):
     for chunk in range(client_settings["chunks"]):
         group_list.append(dist.new_group(ranks=client_settings["devices"]))
     for model in train_settings["models"]:
-        model = model.to(client_settings["device"], non_blocking=True)
+        #     model = model.to(client_settings["device"], non_blocking=True)
         param_list.append({"params": model.parameters()})
     if train_settings["tasktype"] == "cv":
         optimizer = SGD(
@@ -49,7 +49,7 @@ def init_models_client(train_settings, client_settings):
             num_training_steps=train_settings["epochs"]
             * len(train_settings["train_loader"]),
         )
-    criterion = nn.CrossEntropyLoss().to(client_settings["device"])
+    criterion = nn.CrossEntropyLoss()
     return (optimizer, warmup_scheduler, criterion, group_list)
 
 
@@ -72,8 +72,8 @@ def client_trainer(
         start = time.time()
         for batch_iter, (images, targets) in enumerate(train_settings["train_loader"]):
 
-            images = images.to(client_settings["device"], non_blocking=True)
-            targets = targets.to(client_settings["device"], non_blocking=True)
+            # images = images.to(client_settings["device"], non_blocking=True)
+            # targets = targets.to(client_settings["device"], non_blocking=True)
             images = images.chunk(client_settings["chunks"])
             targets = targets.chunk(client_settings["chunks"])
             batches = []
@@ -83,51 +83,35 @@ def client_trainer(
                 batch = []
                 model.train()
                 for chunk in range(client_settings["chunks"]):
+
                     if i == 0:
                         output = model(images[chunk])
-                        if client_settings["bandwidth"] == 0:
-                            output = SendTensorSync(
-                                output,
-                                client_settings,
-                                train_settings,
-                                chunk,
-                                bandwidth,
-                                True,
-                            )
-                        else:
-                            output = SendTensor(
-                                output, client_settings, train_settings, chunk, True
-                            )
 
+                        output = SendTensorCPU(
+                            output, client_settings, train_settings, chunk
+                        )
+                        # print("client, send",chunk)
                         # print("client",client_settings['rank'],"send",output.shape)
                     else:
                         input = (
                             torch.zeros(client_settings["recv_size"])
-                            .to(client_settings["device"])
+                            # .to(client_settings["device"])
                             .requires_grad_()
                         )
-                        if client_settings["bandwidth"] == 1:
-                            input = RecvTensorSync(
-                                input,
-                                client_settings,
-                                train_settings,
-                                chunk,
-                                bandwidth,
-                                True,
-                            )
-                        else:
-                            input = RecvTensor(
-                                input,
-                                client_settings,
-                                train_settings,
-                                chunk,
-                                True,
-                                bandwidth,
-                            )
+                        # print("client, pre_recv",chunk)
+                        input = RecvTensorCPU(
+                            input,
+                            client_settings,
+                            train_settings,
+                            chunk,
+                            True,
+                        )
+                        # print("client, recv",chunk)
                         # print("client",client_settings['rank'],"recv",input.shape)
                         output = model(input)
                         acc, _ = accuracy(output, targets[chunk], topk=(1, 2))
                         output = criterion(output, targets[chunk])
+                        # print(output)
                         losses += output.item()
                         acc1 = acc1 + acc.item()
                         bandwidth_avg += bandwidth.item()
@@ -155,9 +139,7 @@ def client_trainer(
                 else:
                     for chunk in range(client_settings["chunks"]):
                         batches[back][chunk].backward(
-                            torch.empty(tuple(list(batches[back][chunk].shape))).to(
-                                client_settings["device"]
-                            )
+                            torch.empty(tuple(list(batches[back][chunk].shape)))
                         )
             optimizer.step()
             optimizer.zero_grad()
@@ -273,9 +255,7 @@ def client_trainer(
                 else:
                     for chunk in range(client_settings["chunks"]):
                         batches[back][chunk].backward(
-                            torch.empty(tuple(list(batches[back][chunk].shape))).to(
-                                client_settings["device"]
-                            )
+                            torch.empty(tuple(list(batches[back][chunk].shape)))
                             # .type(torch.long)
                         )
             # print("client backword over")
@@ -314,8 +294,8 @@ def client_validation(train_settings, client_settings, criterion):
         val_loss_avg = 0.0
         with torch.no_grad():
             for batch_iter, (images, targets) in enumerate(train_settings["valloader"]):
-                images = images.to(client_settings["device"], non_blocking=True)
-                targets = targets.to(client_settings["device"], non_blocking=True)
+                # images = images.to(client_settings["device"], non_blocking=True)
+                # targets = targets.to(client_settings["device"], non_blocking=True)
                 images = images.chunk(client_settings["chunks"])
                 targets = targets.chunk(client_settings["chunks"])
                 acc1 = 0.0
@@ -325,18 +305,18 @@ def client_validation(train_settings, client_settings, criterion):
                         if i == 0:
                             output = model(images[chunk])
 
-                            output = SendTensor(
+                            output = SendTensorCPU(
                                 output, client_settings, train_settings, chunk, True
                             )
                         else:
 
                             input = (
                                 torch.empty(client_settings["recv_size"])
-                                .to(client_settings["device"])
+                                # .to(client_settings["device"])
                                 .requires_grad_()
                             )
 
-                            input = RecvTensor(
+                            input = RecvTensorCPU(
                                 input, client_settings, train_settings, chunk, True
                             )
                             output = model(input)
@@ -434,7 +414,7 @@ def client_validation(train_settings, client_settings, criterion):
 def client(train_settings, client_settings):
     s = torch.cuda.Stream(device=client_settings["device"])
     with torch.cuda.stream(s):
-        torch.cuda.set_device(client_settings["device"])
+        #     torch.cuda.set_device(client_settings["device"])
 
         # may be not right
         torch.multiprocessing.set_sharing_strategy("file_system")
@@ -491,7 +471,6 @@ def client(train_settings, client_settings):
                 val_loss,
                 "lr",
                 get_lr(optimizer),
-                +"  bandwidth:" + str(bandwidth_avg),
             )
             file_save = open(client_settings["savepath"], mode="a")
             file_save.write(

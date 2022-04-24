@@ -6,14 +6,7 @@ from .compression import TopkLayer, QSendLayerGPU, QRecvLayerGPU
 from torch.optim import AdamW, SGD
 from transformers import get_scheduler
 import torch.nn as nn
-from .utils import (
-    SendTensor,
-    get_lr,
-    accuracy,
-    RecvTensor,
-    SendTensorSync,
-    RecvTensorSync,
-)
+from .utils import SendTensor, get_lr, accuracy, RecvTensor
 
 
 def init_models_server(train_settings, server_settings):
@@ -74,34 +67,16 @@ def server_trainer(
                         .to(server_settings["device"])
                         .requires_grad_()
                     )
-                    if server_settings["bandwidth"] == 0:
-                        input = RecvTensorSync(
-                            input,
-                            server_settings,
-                            train_settings,
-                            chunk,
-                            timecount,
-                            False,
-                        )
-                    else:
-                        input = RecvTensor(
-                            input,
-                            server_settings,
-                            train_settings,
-                            chunk,
-                            False,
-                            timecount,
-                        )
+
+                    input = RecvTensor(
+                        input, server_settings, train_settings, chunk, False, timecount
+                    )
+                    # print("server, recv",chunk)
                     # print("server",server_settings['rank'],"recv",server_settings['recv_rank'],input.shape)
                     output = model(input)
-                    if server_settings["bandwidth"] == 1:
-                        output = SendTensorSync(
-                            output, server_settings, train_settings, chunk, timecount
-                        )
-                    else:
-                        output = SendTensor(
-                            output, server_settings, train_settings, chunk
-                        )
+
+                    output = SendTensor(output, server_settings, train_settings, chunk)
+                    # print("server, send",chunk)
                     # print("server",server_settings['rank'],"send",server_settings['send_rank'],output.shape)
                     timerecv_avg += timecount.item()
                     batch.append(output)

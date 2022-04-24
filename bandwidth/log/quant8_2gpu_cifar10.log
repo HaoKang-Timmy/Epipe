@@ -1,0 +1,26 @@
+# nThread 1 nGpus 2 minBytes 25690112 maxBytes 25690112 step: 1048576(bytes) warmup iters: 4 iters: 40 validation: 1 
+#
+# Using devices
+#   Rank  0 Pid  31448 on         x0 device  0 [0x05] NVIDIA GeForce GTX 1080
+#   Rank  1 Pid  31448 on         x0 device  1 [0x06] NVIDIA GeForce GTX 1080
+#
+#                                                       out-of-place                       in-place          
+#       size         count      type   redop     time   algbw   busbw  error     time   algbw   busbw  error
+#        (B)    (elements)                       (us)  (GB/s)  (GB/s)            (us)  (GB/s)  (GB/s)       
+    25690112       6422528     int32     sum   2174.0   11.82   11.82  0e+00   2172.6   11.82   11.82  0e+00
+# Out of bounds values : 0 OK
+# Avg bus bandwidth    : 11.8207 
+
+
+# nThread 1 nGpus 2 minBytes 3984588 maxBytes 3984588 step: 1048576(bytes) warmup iters: 4 iters: 40 validation: 1 
+#
+# Using devices
+#   Rank  0 Pid  31886 on         x0 device  0 [0x05] NVIDIA GeForce GTX 1080
+#   Rank  1 Pid  31886 on         x0 device  1 [0x06] NVIDIA GeForce GTX 1080
+#
+#                                                       out-of-place                       in-place          
+#       size         count      type   redop     time   algbw   busbw  error     time   algbw   busbw  error
+#        (B)    (elements)                       (us)  (GB/s)  (GB/s)            (us)  (GB/s)  (GB/s)       
+     3984588        996147     int32     sum    348.6   11.43   11.43  0e+00    347.7   11.46   11.46  0e+00
+# Out of bounds values : 0 OK
+# Avg bus bandwidth    : 11.4453

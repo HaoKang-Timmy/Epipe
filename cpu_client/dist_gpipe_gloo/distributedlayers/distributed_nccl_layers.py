@@ -44,24 +44,22 @@ class FSBRFunction(autograd.Function):
         return grad_ouput, None, None, None
 
 
-class FSBRFunctionSync(autograd.Function):
+class FSBRFunctionClient(autograd.Function):
     @staticmethod
-    def forward(
-        ctx, input: torch.tensor, send_rank: int, self_rank: int, bandwidth, pg=None
-    ):
-        ctx.recv_rank, ctx.rank, ctx.pg = send_rank, self_rank, pg
-        start = time.time()
-        dist.send(input, send_rank, group=pg)
-        end = time.time() - start
-        bandwidth[0] = input.element_size() * input.nelement() / end
-        # print(bandwidth[0],end)
+    def forward(ctx, input: torch.tensor, send_rank: int, device: int, pg=None):
+        ctx.recv_rank, ctx.device, ctx.pg = send_rank, device, pg
+        send = input.to(device)
+        dist.isend(send, send_rank, group=pg)
+        input = input.cpu()
         return input * 1.0
 
     @staticmethod
     def backward(ctx, grad_ouput):
-        recv_rank, rank, pg = ctx.recv_rank, ctx.rank, ctx.pg
-        dist.recv(grad_ouput, recv_rank, group=pg)
-        return grad_ouput, None, None, None, None
+        recv_rank, device, pg = ctx.recv_rank, ctx.device, ctx.pg
+        recv = grad_ouput.to(device)
+        dist.recv(recv, recv_rank, group=pg)
+        grad_ouput = recv.cpu().requires_grad_()
+        return grad_ouput, None, None, None
 
 
 class FRBSFunction(autograd.Function):
@@ -88,23 +86,22 @@ class FRBSFunction(autograd.Function):
         return grad_output, None, None, None, None
 
 
-class FRBSFunctionSync(autograd.Function):
+class FRBSFunctionClient(autograd.Function):
     @staticmethod
-    def forward(
-        ctx, input: torch.tensor, recv_rank: int, rank: int, bandwidth, pg=None
-    ):
+    def forward(ctx, input: torch.tensor, recv_rank: int, device: int, pg=None):
         ctx.send_rank, ctx.pg = recv_rank, pg
+        ctx.device = device
         recv = input
-        start = time.time()
+        recv = recv.to(device)
         dist.recv(recv, recv_rank, group=pg)
-        end = time.time() - start
-        bandwidth[0] = recv.element_size() * recv.nelement() / end
-        # print("time",end,"rank",rank)
+        input = recv.cpu()
         return input
 
     @staticmethod
     def backward(ctx, grad_output):
         send_rank, pg = ctx.send_rank, ctx.pg
-        send = grad_output
+        device = ctx.device
+        send = grad_output.to(device)
         dist.isend(send, send_rank, group=pg)
-        return grad_output, None, None, None, None
+        grad_output = grad_output.cpu()
+        return grad_output, None, None, None
