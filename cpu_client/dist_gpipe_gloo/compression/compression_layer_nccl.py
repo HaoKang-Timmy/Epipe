@@ -381,7 +381,7 @@ class SortQuantClient(autograd.Function):
                     temp_src += min_step[i, 0]
             grad_output.scatter_(0, index[i], temp_src)
         grad_output = grad_output.view(shape)
-        return grad_output, None, None, None, None
+        return grad_output, None, None, None, None, None
 
 
 # no sparse

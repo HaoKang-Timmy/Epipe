@@ -86,12 +86,14 @@ def client_trainer(
 
                     if i == 0:
                         output = model(images[chunk])
-
+                        # start = time.time()
                         output = SendTensorCPU(
                             output, client_settings, train_settings, chunk
                         )
                         # print("client, send",chunk)
                         # print("client",client_settings['rank'],"send",output.shape)
+                        # end = time.time() - start
+                        # print(end)
                     else:
                         input = (
                             torch.zeros(client_settings["recv_size"])

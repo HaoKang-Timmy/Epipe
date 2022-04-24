@@ -54,6 +54,7 @@ def SendTensorCPU(input, settings, train_settings, chunk, edge=False):
             train_settings["split"],
             settings["send_rank"],
             settings["rank"],
+            settings["group_list"][chunk],
         )
     else:
         output = FSBRFunctionClient.apply(
@@ -77,6 +78,7 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
                 train_settings["quant"],
                 train_settings["split"],
                 settings["send_rank"],
+                settings["group_list"][chunk],
             )
             # print("rank:",settings["rank"],"send",settings["send_rank"])
 
@@ -110,6 +112,7 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
                     train_settings["quant"],
                     train_settings["split"],
                     settings["recv_rank"],
+                    settings["group_list"][chunk],
                 )
             else:
                 output = SortDeQuantGPU.apply(
@@ -149,6 +152,7 @@ def RecvTensorCPU(input, settings, train_settings, chunk, edge=False):
             train_settings["split"],
             settings["recv_rank"],
             settings["rank"],
+            settings["group_list"][chunk],
         )
     else:
         output = FRBSFunctionClient.apply(
