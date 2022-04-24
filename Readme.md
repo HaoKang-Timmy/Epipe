@@ -1,6 +1,6 @@
 
 
-# 1.Distributed Pipeline Parallelism Training
+# 1. Distributed Pipeline Parallelism Training
 
 Gpipe training efficiency compares to data-parallelism.
 
@@ -37,6 +37,8 @@ Here is the pseudocode
 
 ## 2.1Ablation Study
 
+Ablation Studys are performed by using pipeline parallelism.
+
 ### Settings For CIFAR10
 
 | Epochs | Lr   | Batch Size | Scheduler | Optimizer |
@@ -57,7 +59,7 @@ Here is the pseudocode
 
 
 
-## 2.2Altogether Ablation Study
+## 2.2 Altogether Ablation Study
 
 These tests are all done in the environment of parallelism pipeline.
 
@@ -128,6 +130,8 @@ Client Server Partition: First two and last two layers
 Backend:Roberta-base
 
 Client Server Partition: First two and last two layers
+
+Since the activation memory size is the same as the RTE dataset, the bandwidth is the same as the bandwidth in RTE
 
 | Batchsize    | Activation Memory Size(Al together) | Compression Method(default3:1) | Compression Ratio | Matthew's Corelation |
 | ------------ | ----------------------------------- | ------------------------------ | ----------------- | -------------------- |

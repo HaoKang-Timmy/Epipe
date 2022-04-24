@@ -10,9 +10,9 @@ to see the speed and acc of model parallel + parallelism pipeline.
 
 You can see the data-parallel code here.
 
-# 1.Result
+# 1. Result
 
-#  1.1Parallelism Pipeline vs Data-parallel
+#  1.1 Parallelism Pipeline vs Data-parallel
 
 | Experiment                 | Dataset | Backend     | GPUs | Batch size    | Learning rate | Top-1 acc (%) | Throughput | Speed up |
 | -------------------------- | ------- | ----------- | ---- | ------------- | ------------- | ------------- | ---------- | -------- |
