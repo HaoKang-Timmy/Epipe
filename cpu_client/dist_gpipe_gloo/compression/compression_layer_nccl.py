@@ -740,3 +740,132 @@ class SortDeQuantClient(autograd.Function):
         grad_output = grad_output.view(shape)
         # print(grad_output.shape)
         return grad_output, None, None, None, None, None
+
+
+
+class PCASendClient(autograd.Function):
+    @staticmethod
+    def forward(ctx, input,q,send_rank,device, pg = None):
+        ctx.q, ctx.recv_rank,ctx.device,ctx.pg = q, send_rank,device,pg
+        U,S,V = torch.svd_lowrank(input,q = q)
+        U = U.to(device)
+        S = S.to(device)
+        V = V.to(device)
+        dist.isend(U,send_rank,group=pg)
+        dist.isend(S,send_rank,group=pg)
+        dist.isend(V,send_rank,group=pg)
+        return input * 1.0
+    @staticmethod
+    def backward(ctx,grad_output:torch.tensor):
+        q, recv_rank,device,pg = ctx.q, ctx.recv_rank,ctx.device,ctx.pg
+        shape = grad_output.shape
+        shape[-1] = q
+        s_shape = shape[:-1]
+        s_shape[-1] = q
+        U = torch.empty([shape]).to(device)
+        V = torch.empty([shape]).to(device)
+        S = torch.empty([s_shape]).to(device)
+        dist.recv(U,recv_rank,group = pg)
+        dist.recv(S,recv_rank,group = pg)
+        dist.recv(V,recv_rank,group = pg)
+        U = U.cpu()
+        V = V.cpu()
+        S = S.cpu()
+        V = V.transpose(-1, -2)
+        S = torch.diag_embed(S)
+        output = torch.matmul(U[..., :, :], S[..., :, :])
+        grad_output = torch.matmul(output[..., :, :], V[..., :, :])
+        return grad_output, None, None ,None ,None
+
+
+class PCARecvClient(autograd.Function):
+    @staticmethod
+    def forward(ctx, input,q,recv_rank,device, pg = None):
+        ctx.q, ctx.send_rank,ctx.device,ctx.pg = q, recv_rank,device,pg
+        shape =input.shape
+        shape[-1] = q
+        s_shape = shape[:-1]
+        s_shape[-1] = q
+        U = torch.empty([shape]).to(device)
+        V = torch.empty([shape]).to(device)
+        S = torch.empty([s_shape]).to(device)
+        dist.recv(U,recv_rank,group = pg)
+        dist.recv(S,recv_rank,group = pg)
+        dist.recv(V,recv_rank,group = pg)
+        U = U.cpu()
+        V = V.cpu()
+        S = S.cpu()
+        V = V.transpose(-1, -2)
+        S = torch.diag_embed(S)
+        output = torch.matmul(U[..., :, :], S[..., :, :])
+        input = torch.matmul(output[..., :, :], V[..., :, :])
+        return input * 1.0
+    @staticmethod
+    def backward(ctx,grad_output:torch.tensor):
+        q, recv_rank,device,pg = ctx.q, ctx.recv_rank,ctx.device,ctx.pg
+        U,S,V = torch.svd_lowrank(grad_output,q = q)
+        U = U.to(device)
+        S = S.to(device)
+        V = V.to(device)
+        dist.isend(U,recv_rank,group=pg)
+        dist.isend(S,recv_rank,group=pg)
+        dist.isend(V,recv_rank,group=pg)
+        return grad_output, None,None,None,None
+
+
+class PCASendGPU(autograd.Function):
+    @staticmethod
+    def forward(ctx, input,q,send_rank,device, pg = None):
+        ctx.q, ctx.recv_rank,ctx.device,ctx.pg = q, send_rank,device,pg
+        U,S,V = torch.svd_lowrank(input,q = q)
+        dist.isend(U,send_rank,group=pg)
+        dist.isend(S,send_rank,group=pg)
+        dist.isend(V,send_rank,group=pg)
+        return input * 1.0
+    @staticmethod
+    def backward(ctx,grad_output:torch.tensor):
+        q, recv_rank,device,pg = ctx.q, ctx.recv_rank,ctx.device,ctx.pg
+        shape = grad_output.shape
+        shape[-1] = q
+        s_shape = shape[:-1]
+        s_shape[-1] = q
+        U = torch.empty([shape]).to(device)
+        V = torch.empty([shape]).to(device)
+        S = torch.empty([s_shape]).to(device)
+        dist.recv(U,recv_rank,group = pg)
+        dist.recv(S,recv_rank,group = pg)
+        dist.recv(V,recv_rank,group = pg)
+        V = V.transpose(-1, -2)
+        S = torch.diag_embed(S)
+        output = torch.matmul(U[..., :, :], S[..., :, :])
+        grad_output = torch.matmul(output[..., :, :], V[..., :, :])
+        return grad_output, None, None ,None ,None
+
+
+class PCARecvGPU(autograd.Function):
+    @staticmethod
+    def forward(ctx, input,q,recv_rank,device, pg = None):
+        ctx.q, ctx.send_rank,ctx.device,ctx.pg = q, recv_rank,device,pg
+        shape =input.shape
+        shape[-1] = q
+        s_shape = shape[:-1]
+        s_shape[-1] = q
+        U = torch.empty([shape]).to(device)
+        V = torch.empty([shape]).to(device)
+        S = torch.empty([s_shape]).to(device)
+        dist.recv(U,recv_rank,group = pg)
+        dist.recv(S,recv_rank,group = pg)
+        dist.recv(V,recv_rank,group = pg)
+        V = V.transpose(-1, -2)
+        S = torch.diag_embed(S)
+        output = torch.matmul(U[..., :, :], S[..., :, :])
+        input = torch.matmul(output[..., :, :], V[..., :, :])
+        return input * 1.0
+    @staticmethod
+    def backward(ctx,grad_output:torch.tensor):
+        q, recv_rank,device,pg = ctx.q, ctx.recv_rank,ctx.device,ctx.pg
+        U,S,V = torch.svd_lowrank(grad_output,q = q)
+        dist.isend(U,recv_rank,group=pg)
+        dist.isend(S,recv_rank,group=pg)
+        dist.isend(V,recv_rank,group=pg)
+        return grad_output, None,None,None,None

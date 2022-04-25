@@ -18,7 +18,7 @@ i_list = []
 for i in range(32):
     i = i + 1
 
-    input = torch.rand([i, 32, 112, 112])
+    input = torch.rand([i, 128, 768])
     start = time.time()
     U, S, V = torch.svd_lowrank(input, q=12)
     lowrank_time = time.time() - start
@@ -37,8 +37,8 @@ for i in range(32):
 l1 = plt.plot(i_list, sq_list, label="sortquant", marker="o")
 l2 = plt.plot(i_list, lowrank_list, label="svd_lowrank", marker="o")
 l3 = plt.plot(i_list, svd_list, label="svd", marker="o")
-plt.title("CIFAR10 activation memory execution tests")
+plt.title("RTE activation memory execution tests")
 plt.xlabel("batch size")
 plt.ylabel("execution time")
 plt.legend()
-plt.savefig("./test_gpu.jpg")
+plt.savefig("./test_cpu_rte.jpg")
