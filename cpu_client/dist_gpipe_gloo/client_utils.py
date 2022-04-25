@@ -124,16 +124,6 @@ def client_trainer(
             losses = losses / client_settings["chunks"]
             acc1_avg, losses_avg = acc1 + acc1_avg, losses_avg + losses
 
-            if batch_iter % client_settings["showperiod"] == 0:
-                print(
-                    "training_loss:",
-                    losses,
-                    "training_acc",
-                    acc,
-                    "bandwidth",
-                    bandwidth.item(),
-                )
-
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 if back == len(train_settings["models"]) - 1:
                     for chunk in range(client_settings["chunks"]):
@@ -146,6 +136,17 @@ def client_trainer(
             optimizer.step()
             optimizer.zero_grad()
             batch_time = time.time() - start
+            if batch_iter % client_settings["showperiod"] == 0:
+                print(
+                    "training_loss:",
+                    losses,
+                    "training_acc",
+                    acc,
+                    "bandwidth",
+                    bandwidth.item(),
+                    "time:",
+                    batch_time,
+                )
             time_per_batch += batch_time
             start = time.time()
         time_per_batch = time_per_batch / len(train_settings["train_loader"])

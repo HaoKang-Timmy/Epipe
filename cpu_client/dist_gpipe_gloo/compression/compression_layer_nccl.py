@@ -269,12 +269,15 @@ class SortQuantClient(autograd.Function):
             split_bits,
             pg,
         )
+        start = time.time()
         ctx.device = device
         shape = input.shape
         # flatten
         input = input.view(-1)
         # sort tensor
+        sort_start = time.time()
         src, index = torch.sort(input, dim=0)
+        print("sort time", time.time() - sort_start)
         # the reason of not using chunk is that it seperates tensor not seperately
         index = torch.tensor_split(index, 2**split_bits)
         src = torch.tensor_split(src, 2**split_bits)
@@ -285,6 +288,8 @@ class SortQuantClient(autograd.Function):
         else:
             output = input.type(torch.int16)
         output = output.view(-1)
+        print("part1", time.time() - start)
+        start = time.time()
         for i in range(2**split_bits):
             if bits + split_bits == 8 or bits + split_bits == 16:
                 # there is no uint8 or uint16 in torch, so the encoding formula is different
@@ -316,6 +321,7 @@ class SortQuantClient(autograd.Function):
             temp_src = temp_src.type(output.dtype)
             # fill the encode tensor into send tensor
             output.scatter_(0, index[i], temp_src)
+        print("part2", time.time() - start)
         output = output.view(shape)
         if bits + split_bits > 8 and bits + split_bits <= 16:
             # int16 is not supported by nccl backend
@@ -444,6 +450,7 @@ class SortQuantGPU(autograd.Function):
         if bits + split_bits > 8 and bits + split_bits <= 16:
             # int16 is not supported by nccl backend
             output = output.view(dtype=torch.int8)
+        # print("send",min_step,output,send_rank)
         dist.isend(min_step, send_rank, group=pg)
         dist.isend(output, send_rank, group=pg)
         input = input.view(shape)
