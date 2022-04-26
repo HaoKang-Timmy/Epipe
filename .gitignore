@@ -2,4 +2,6 @@
 /data
 *.txt
 /log
+/code(noapi)
+/dist_gpipe
 #test
