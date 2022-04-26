@@ -60,4 +60,4 @@ You can reproduce the results by executing `./CPUtest.py`
 | ---------------------------------- |
 | [128,768]                          |
 
-![image-20220425174146944](../pic/image-20220425174146944.png)
+![image-20220425174146944](./pic/image-20220425174146944.png)
