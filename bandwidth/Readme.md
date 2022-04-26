@@ -1,6 +1,6 @@
 # Bandwidth vs Tensor Size
 
-![image-20220426141712922](../pic/image-20220426141712922.png)
+![image-20220426141852809](./pic/image-20220426141852809.png)
 
 # Reproduce
 
