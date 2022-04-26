@@ -22,13 +22,13 @@ A simulation by using CPUs to train client tasks and one GTX 1080 to train serve
 |                    |       |                         |             |                |
 |                    |       |                         |             |                |
 
-## 2 Compression Algorithm Analyse
+# 2 Compression Algorithm Analyse
 
-### 2.1 CPU
+## 2.1 CPU
 
 You can reproduce the results by executing `./CPUtest.py`
 
-#### Settings
+### Settings
 
 | Activation Memory(Total/Batchsize) |
 | ---------------------------------- |
@@ -54,10 +54,13 @@ You can reproduce the results by executing `./CPUtest.py`
 
 ![image-20220421173843653](./pic/test_gpu.jpg)
 
-## Settings
+### Settings
 
 | Activation Memory(Total/Batchsize) |
 | ---------------------------------- |
 | [128,768]                          |
 
-![image-20220425174146944](./pic/image-20220425174146944.png)
+![image-20220425174146944](.
+
+/pic/image-20220425174146944.png)
+
