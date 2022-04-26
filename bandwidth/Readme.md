@@ -1,10 +1,10 @@
 # Bandwidth vs Tensor Size
 
-![image-20220426134204514](/Users/catbeta/Documents/research/gpipe_test/pic/image-20220426134204514.png)
+![image-20220426134204514](../pic/image-20220426134204514.png)
 
 # Reproduce
 
-First install and compile nccl.
+First, install and compile nccl.
 
 https://github.com/NVIDIA/nccl
 
