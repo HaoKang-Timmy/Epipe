@@ -1,3 +1,7 @@
+---
+typora-copy-images-to: ./pic
+---
+
 # CPU Training
 
 A simulation by using CPUs to train client tasks and one GTX 1080 to train server tasks
@@ -24,13 +28,23 @@ A simulation by using CPUs to train client tasks and one GTX 1080 to train serve
 
 You can reproduce the results by executing `./CPUtest.py`
 
-#### Setting
+#### Settings
 
 | Activation Memory(Total/Batchsize) |
 | ---------------------------------- |
 | [32,112,112]                       |
 
 ![image-20220421173843653](./pic/test.jpg)
+
+### Settings
+
+| Activation Memory(Total/Batchsize) |
+| ---------------------------------- |
+| [128,768]                          |
+
+![image-20220425172011591](./pic/image-20220425172011591.png)
+
+
 
 ## 2.2 GPU
 
@@ -39,3 +53,11 @@ You can reproduce the results by executing `./CPUtest.py`
 | [32,112,112]                       |
 
 ![image-20220421173843653](./pic/test_gpu.jpg)
+
+## Settings
+
+| Activation Memory(Total/Batchsize) |
+| ---------------------------------- |
+| [128,768]                          |
+
+![image-20220425174146944](/Users/catbeta/Documents/research/gpipe_test/cpu_client/pic/image-20220425174146944.png)

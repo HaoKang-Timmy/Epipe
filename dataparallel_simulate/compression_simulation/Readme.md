@@ -1,3 +1,7 @@
+---
+typora-copy-images-to: ../../pic
+---
+
 # Compression Algorithm Simulate
 
 All experiments are tested in data-parallelism conditions.
@@ -61,15 +65,31 @@ Testing RTE with Roberta for 20 epochs
 
 Testing CIFAR10 with MobileNetV2 for 40 epochs
 
-| Method                  | Separate Strategy         | Compression Ratio(after/before) | Throughput | Acc   |
-| ----------------------- | ------------------------- | ------------------------------- | ---------- | ----- |
-| SVD 14rank              | firsrt layer, last layers | 0.25(only first layer)          | 102.4/s    | 95.73 |
-| SVD 12rank              | firsrt layer, last layers | 0.214(only first layer)         | 106.2/s    | 95.51 |
-| SVD 8rank               | firsrt layer, last layers | 0.143(only first layer)         | 125.5/s    | 94.99 |
-| SVD 6rank               | firsrt layer, last layers | 0.107(only first layer)         | 136.9/s    | 94.16 |
-| Sort Quantization 8bits | firsrt layer              | 0.25                            | 627.22/s   | 95.73 |
+| Method                                                 | Separate Strategy         | Compression Ratio(after/before) | Throughput | Acc   |
+| ------------------------------------------------------ | ------------------------- | ------------------------------- | ---------- | ----- |
+| SVD 14rank                                             | firsrt layer, last layers | 0.25(only first layer)          | 102.4/s    | 95.73 |
+| SVD 12rank                                             | firsrt layer, last layers | 0.214(only first layer)         | 106.2/s    | 95.51 |
+| SVD 8rank                                              | firsrt layer, last layers | 0.143(only first layer)         | 125.5/s    | 94.99 |
+| SVD 6rank                                              | firsrt layer, last layers | 0.107(only first layer)         | 136.9/s    | 94.16 |
+| Sort Quantization 8bits                                | firsrt layer, last layers | 0.25                            | 627.22/s   | 95.73 |
+| Sort Quantization 8bits on server SVD 12rank on client | firsrt layer, last layers | 0.214(server) 0.25(client)      | 107.4/s    | 95.48 |
 
 ![image-20220424113557392](../../pic/image-20220424113557392.png)
+
+
+
+Testing RTE with Roberta-base for 20 epochs. Batch size is 32 
+
+| Method      | Separate Strategy                 | Compression Ratio(after/before) | Throughput | Acc   |
+| ----------- | --------------------------------- | ------------------------------- | ---------- | ----- |
+| SVD 128rank | firsrt two layer, last two layers | 0.33                            | 54.99/s    | 79.7  |
+| SVD 64rank  | firsrt two layer, last two layers | 0.167                           | 60.15/s    | 80.14 |
+| SVD 48rank  | firsrt two layer, last two layers | 0.125                           | 62.74/s    | 79.4  |
+| SVD 32rank  | firsrt layer, last layers         | 0.083                           | 65.3/s     | 72.4  |
+
+![image-20220425232649080](../../pic/image-20220425232649080.png)
+
+
 
 ## Comparing with K-means
 

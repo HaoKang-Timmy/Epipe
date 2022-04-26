@@ -73,13 +73,15 @@ Backend:MobileNetV2
 
 Client-Server Partition: First and last layer
 
+Chunk: 4
+
 | Batchsize     | Activation Memory Size(al together) | Compression Method(default3:1) | Compression Ratio | Validation Acc | Client Send Bandwidth | Server Send Bandwidth |
 | ------------- | ----------------------------------- | ------------------------------ | ----------------- | -------------- | --------------------- | --------------------- |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | None                           | 1                 | 95.87%         | 11.92GB/s             | 11.79GB/s             |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 16bits       | 0.5               | 95.84%         | 11.89GB/s             | 11.51GB/s             |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 12bits       | 0.375             | 95.73%         | 11.87GB/s             | 11.54GB/s             |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 8bits        | 0.25              | 95.68%         | 11.82GB/s             | 11.44GB/s             |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 4bits        | 0.125             | 87.10%         | 11.79GB/s             | 10.13GB/s             |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | None                           | 1                 | 95.87%         | 12.17GB/s             | 11.83GB/s             |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 16bits       | 0.5               | 95.84%         | 12.10GB/s             | 11.55GB/s             |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 12bits       | 0.375             | 95.73%         | 12.03GB/s             | 11.54GB/s             |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 8bits        | 0.25              | 95.68%         | 11.95GB/s             | 11.44GB/s             |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 4bits        | 0.125             | 87.10%         | 11.82GB/s             | 10.13GB/s             |
 
 ### CIFAR100
 
