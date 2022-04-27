@@ -111,6 +111,7 @@ def client_trainer(
                         # print("client, recv",chunk)
                         # print("client",client_settings['rank'],"recv",input.shape)
                         output = model(input)
+                        # print(output)
                         acc, _ = accuracy(output, targets[chunk], topk=(1, 2))
                         output = criterion(output, targets[chunk])
                         # print(output)

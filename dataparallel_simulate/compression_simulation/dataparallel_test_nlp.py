@@ -9,7 +9,15 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 import argparse
 import os
-from utils import Fakequantize, TopkLayer, SortQuantization, KMeansLayer,PCAQuantize,combine_classifier,combine_embeding
+from utils import (
+    Fakequantize,
+    TopkLayer,
+    SortQuantization,
+    KMeansLayer,
+    PCAQuantize,
+    combine_classifier,
+    combine_embeding,
+)
 from torch.optim import AdamW
 
 
@@ -132,9 +140,9 @@ def main_worker(rank, process_num, args):
     model3 = nlp_sequential([model.roberta.encoder.layer[1:-1]])
     model4 = nlp_sequential([model.roberta.encoder.layer[-1:]])
     model5 = model.classifier
-    part1 = combine_embeding([model2],model1)
+    part1 = combine_embeding([model2], model1)
     part2 = model3
-    part3 = combine_classifier([model4],[model5])
+    part3 = combine_classifier([model4], [model5])
     part1.to(rank)
     part2.to(rank)
     part3.to(rank)
@@ -173,19 +181,22 @@ def main_worker(rank, process_num, args):
             start = time.time()
             batch = {k: v.to(rank) for k, v in batch.items()}
             optimizer.zero_grad()
-            batch["attention_mask"] = torch.reshape(
-                batch["attention_mask"],
-                [
-                    int(batch["attention_mask"].shape[0]),
-                    1,
-                    1,
-                    int(batch["attention_mask"].shape[-1]),
-                ],
-            ).to(rank).type(torch.float32)
+            batch["attention_mask"] = (
+                torch.reshape(
+                    batch["attention_mask"],
+                    [
+                        int(batch["attention_mask"].shape[0]),
+                        1,
+                        1,
+                        int(batch["attention_mask"].shape[-1]),
+                    ],
+                )
+                .to(rank)
+                .type(torch.float32)
+            )
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
-            outputs = part1(batch["input_ids"],batch["attention_mask"])
-            
-           
+            outputs = part1(batch["input_ids"], batch["attention_mask"])
+
             # print(outputs)
             # loss = outputs.loss
             # print(outputs.shape)
@@ -199,14 +210,12 @@ def main_worker(rank, process_num, args):
                     # if rank == 1:
                     # print("first output",outputs)
                 if args.pca != 0:
-                    outputs = PCAQuantize.apply(outputs,args.pca)
+                    outputs = PCAQuantize.apply(outputs, args.pca)
             else:
                 outputs = SortQuantization.apply(
                     outputs, args.quant, args.prun, args.sort
                 )
             outputs = part2(outputs, batch["attention_mask"])
-
-            
 
             if args.sort == 0:
                 if args.prun != 0:
@@ -218,7 +227,7 @@ def main_worker(rank, process_num, args):
                     # if rank == 1:
                     #     print("first output",outputs)
                 if args.pca != 0:
-                    outputs = PCAQuantize.apply(outputs,args.pca)
+                    outputs = PCAQuantize.apply(outputs, args.pca)
             else:
                 outputs = SortQuantization.apply(
                     outputs, args.quant, args.prun, args.sort
@@ -254,21 +263,25 @@ def main_worker(rank, process_num, args):
         with torch.no_grad():
             for i, batch in enumerate(val_dataloader):
                 batch = {k: v.to(rank) for k, v in batch.items()}
-                batch["attention_mask"] = torch.reshape(
-                    batch["attention_mask"],
-                    [
-                        int(batch["attention_mask"].shape[0]),
-                        1,
-                        1,
-                        int(batch["attention_mask"].shape[-1]),
-                    ],
-                ).to(rank).type(torch.float32)
+                batch["attention_mask"] = (
+                    torch.reshape(
+                        batch["attention_mask"],
+                        [
+                            int(batch["attention_mask"].shape[0]),
+                            1,
+                            1,
+                            int(batch["attention_mask"].shape[-1]),
+                        ],
+                    )
+                    .to(rank)
+                    .type(torch.float32)
+                )
                 batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
-                outputs = part1(batch["input_ids"],batch["attention_mask"])
-                
+                outputs = part1(batch["input_ids"], batch["attention_mask"])
+
                 # print(outputs)
                 # loss = outputs.loss
-                
+
                 if args.sort == 0:
                     if args.prun != 0:
                         outputs = topk_layer(outputs)
@@ -277,13 +290,13 @@ def main_worker(rank, process_num, args):
                     if args.kmeans != 0:
                         outputs = kmeanslayer(outputs)
                     if args.pca != 0:
-                        outputs = PCAQuantize.apply(outputs,args.pca)
+                        outputs = PCAQuantize.apply(outputs, args.pca)
                 else:
                     outputs = SortQuantization.apply(
                         outputs, args.quant, args.prun, args.sort
                     )
                 outputs = part2(outputs, batch["attention_mask"])
-                
+
                 if args.sort == 0:
                     if args.prun != 0:
                         outputs = topk_layer(outputs)
@@ -292,7 +305,7 @@ def main_worker(rank, process_num, args):
                     if args.kmeans != 0:
                         outputs = kmeanslayer(outputs)
                     if args.pca != 0:
-                        outputs = PCAQuantize.apply(outputs,args.pca)
+                        outputs = PCAQuantize.apply(outputs, args.pca)
                 else:
                     outputs = SortQuantization.apply(
                         outputs, args.quant, args.prun, args.sort

@@ -169,11 +169,11 @@ def main_worker(rank, process_num, args):
             #     if args.avgpool != 0:
             #         outputs = upsample2(outputs)
             #         # print("avg")
-                
+
             # elif args.sortquant != 0:
             #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
             if args.pca1 != 0:
-                    outputs = PCAQuantize.apply(outputs, args.pca1)
+                outputs = PCAQuantize.apply(outputs, args.pca1)
             outputs = layer2(outputs)
             if args.sortquant == 0:
                 if args.prune != 0:
@@ -241,7 +241,7 @@ def main_worker(rank, process_num, args):
                 #     if args.avgpool != 0:
                 #         outputs = upsample2(outputs)
                 #         # print("avg")
-                    
+
                 # elif args.sortquant != 0:
                 #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
                 if args.pca1 != 0:

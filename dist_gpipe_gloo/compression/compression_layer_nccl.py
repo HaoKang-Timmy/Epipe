@@ -488,3 +488,6 @@ class SortDeQuantGPU(autograd.Function):
         grad_output = grad_output.view(shape)
         # print(grad_output.shape)
         return grad_output, None, None, None, None, None
+
+
+# forward svd,backward sortquant
