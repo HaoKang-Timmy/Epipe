@@ -85,16 +85,21 @@ def client_trainer(
                 for chunk in range(client_settings["chunks"]):
 
                     if i == 0:
+                        # some = time.time()
                         output = model(images[chunk])
+                        # print("client first layer time:", time.time() - some)
                         # start = time.time()
+                        # some = time.time()
                         output = SendTensorCPU(
                             output, client_settings, train_settings, chunk
                         )
+                        # print("client sortquant time:", time.time() - some)
                         # print("client, send",chunk)
                         # print("client",client_settings['rank'],"send",output.shape)
                         # end = time.time() - start
                         # print(end)
                     else:
+                        # some = time.time()
                         input = (
                             torch.zeros(client_settings["recv_size"])
                             # .to(client_settings["device"])
@@ -110,9 +115,13 @@ def client_trainer(
                         )
                         # print("client, recv",chunk)
                         # print("client",client_settings['rank'],"recv",input.shape)
+                        # print("client desortquant time:", time.time() - some)
+                        # some = time.time()
                         output = model(input)
+                        # print(output)
                         acc, _ = accuracy(output, targets[chunk], topk=(1, 2))
                         output = criterion(output, targets[chunk])
+                        # print("client last layer time:", time.time() - some)
                         # print(output)
                         losses += output.item()
                         acc1 = acc1 + acc.item()
@@ -126,13 +135,16 @@ def client_trainer(
 
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 if back == len(train_settings["models"]) - 1:
+                    # print("client backward send pre",chunk)
                     for chunk in range(client_settings["chunks"]):
                         batches[back][chunk].backward()
+                        # print("client backward send",chunk)
                 else:
                     for chunk in range(client_settings["chunks"]):
                         batches[back][chunk].backward(
                             torch.empty(tuple(list(batches[back][chunk].shape)))
                         )
+                        # print("client backward recv",chunk)
             optimizer.step()
             optimizer.zero_grad()
             batch_time = time.time() - start

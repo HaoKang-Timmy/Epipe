@@ -18,7 +18,7 @@ i_list = []
 for i in range(32):
     i = i + 1
 
-    input = torch.rand([i,128,768]).to(0)
+    input = torch.rand([i, 128, 768]).to(0)
     start = time.time()
     U, S, V = torch.svd_lowrank(input, q=12)
     lowrank_time = time.time() - start
