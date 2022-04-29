@@ -73,15 +73,15 @@ def SortQuantization(input, bits, split_bits, min_step):
 
     src, index = torch.sort(input, dim=0)
 
-    index = torch.tensor_split(index, 2 ** split_bits)
-    src = torch.tensor_split(src, 2 ** split_bits)
+    index = torch.tensor_split(index, 2**split_bits)
+    src = torch.tensor_split(src, 2**split_bits)
     if bits + split_bits <= 8:
         output = input.type(torch.int8)
     else:
         output = input.type(torch.int16)
     output = output.view(-1)
 
-    for i in range(2 ** split_bits):
+    for i in range(2**split_bits):
 
         if bits + split_bits == 8 or bits + split_bits == 16:
 
@@ -131,9 +131,9 @@ def SortDeQuantization(recv, bits, split_bits, min_step, grad_output):
     if bits + split_bits > 8 and bits + split_bits <= 16:
         recv = recv.view(dtype=torch.int16)
     src, index = torch.sort(recv, dim=0)
-    index = torch.tensor_split(index, 2 ** split_bits)
-    src = torch.tensor_split(src, 2 ** split_bits)
-    for i in range(2 ** split_bits):
+    index = torch.tensor_split(index, 2**split_bits)
+    src = torch.tensor_split(src, 2**split_bits)
+    for i in range(2**split_bits):
         temp_src = src[i].type(torch.float32)
         if bits + split_bits == 8 or bits + split_bits == 16:
             if min_step[i, 1] == 0:
@@ -162,7 +162,7 @@ def FastDeQuantization(recv: torch.tensor, bits, split_bits, min_step, grad_outp
         recv = recv.view(dtype=torch.int16)
     recv = recv.type(torch.long)
 
-    for i in range(2 ** split_bits):
+    for i in range(2**split_bits):
 
         if bits + split_bits == 8 or bits + split_bits == 16:
             upperbound = -pow(2, bits + split_bits - 1) + pow(2, bits) * (i + 1)

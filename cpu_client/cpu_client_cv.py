@@ -7,7 +7,7 @@ import torchvision
 import torchvision.transforms as transforms
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
-parser.add_argument("--chunks", default=4, type=int)
+parser.add_argument("--chunks", default=8, type=int)
 parser.add_argument("--log", default="./test.txt", type=str)
 parser.add_argument("--train-method", default="finetune", type=str)
 # parser.add_argument("--warmup", default=0, action="store_true")
@@ -26,8 +26,10 @@ parser.add_argument("--url", default="tcp://127.0.0.1:1226", type=str)
 parser.add_argument("--bachend", default="nccl", type=str)
 parser.add_argument("--split", default=0, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
+parser.add_argument("--mix", default=0, action="store_true")
 parser.add_argument("--bandwidth", default=0, action="store_true")
-parser.add_argument("--pca", default=0, type=int)
+parser.add_argument("--pca1", default=0, type=int)
+parser.add_argument("--pca2", default=0, type=int)
 
 
 def main():

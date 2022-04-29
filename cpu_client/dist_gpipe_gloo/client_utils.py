@@ -54,7 +54,11 @@ def init_models_client(train_settings, client_settings):
 
 
 def client_trainer(
-    train_settings, client_settings, optimizer, warmup_scheduler, criterion,
+    train_settings,
+    client_settings,
+    optimizer,
+    warmup_scheduler,
+    criterion,
 ):
     acc1_avg = 0.0
     losses_avg = 0.0
@@ -103,7 +107,11 @@ def client_trainer(
                         )
                         # print("client, pre_recv",chunk)
                         input = RecvTensorCPU(
-                            input, client_settings, train_settings, chunk, True,
+                            input,
+                            client_settings,
+                            train_settings,
+                            chunk,
+                            True,
                         )
                         # print("client, recv",chunk)
                         # print("client",client_settings['rank'],"recv",input.shape)
@@ -127,13 +135,16 @@ def client_trainer(
 
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 if back == len(train_settings["models"]) - 1:
+                    # print("client backward send pre",chunk)
                     for chunk in range(client_settings["chunks"]):
                         batches[back][chunk].backward()
+                        # print("client backward send",chunk)
                 else:
                     for chunk in range(client_settings["chunks"]):
                         batches[back][chunk].backward(
                             torch.empty(tuple(list(batches[back][chunk].shape)))
                         )
+                        # print("client backward recv",chunk)
             optimizer.step()
             optimizer.zero_grad()
             batch_time = time.time() - start
@@ -449,12 +460,18 @@ def client(train_settings, client_settings):
                 train_loss,
                 bandwidth_avg,
             ) = client_trainer(
-                train_settings, client_settings, optimizer, warmup_scheduler, criterion,
+                train_settings,
+                client_settings,
+                optimizer,
+                warmup_scheduler,
+                criterion,
             )
             if train_settings["tasktype"] == "cv":
                 warmup_scheduler.step()
             val_acc, val_metric, val_loss = client_validation(
-                train_settings, client_settings, criterion,
+                train_settings,
+                client_settings,
+                criterion,
             )
             print(
                 "epoch",

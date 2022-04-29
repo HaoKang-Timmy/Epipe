@@ -3,7 +3,7 @@ from functions import *
 import time
 
 split_bits = 2
-min_step = torch.rand([2 ** split_bits, 2])
+min_step = torch.rand([2**split_bits, 2])
 input = torch.rand([10, 10])
 print("before quant")
 print(input)

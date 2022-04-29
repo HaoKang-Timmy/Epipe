@@ -47,7 +47,10 @@ def init_models_server(train_settings, server_settings):
 
 
 def server_trainer(
-    train_settings, server_settings, optimizer, warmup_scheduler,
+    train_settings,
+    server_settings,
+    optimizer,
+    warmup_scheduler,
 ):
     if train_settings["tasktype"] == "cv":
         timerecv_avg = 0.0
@@ -83,12 +86,13 @@ def server_trainer(
             forward_time = time.time() - start
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 for chunk in range(server_settings["chunks"]):
-
+                    # print("server backward pre",chunk)
                     batches[back][chunk].backward(
                         torch.empty(tuple(list(batches[back][chunk].shape))).to(
                             server_settings["device"]
                         )
                     )
+                    # print("server backward",chunk)
             end = time.time() - start
             if batch_iter % server_settings["showperiod"] == 0:
                 print("server_time", end, "forward_time", forward_time)
@@ -242,7 +246,10 @@ def server(train_settings, server_settings):
         # print("server",group_list)
         for epoch in range(train_settings["epochs"]):
             server_trainer(
-                train_settings, server_settings, optimizer, warmup_scheduler,
+                train_settings,
+                server_settings,
+                optimizer,
+                warmup_scheduler,
             )
             if train_settings["tasktype"] == "cv":
                 warmup_scheduler.step()

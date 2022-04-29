@@ -119,7 +119,13 @@ class QuantizationLayer(nn.Module):
 class Dequantization(autograd.Function):
     @staticmethod
     def forward(
-        ctx, input, bits, min, step, backward_min, backward_step,
+        ctx,
+        input,
+        bits,
+        min,
+        step,
+        backward_min,
+        backward_step,
     ):
         ctx.bits, ctx.backward_min, ctx.backward_step = (
             bits,
@@ -214,10 +220,10 @@ class SortQuantization(autograd.Function):
         # quantization src1
         # print(src.shape)
         src, index = torch.sort(input, dim=0)
-        index = torch.tensor_split(index, 2 ** split_bits)
-        src = torch.tensor_split(src, 2 ** split_bits)
+        index = torch.tensor_split(index, 2**split_bits)
+        src = torch.tensor_split(src, 2**split_bits)
         # print(src1[1])
-        for i in range(2 ** split_bits):
+        for i in range(2**split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
@@ -252,9 +258,9 @@ class SortQuantization(autograd.Function):
         shape = grad_backward.shape
         grad_backward = grad_backward.view(-1)
         src, index = torch.sort(grad_backward, dim=0)
-        index = torch.tensor_split(index, 2 ** split_bits)
-        src = torch.tensor_split(src, 2 ** split_bits)
-        for i in range(2 ** split_bits):
+        index = torch.tensor_split(index, 2**split_bits)
+        src = torch.tensor_split(src, 2**split_bits)
+        for i in range(2**split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
@@ -292,7 +298,7 @@ class KMeansFunction(autograd.Function):
         labels, centers = kmeans.fit_predict(input)
         centers = centers.view(-1)
         labels = labels.type(torch.cuda.FloatTensor)
-        for i in range(2 ** bits):
+        for i in range(2**bits):
             labels[labels == i] = centers[i]
         labels = labels.view(shape)
         labels = labels.requires_grad_()
@@ -307,7 +313,7 @@ class KMeansFunction(autograd.Function):
         labels, centers = kmeans.fit_predict(grad_output)
         centers = centers.view(-1)
         labels = labels.type(torch.cuda.FloatTensor)
-        for i in range(2 ** bits):
+        for i in range(2**bits):
             labels[labels == i] = centers[i]
         labels = labels.view(shape)
         grad_output = grad_output.view(shape)
@@ -318,7 +324,7 @@ class KMeansFunction(autograd.Function):
 class KMeansLayer(nn.Module):
     def __init__(self, bits, device) -> None:
         super(KMeansLayer, self).__init__()
-        self.kmeans = KMeans(n_clusters=2 ** bits, mode="euclidean", device=device)
+        self.kmeans = KMeans(n_clusters=2**bits, mode="euclidean", device=device)
         self.bits = bits
 
     def forward(self, input):
