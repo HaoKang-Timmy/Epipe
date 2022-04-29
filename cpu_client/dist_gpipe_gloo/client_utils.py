@@ -54,11 +54,7 @@ def init_models_client(train_settings, client_settings):
 
 
 def client_trainer(
-    train_settings,
-    client_settings,
-    optimizer,
-    warmup_scheduler,
-    criterion,
+    train_settings, client_settings, optimizer, warmup_scheduler, criterion,
 ):
     acc1_avg = 0.0
     losses_avg = 0.0
@@ -85,16 +81,21 @@ def client_trainer(
                 for chunk in range(client_settings["chunks"]):
 
                     if i == 0:
+                        # some = time.time()
                         output = model(images[chunk])
+                        # print("client first layer time:", time.time() - some)
                         # start = time.time()
+                        # some = time.time()
                         output = SendTensorCPU(
                             output, client_settings, train_settings, chunk
                         )
+                        # print("client sortquant time:", time.time() - some)
                         # print("client, send",chunk)
                         # print("client",client_settings['rank'],"send",output.shape)
                         # end = time.time() - start
                         # print(end)
                     else:
+                        # some = time.time()
                         input = (
                             torch.zeros(client_settings["recv_size"])
                             # .to(client_settings["device"])
@@ -102,18 +103,17 @@ def client_trainer(
                         )
                         # print("client, pre_recv",chunk)
                         input = RecvTensorCPU(
-                            input,
-                            client_settings,
-                            train_settings,
-                            chunk,
-                            True,
+                            input, client_settings, train_settings, chunk, True,
                         )
                         # print("client, recv",chunk)
                         # print("client",client_settings['rank'],"recv",input.shape)
+                        # print("client desortquant time:", time.time() - some)
+                        # some = time.time()
                         output = model(input)
                         # print(output)
                         acc, _ = accuracy(output, targets[chunk], topk=(1, 2))
                         output = criterion(output, targets[chunk])
+                        # print("client last layer time:", time.time() - some)
                         # print(output)
                         losses += output.item()
                         acc1 = acc1 + acc.item()
@@ -449,18 +449,12 @@ def client(train_settings, client_settings):
                 train_loss,
                 bandwidth_avg,
             ) = client_trainer(
-                train_settings,
-                client_settings,
-                optimizer,
-                warmup_scheduler,
-                criterion,
+                train_settings, client_settings, optimizer, warmup_scheduler, criterion,
             )
             if train_settings["tasktype"] == "cv":
                 warmup_scheduler.step()
             val_acc, val_metric, val_loss = client_validation(
-                train_settings,
-                client_settings,
-                criterion,
+                train_settings, client_settings, criterion,
             )
             print(
                 "epoch",
