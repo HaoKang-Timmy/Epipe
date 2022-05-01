@@ -72,7 +72,7 @@ def SortQuantization(input, bits, split_bits, min_step):
     input = input.view(-1)
 
     src, index = torch.sort(input, dim=0)
-
+    # print(src)
     index = torch.tensor_split(index, 2**split_bits)
     src = torch.tensor_split(src, 2**split_bits)
     if bits + split_bits <= 8:
@@ -99,11 +99,11 @@ def SortQuantization(input, bits, split_bits, min_step):
                 temp_src += pow(2, bits) * i
 
             else:
-                some = time.time()
+                # some = time.time()
                 min_step[i, 0], min_step[i, 1] = min, 0.0
                 temp_src = src[i] - src[i] - pow(2, bits + split_bits - 1)
                 temp_src += pow(2, bits) * i
-                print(time.time() - some)
+                # print(time.time() - some)
 
         else:
             min, max = src[i].min(), src[i].max()
@@ -178,6 +178,7 @@ def FastDeQuantization(recv: torch.tensor, bits, split_bits, min_step, grad_outp
             temp = temp.type(torch.float)
             # print(temp)
             indexs = torch.nonzero(temp)
+            # print(indexs)
             indexs = indexs.view(-1)
             # print(indexs)
             temp = torch.index_select(temp, 0, indexs)
@@ -207,3 +208,83 @@ def FastDeQuantization(recv: torch.tensor, bits, split_bits, min_step, grad_outp
 
         grad_output.scatter_(0, indexs, temp)
     return grad_output
+
+
+def FastQuantization(input, bits, split_bits, min_step):
+    shape_tensor = input.shape
+    input = input.view(-1).type(torch.double)
+    separate = torch.tensor(-1e9).type(torch.double)
+    shape = int(input.shape[0])
+    if bits + split_bits <= 8:
+        output = input.type(torch.int8)
+    else:
+        output = input.type(torch.int16)
+    for i in range(2**split_bits):
+        if i == 2**split_bits - 1:
+            kthvalue = input.max()
+        else:
+            # print(shape * (i + 1)/(2 ** split_bits))
+            # start = time.time()
+            kthvalue, indice = torch.kthvalue(
+                input, int(shape * (i + 1) / (2**split_bits)), keepdim=False
+            )
+            # print(kthvalue,indice)
+            # print(time.time() - start)
+            # start = time.time()
+            # test = torch.median(input)
+            # print(time.time() - start)
+            kthvalue = kthvalue.type(torch.double)
+            # kthvalue += 1e-7
+
+            # print(time.time() - start)
+        # special for sparse tensor
+        if kthvalue != 0.0:
+            temp = torch.where((input <= kthvalue) & (input > separate), input, 0.0)
+            # print(temp.shape)
+            temp = temp.type(torch.float)
+            indexs = torch.nonzero(temp)
+            indexs = indexs.view(-1)
+            temp = torch.index_select(temp, 0, indexs)
+        else:
+            temp = torch.where((input <= kthvalue) & (input > separate), input, -1.0)
+            temp = temp.type(torch.float)
+            indexs = (temp != -1.0).nonzero()
+            indexs = indexs.view(-1)
+            # print(indexs)
+            temp = torch.index_select(temp, 0, indexs)
+
+        # print(temp.shape)
+        if bits + split_bits == 8 or bits + split_bits == 16:
+            offset = -pow(2, bits + split_bits - 1) + pow(2, bits) * i
+            if kthvalue == separate or kthvalue == 0.0:
+                min_step[i, 0], min_step[i, 1] = kthvalue, 0.0
+                temp = temp - temp + 1
+                # print(temp)
+                temp += offset
+            else:
+                min = temp.min()
+                step = (kthvalue - min) / (pow(2, bits) - 1)
+                min_step[i, 0], min_step[i, 1] = min, step
+                temp = torch.round((temp - temp.min()) / step)
+                temp += offset
+        else:
+            offset = pow(2, bits) * i
+            if kthvalue == separate:
+
+                min_step[i, 0], min_step[i, 1] = kthvalue, 0.0
+                temp = temp - temp + 1
+                temp += offset
+            else:
+                min = temp.min()
+                step = (kthvalue - min) / (pow(2, bits) - 1)
+                min_step[i, 0], min_step[i, 1] = min, step
+                temp = torch.round((temp - min) / step)
+                temp += pow(2, bits) * i
+        separate = kthvalue
+        # print(temp)
+        temp = temp.type(output.dtype)
+        output.scatter_(0, indexs, temp)
+    output = output.view(shape_tensor)
+    if bits + split_bits > 8 and bits + split_bits <= 16:
+        output = output.view(dtype=torch.int8)
+    return min_step, output

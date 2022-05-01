@@ -332,7 +332,9 @@ class SortDeQuantGPU(autograd.Function):
             ctx.pg,
         )
         shape = grad_output.shape
+        # print(grad_output)
         min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
+
         min_step, output = SortQuantization(grad_output, bits, split_bits, min_step)
         dist.isend(min_step, send_rank, group=pg)
         dist.isend(output, send_rank, group=pg)

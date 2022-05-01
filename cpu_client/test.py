@@ -10,6 +10,7 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 import torch.nn.functional as F
 import time
+import matplotlib.pyplot as plt
 
 
 def main_worker(rank, world_size, args):
@@ -20,35 +21,67 @@ def main_worker(rank, world_size, args):
         rank=rank,
     )
     print("process begin", rank)
+    batchsize = 32
+
     if rank == 0:
-        input = torch.rand([8, 1280, 7, 7])
-        back = torch.rand([10, 10])
-        # print(input)
-        # for i in range(4):
-        # start =time.time()
-        # quant_time = time.time()
-        # output = SortQuantClient.apply(input, 6, 2, 1, 0)
-        # end_time = time.time() - quant_time
-        # print(end_time)
-
-        dequant_time = time.time()
-        output = SortDeQuantClient.apply(input, 6, 2, 1, 0)
-        end_time = time.time() - dequant_time
-        print(end_time)
-        # print(end_time)
-        # print("rank0" ,output)
-        # print("send over")
-        # end =time.time() -start
-        # print(end)
+        sortquantclient_time = []
+        sortdequantclient_time = []
+        sortquantserver_time = torch.rand([32]).to(0)
+        sortdequantserver_time = torch.rand([32]).to(0)
+        i_list = []
+        # input = torch.rand([batchsize, 1280, 7, 7])
+        # back = torch.rand([10, 10])
+        for i in range(batchsize):
+            print(i)
+            i = i + 1
+            i_list.append(i)
+            input = torch.rand([i, 32, 112, 112]).requires_grad_()
+            back = torch.rand([i, 32, 112, 112])
+            start = time.time()
+            output = SortQuantClient.apply(input, 6, 2, 1, 0)
+            sortquantclient_time.append(time.time() - start)
+            start = time.time()
+            output.backward(back)
+            sortdequantclient_time.append(time.time() - start)
+        dist.recv(sortquantserver_time, 1)
+        sortquantserver_time = sortquantserver_time.cpu()
+        print(sortquantserver_time.shape)
+        dist.recv(sortdequantserver_time, 1)
+        print(sortdequantserver_time.shape)
+        sortdequantserver_time = sortdequantserver_time.cpu()
+        l1 = plt.plot(i_list, list(sortquantclient_time), label="sq_client", marker="o")
+        l2 = plt.plot(
+            i_list, list(sortdequantclient_time), label="sdq_client", marker="o"
+        )
+        l3 = plt.plot(i_list, list(sortquantserver_time), label="sq_server", marker="o")
+        l4 = plt.plot(
+            i_list, list(sortdequantserver_time), label="sdq_server", marker="o"
+        )
+        plt.title("CIFAR10 first layer activation")
+        plt.xlabel("batch size")
+        plt.ylabel("execution time")
+        plt.legend()
+        plt.savefig("./test_CIFAR10.jpg")
     elif rank == 1:
-        input = torch.rand([8, 32, 112, 112]).to(1)
-        # for i in range(4):
-        # output = SortDeQuantGPU.apply(input, 6, 2, 0)
-
-        output = SortQuantGPU.apply(input, 6, 2, 0)
-        # print("rank1" ,output)
-        # print(output)
-    # print(rank,"over")
+        sortquantserver_time = []
+        sortdequantserver_time = []
+        for i in range(batchsize):
+            i = i + 1
+            input = torch.rand([i, 32, 112, 112]).requires_grad_().to(1)
+            back = torch.rand([i, 32, 112, 112]).to(1)
+            # print(input)
+            # print(back)
+            start = time.time()
+            output = SortDeQuantGPU.apply(input, 6, 2, 0)
+            sortdequantserver_time.append(time.time() - start)
+            start = time.time()
+            # print(back.shape)
+            output.backward(back)
+            sortquantserver_time.append(time.time() - start)
+        dist.send(torch.tensor(sortquantserver_time).to(1), 0)
+        dist.send(torch.tensor(sortdequantserver_time).to(1), 0)
+        # print(torch.tensor(sortdequantserver_time).shape)
+        # print(torch.tensor(sortquantserver_time).shape)
 
 
 def main():
