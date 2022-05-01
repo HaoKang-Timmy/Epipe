@@ -54,6 +54,7 @@ def server_trainer(
         timecount = torch.tensor([0.0])
         for batch_iter in range(train_settings["len_trainloader"]):
             batches = []
+            start = time.time()
             for i, model in enumerate(train_settings["models"]):
                 model.train()
                 batch = []
@@ -68,32 +69,39 @@ def server_trainer(
                     input = RecvTensor(
                         input, server_settings, train_settings, chunk, False, timecount
                     )
-                    # print("server, recv",chunk)
+                    # print("server, recv", chunk)
                     # print("server",server_settings['rank'],"recv",server_settings['recv_rank'],input.shape)
                     output = model(input)
 
                     output = SendTensor(output, server_settings, train_settings, chunk)
-                    # print("server, send",chunk)
+                    # print("server, send", chunk)
                     # print("server",server_settings['rank'],"send",server_settings['send_rank'],output.shape)
                     timerecv_avg += timecount.item()
+                    # output = output.cpu()
                     batch.append(output)
                 batches.append(batch)
                 # timecount /= chunk
-
+            # forward_time = time.time() - start
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 for chunk in range(server_settings["chunks"]):
-
+                    # print("server backward pre",chunk)
+                    # batches[back][chunk] = batches[back][chunk].to(server_settings["device"])
                     batches[back][chunk].backward(
                         torch.empty(tuple(list(batches[back][chunk].shape))).to(
                             server_settings["device"]
                         )
                     )
+                    # print("server backward",chunk)
+            end = time.time() - start
+            # if batch_iter % server_settings["showperiod"] == 0:
+            #     print("server_time", end, "forward_time", forward_time)
+
             optimizer.step()
             optimizer.zero_grad()
         timerecv_avg = (
             timerecv_avg / train_settings["len_trainloader"] / server_settings["chunks"]
         )
-        print("server avg bandwidth:", timerecv_avg)
+        # print("server avg bandwidth:", timerecv_avg)
     else:
         timerecv_avg = 0.0
         timecount = torch.tensor([0.0])

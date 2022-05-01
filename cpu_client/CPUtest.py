@@ -1,3 +1,11 @@
+'''
+Author: your name
+Date: 2022-05-01 13:29:23
+LastEditTime: 2022-05-01 13:29:44
+LastEditors: your name
+Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+FilePath: /research/gpipe_test/cpu_client/CPUtest.py
+'''
 """
 Author: your name
 Date: 2022-04-26 01:38:00
@@ -12,10 +20,10 @@ import torch.nn as nn
 import time
 import matplotlib.pyplot as plt
 
-# model = mobilenet_v2(pretrained=True)
-# model.classifier[-1] = nn.Linear(1280, 10)
-# layer1 = [model.features[0:1]]
-# layer1 = nn.Sequential(*layer1)
+model = mobilenet_v2(pretrained=True)
+model.classifier[-1] = nn.Linear(1280, 10)
+layer1 = [model.features[0:1]]
+layer1 = nn.Sequential(*layer1)
 # input = torch.rand([1,3,224,224])
 # output = layer1(input)
 # print(output.shape)
@@ -23,11 +31,15 @@ sq_list = []
 svd_list = []
 lowrank_list = []
 i_list = []
+first_layer_list = []
 for i in range(32):
     i = i + 1
 
-    input = torch.rand([i, 10, 10])
-    print(input)
+    input = torch.rand([i, 32, 112, 112])
+    start = time.time()
+    output = layer1(input)
+    first_layer_time = time.time() - start
+
     start = time.time()
     U, S, V = torch.svd_lowrank(input, q=3)
     print(U)
@@ -44,6 +56,7 @@ for i in range(32):
     output = input.view(-1)
     output = torch.sort(output, dim=0)
     sortquant_time = time.time() - start
+
     sq_list.append(sortquant_time)
     svd_list.append(svd_time)
     lowrank_list.append(lowrank_time)

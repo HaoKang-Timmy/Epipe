@@ -19,6 +19,8 @@ from utils import (
     TopkLayer,
     SortQuantization,
     PCAQuantize,
+    FQBSQ,
+    FSQBQ,
 )
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
@@ -98,10 +100,14 @@ def main_worker(rank, process_num, args):
     #     pass
     model = models.mobilenet_v2(pretrained=True)
     model.classifier[-1] = torch.nn.Linear(1280, 10)
-
+    lora_layer1 = torch.nn.Linear(112, 56)
+    lora_layer2 = torch.nn.Linear(56, 112)
+    lora_layer3 = torch.nn.Linear(7, 4)
+    lora_layer4 = torch.nn.Linear(4, 7)
     layer1 = nn.Sequential(*[model.features[0:1]])
     layer2 = nn.Sequential(*[model.features[1:]])
     layer3 = nn.Sequential(*[Reshape1(), model.classifier])
+
     # quant_layer1 = QuantizationLayer(args.quant)
     # dequant_layer1 = DequantizationLayer(args.quant)
     # quant_layer2 = QuantizationLayer(args.quant)
@@ -109,7 +115,6 @@ def main_worker(rank, process_num, args):
     layer1 = layer1.to(rank)
     layer2 = layer2.to(rank)
     layer3 = layer3.to(rank)
-
     # quant_layer1 = quant_layer1.to(rank)
     # dequant_layer1 = dequant_layer1.to(rank)
     # quant_layer2 =quant_layer2.to(rank)
@@ -156,42 +161,43 @@ def main_worker(rank, process_num, args):
             label = label.to(rank, non_blocking=True)
 
             outputs = layer1(image)
-            if args.sortquant == 0:
-                if args.prune != 0:
-                    outputs = topk_layer(outputs)
-                    # print("prun")
-                if args.avgpool != 0:
-                    outputs = avgpool2(outputs)
-                    # print("avg")
-                if args.quant != 0:
-                    outputs = Fakequantize.apply(outputs, args.quant)
-                    # print("quant")
-                if args.avgpool != 0:
-                    outputs = upsample2(outputs)
-                    # print("avg")
-                if args.pca1 != 0:
-                    outputs = PCAQuantize.apply(outputs, args.pca1)
-            elif args.sortquant != 0:
-                outputs = SortQuantization.apply(outputs, args.quant, args.split)
-
+            # if args.sortquant == 0:
+            #     if args.prune != 0:
+            #         outputs = topk_layer(outputs)
+            #         # print("prun")
+            #     if args.avgpool != 0:
+            #         outputs = avgpool2(outputs)
+            #         # print("avg")
+            #     if args.quant != 0:
+            #         outputs = Fakequantize.apply(outputs, args.quant)
+            #         # print("quant")
+            #     if args.avgpool != 0:
+            #         outputs = upsample2(outputs)
+            #         # print("avg")
+            #     if args.pca1 != 0:
+            #         outputs = PCAQuantize.apply(outputs, args.pca1)
+            # elif args.sortquant != 0:
+            #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
+            outputs = FQBSQ.apply(outputs, 8, 6, 2)
             outputs = layer2(outputs)
-            if args.sortquant == 0:
-                if args.prune != 0:
-                    outputs = topk_layer(outputs)
-                    # print("prun")
-                if args.avgpool != 0:
-                    outputs = avgpool2(outputs)
-                    # print("avg")
-                if args.quant != 0:
-                    outputs = Fakequantize.apply(outputs, args.quant)
-                    # print("quant")
-                if args.avgpool != 0:
-                    outputs = upsample2(outputs)
-                    # print("avg")
-                if args.pca2 != 0:
-                    outputs = PCAQuantize.apply(outputs, args.pca2)
-            elif args.sortquant != 0:
-                outputs = SortQuantization.apply(outputs, args.quant, args.split)
+            # if args.sortquant == 0:
+            #     if args.prune != 0:
+            #         outputs = topk_layer(outputs)
+            #         # print("prun")
+            #     if args.avgpool != 0:
+            #         outputs = avgpool2(outputs)
+            #         # print("avg")
+            #     if args.quant != 0:
+            #         outputs = Fakequantize.apply(outputs, args.quant)
+            #         # print("quant")
+            #     if args.avgpool != 0:
+            #         outputs = upsample2(outputs)
+            #         # print("avg")
+            #     if args.pca2 != 0:
+            #         outputs = PCAQuantize.apply(outputs, args.pca2)
+            # elif args.sortquant != 0:
+            #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
+            outputs = FSQBQ.apply(outputs, 6, 8, 2)
             outputs = layer3(outputs)
             # print(outputs)
             # while(1):
@@ -228,44 +234,46 @@ def main_worker(rank, process_num, args):
                 label = label.to(rank, non_blocking=True)
 
                 outputs = layer1(image)
-                if args.sortquant == 0:
-                    if args.prune != 0:
-                        outputs = topk_layer(outputs)
-                        # print("prun")
-                    if args.avgpool != 0:
-                        outputs = avgpool2(outputs)
-                        # print("avg")
-                    if args.quant != 0:
-                        outputs = Fakequantize.apply(outputs, args.quant)
-                        # print("quant")
-                    if args.avgpool != 0:
-                        outputs = upsample2(outputs)
-                        # print("avg")
-                    if args.pca1 != 0:
-                        outputs = PCAQuantize.apply(outputs, args.pca1)
-                elif args.sortquant != 0:
-                    outputs = SortQuantization.apply(outputs, args.quant, args.split)
-                # outputs,min,step = quant_layer1(outputs)
+                # if args.sortquant == 0:
+                #     if args.prune != 0:
+                #         outputs = topk_layer(outputs)
+                #         # print("prun")
+                #     if args.avgpool != 0:
+                #         outputs = avgpool2(outputs)
+                #         # print("avg")
+                #     if args.quant != 0:
+                #         outputs = Fakequantize.apply(outputs, args.quant)
+                #         # print("quant")
+                #     if args.avgpool != 0:
+                #         outputs = upsample2(outputs)
+                #         # print("avg")
+                #     if args.pca1 != 0:
+                #         outputs = PCAQuantize.apply(outputs, args.pca1)
+                # elif args.sortquant != 0:
+                #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
+                # # outputs,min,step = quant_layer1(outputs)
                 # outputs = dequant_layer1(outputs,min,step,quant_layer1.backward_min,quant_layer1.backward_step)
+                outputs = FQBSQ.apply(outputs, 8, 6, 2)
                 outputs = layer2(outputs)
 
-                if args.sortquant == 0:
-                    if args.prune != 0:
-                        outputs = topk_layer(outputs)
-                        # print("prun")
-                    if args.avgpool != 0:
-                        outputs = avgpool2(outputs)
-                        # print("avg")
-                    if args.quant != 0:
-                        outputs = Fakequantize.apply(outputs, args.quant)
-                        # print("quant")
-                    if args.avgpool != 0:
-                        outputs = upsample2(outputs)
-                        # print("avg")
-                    if args.pca2 != 0:
-                        outputs = PCAQuantize.apply(outputs, args.pca2)
-                elif args.sortquant != 0:
-                    outputs = SortQuantization.apply(outputs, args.quant, args.split)
+                # if args.sortquant == 0:
+                #     if args.prune != 0:
+                #         outputs = topk_layer(outputs)
+                #         # print("prun")
+                #     if args.avgpool != 0:
+                #         outputs = avgpool2(outputs)
+                #         # print("avg")
+                #     if args.quant != 0:
+                #         outputs = Fakequantize.apply(outputs, args.quant)
+                #         # print("quant")
+                #     if args.avgpool != 0:
+                #         outputs = upsample2(outputs)
+                #         # print("avg")
+                #     if args.pca2 != 0:
+                #         outputs = PCAQuantize.apply(outputs, args.pca2)
+                # elif args.sortquant != 0:
+                #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
+                outputs = FSQBQ.apply(outputs, 6, 8, 2)
                 outputs = layer3(outputs)
                 loss = criterion(outputs, label)
                 acc, _ = accuracy(outputs, label, topk=(1, 2))

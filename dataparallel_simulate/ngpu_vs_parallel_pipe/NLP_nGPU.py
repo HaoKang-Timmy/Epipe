@@ -217,6 +217,8 @@ def main_worker(rank, process_num, args):
                 .type(torch.float32)
             )
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
+            print()
+            print(batch["input_ids"].shape, batch["attention_mask"].shape)
             output = part1(batch["input_ids"], batch["attention_mask"])
             # print(output.shape)
 

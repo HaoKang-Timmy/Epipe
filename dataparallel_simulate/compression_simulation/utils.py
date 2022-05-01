@@ -176,6 +176,79 @@ class Fakequantize(autograd.Function):
         return grad_output, None
 
 
+class FQBSQ(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, bits, sqbits, split_bits):
+        ctx.sqbits, ctx.split_bits = sqbits, split_bits
+        min, max = input.min(), input.max()
+        step = (max - min) / (pow(2, bits) - 1)
+        output = torch.round((input - min) / step) - pow(2, bits - 1)
+        output = (output + pow(2, bits - 1)) * step + min
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_backward):
+
+        bits, split_bits = ctx.sqbits, ctx.split_bits
+        shape = grad_backward.shape
+        grad_backward = grad_backward.view(-1)
+        src, index = torch.sort(grad_backward, dim=0)
+        index = torch.tensor_split(index, 2**split_bits)
+        src = torch.tensor_split(src, 2**split_bits)
+        for i in range(2**split_bits):
+            min, max = src[i].min(), src[i].max()
+            if min != max:
+                step = (max - min) / (pow(2, bits) - 1)
+                src_temp = torch.round((src[i] - min) / step) - pow(2, bits - 1)
+                src_temp = (src_temp + pow(2, bits - 1)) * step + min
+            else:
+                src_temp = src[i]
+            grad_backward.scatter_(0, index[i], src_temp)
+
+        grad_backward = grad_backward.view(shape)
+        return grad_backward, None, None, None
+
+
+class FSQBQ(autograd.Function):
+    def forward(ctx, input, bits, qbits, split_bits):
+        shape = input.shape
+        input = input.view(-1)
+        src, index = torch.sort(input, dim=0)
+        index = torch.tensor_split(index, 2**split_bits)
+        src = torch.tensor_split(src, 2**split_bits)
+        # print(src1[1])
+        for i in range(2**split_bits):
+            min, max = src[i].min(), src[i].max()
+            if min != max:
+                step = (max - min) / (pow(2, bits) - 1)
+
+                # print(torch.round((src1[i] - min) / step)- pow(2, bits - 1) )
+                temp_src = torch.round((src[i] - min) / step) - pow(2, bits - 1)
+
+                temp_src = (temp_src + pow(2, bits - 1)) * step + min
+                # if i == 0:
+                #     print(temp_src)
+            else:
+                # print(src1[i])
+                temp_src = src[i]
+            # print("origin_src",src1[i])
+            # print("quant_dequant_src",temp_src)
+
+            input.scatter_(0, index[i], temp_src)
+        ctx.bits = qbits
+        input = input.view(shape)
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        bits = ctx.bits
+        min, max = grad_output.min(), grad_output.max()
+        step = (max - min) / (pow(2, bits) - 1)
+        grad_output = torch.round((grad_output - min) / step) - pow(2, bits - 1)
+        grad_output = (grad_output + pow(2, bits - 1)) * step + min
+        return grad_output, None, None, None
+
+
 class TopkPruning(autograd.Function):
     @staticmethod
     def forward(ctx, input, ratio):
@@ -397,3 +470,14 @@ class combine_classifier(nn.Module):
         output = output
         output = self.classifier(output)
         return output
+
+
+# class LoraLinear(autograd.Function):
+#     @staticmethod
+#     def forward(ctx, input,weight):
+#         ctx.save_for_backward(input,weight)
+#         output = torch.matmul(input,weight)
+#         return output
+#     @staticmethod
+#     def backward(ctx,grad_output):
+#         input,weight =

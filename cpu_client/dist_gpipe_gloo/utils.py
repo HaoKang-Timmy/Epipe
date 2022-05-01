@@ -31,11 +31,19 @@ from .distributedlayers.distributed_nccl_layers import (
     FRBSFunctionClient,
 )
 from .compression.compression_layer_nccl import (
+    PCARecvGPU,
+    PCASendGPU,
     QrecvGPU,
     QSendGPU,
     SortDeQuantClient,
     TopkPruning,
     SortQuantClient,
+    PCARecvClient,
+    PCASendClient,
+    CompressionClientRecv,
+    CompressionClientSend,
+    CompressRecvGPU,
+    CompressSendGPU,
 )
 
 
@@ -47,7 +55,25 @@ def tensor2tuple(input: torch.tensor):
 def SendTensorCPU(input, settings, train_settings, chunk, edge=False):
     if train_settings["prune"] != 0:
         output = TopkPruning.apply(input, train_settings["prune"])
-    if train_settings["sortquant"] != 0:
+    if train_settings["mix"] != 0:
+        output = CompressionClientSend.apply(
+            input,
+            train_settings["pca1"],
+            settings["send_rank"],
+            settings["rank"],
+            train_settings["quant"],
+            train_settings["split"],
+            settings["group_list"][chunk],
+        )
+    elif train_settings["pca1"] != 0:
+        output = PCASendClient.apply(
+            input,
+            train_settings["pca1"],
+            settings["send_rank"],
+            settings["rank"],
+            settings["group_list"][chunk],
+        )
+    elif train_settings["sortquant"] != 0:
         output = SortQuantClient.apply(
             input,
             train_settings["quant"],
@@ -67,11 +93,28 @@ def SendTensorCPU(input, settings, train_settings, chunk, edge=False):
 
 
 def SendTensor(input, settings, train_settings, chunk, edge=False):
-
+    # server client transfer
     if settings["send_rank"] == 0 or edge is not False:
         if train_settings["prune"] != 0:
             output = TopkPruning.apply(input, train_settings["prune"])
-        if train_settings["sortquant"] != 0:
+        if train_settings["mix"] != 0:
+            output = CompressSendGPU.apply(
+                input,
+                train_settings["pca2"],
+                settings["send_rank"],
+                train_settings["quant"],
+                train_settings["split"],
+                settings["group_list"][chunk],
+            )
+        elif train_settings["pca2"] != 0:
+            output = PCASendGPU.apply(
+                input,
+                train_settings["pca2"],
+                settings["send_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
+            )
+        elif train_settings["sortquant"] != 0:
             # print("sort quant send")
             output = SortQuantGPU.apply(
                 input,
@@ -94,32 +137,39 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
                 settings["group_list"][chunk],
             )
     else:
-        # print("rank:",settings["rank"],"send",settings["send_rank"])
+        # server inside transfer
         output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
     return output
 
 
 def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=False):
-
+    # server client transfer
     if settings["recv_rank"] == 0 or edge is not False:
-        if train_settings["sortquant"] != 0:
-            if settings["bandwidth"] == 0:
-                output = SortDeQuantGPU.apply(
-                    input,
-                    train_settings["quant"],
-                    train_settings["split"],
-                    settings["recv_rank"],
-                    settings["group_list"][chunk],
-                )
-            else:
-                output = SortDeQuantGPU.apply(
-                    input,
-                    train_settings["quant"],
-                    train_settings["split"],
-                    settings["recv_rank"],
-                    None,
-                    time_count,
-                )
+        if train_settings["mix"] != 0:
+            output = CompressRecvGPU.apply(
+                input,
+                train_settings["pca1"],
+                settings["recv_rank"],
+                train_settings["quant"],
+                train_settings["split"],
+                settings["group_list"][chunk],
+            )
+        elif train_settings["pca1"] != 0:
+            output = PCARecvGPU.apply(
+                input,
+                train_settings["pca1"],
+                settings["recv_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
+            )
+        elif train_settings["sortquant"] != 0:
+            output = SortDeQuantGPU.apply(
+                input,
+                train_settings["quant"],
+                train_settings["split"],
+                settings["recv_rank"],
+                settings["group_list"][chunk],
+            )
             # print("rank:",settings["rank"],"recv",settings["recv_rank"])
         elif train_settings["quant"] != 0:
             output = QrecvGPU.apply(
@@ -139,7 +189,25 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
 
 
 def RecvTensorCPU(input, settings, train_settings, chunk, edge=False):
-    if train_settings["sortquant"] != 0:
+    if train_settings["mix"] != 0:
+        output = CompressionClientRecv.apply(
+            input,
+            train_settings["pca2"],
+            settings["recv_rank"],
+            settings["rank"],
+            train_settings["quant"],
+            train_settings["split"],
+            settings["group_list"][chunk],
+        )
+    elif train_settings["pca2"] != 0:
+        output = PCARecvClient.apply(
+            input,
+            train_settings["pca2"],
+            settings["recv_rank"],
+            settings["rank"],
+            settings["group_list"][chunk],
+        )
+    elif train_settings["sortquant"] != 0:
         output = SortDeQuantClient.apply(
             input,
             train_settings["quant"],
@@ -217,6 +285,9 @@ def make_dictions(
     client_train_settings["wd"] = args.wd
     client_train_settings["split"] = args.split
     client_train_settings["sortquant"] = args.sortquant
+    client_train_settings["mix"] = args.mix
+    client_train_settings["pca1"] = args.pca1
+    client_train_settings["pca2"] = args.pca2
     for server_num in range(len(devices) - 1):
         train_settings = {}
         server_settings = {}
@@ -228,6 +299,7 @@ def make_dictions(
         server_settings["world_size"] = args.world_size
         server_settings["send_size"] = tensor_size[server_num + 1][0]
         server_settings["recv_size"] = tensor_size[server_num + 1][1]
+        server_settings["showperiod"] = args.showperiod
         if server_num != len(devices) - 2:
             server_settings["send_rank"] = server_num + 2
         else:
@@ -244,6 +316,9 @@ def make_dictions(
         train_settings["sortquant"] = args.sortquant
         train_settings["prune"] = args.prune
         train_settings["quant"] = args.quant
+        train_settings["pca1"] = args.pca1
+        train_settings["pca2"] = args.pca2
+        train_settings["mix"] = args.mix
         train_settings["len_trainloader"] = len(train_loader)
         train_settings["len_valloader"] = len(val_loader)
         server_settings_list.append(server_settings)
