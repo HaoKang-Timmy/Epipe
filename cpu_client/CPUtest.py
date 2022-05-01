@@ -1,3 +1,11 @@
+"""
+Author: your name
+Date: 2022-04-26 01:38:00
+LastEditTime: 2022-04-30 01:19:35
+LastEditors: your name
+Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+FilePath: /research/gpipe_test/cpu_client/CPUtest.py
+"""
 from torchvision.models import mobilenet_v2
 import torch
 import torch.nn as nn
@@ -18,9 +26,16 @@ i_list = []
 for i in range(32):
     i = i + 1
 
-    input = torch.rand([i, 128, 768])
+    input = torch.rand([i, 10, 10])
+    print(input)
     start = time.time()
-    U, S, V = torch.svd_lowrank(input, q=12)
+    U, S, V = torch.svd_lowrank(input, q=3)
+    print(U)
+    print(S)
+    print(V)
+
+    while 1:
+        pass
     lowrank_time = time.time() - start
     start = time.time()
     U, S, V = torch.svd(input)

@@ -107,6 +107,19 @@ The batch size here is 64, in order to make it possible for K-means.
 | Sort Quantization 4bits(4splits,2bits) | first three layers and last two layers | 641.4/s    | 93.38% |
 | None                                   | first three layers and last two layers | 659.1/s    | 94.21% |
 
+## Lora Implementation
+
+Dataset : CIFAR10
+
+Backend: MobileNetV2
+
+Only compress the first layer
+
+| Method      | Separate Strategy         | Compression Ratio(after/before) | Acc  |
+| ----------- | ------------------------- | ------------------------------- | ---- |
+| Lora 56rank | firsrt layer, last layers | 0.5                             | 90.3 |
+|             |                           |                                 |      |
+
 # Reproduce
 
 ```

@@ -1,5 +1,5 @@
 import torch.multiprocessing as mp
-from compression_layer_nccl import PCASendClient,PCARecvGPU
+from compression_layer_nccl import PCASendClient, PCARecvGPU
 import torch.distributed as dist
 import torch
 
@@ -16,12 +16,11 @@ def main_worker(rank, nothing, nothing1):
         dist.init_process_group(
             backend="nccl", init_method="tcp://127.0.0.1:10000", world_size=2, rank=rank
         )
-        
+
     elif rank == 1:
         dist.init_process_group(
             backend="gloo", init_method="tcp://127.0.0.1:10000", world_size=2, rank=rank
         )
-       
 
 
 if __name__ == "__main__":

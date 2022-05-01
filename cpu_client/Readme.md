@@ -1,3 +1,7 @@
+---
+typora-copy-images-to: ./pic
+---
+
 # CPU Training
 
 A simulation by using CPUs to train client tasks and one GTX 1080 to train server tasks
@@ -12,11 +16,14 @@ A simulation by using CPUs to train client tasks and one GTX 1080 to train serve
 
 ## 1.2 Results
 
-| Compression method | Chunk | Sever Client Partition  | Throughputs | Validation Acc |
-| ------------------ | ----- | ----------------------- | ----------- | -------------- |
-| None               | 4     | First layer, last layer | 191.9/s     | 95.92          |
-|                    |       |                         |             |                |
-|                    |       |                         |             |                |
+Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithms in CPUs.
+
+| Hardware(Client,Server) | Compression method      | Chunk | Sever Client Partition  | Throughputs | Validation Acc |
+| ----------------------- | ----------------------- | ----- | ----------------------- | ----------- | -------------- |
+| CPU,CPU                 | None                    | None  |                         | 32.48/s     | 95.87          |
+| Cpu,Gpu                 | None                    | 4     | First layer, last layer | 191.9/s     | 95.92          |
+| Cpu,Gpu                 | Sort Quantization 8bits | 8     | First layer, last layer | 41.83/s     | 95.59          |
+| Cpu,Gpu                 | PCA 12rank + PCA 2rank  | 8     | First layer, last layer | 40.50/s     |                |
 
 # 2 Compression Algorithm Analyse
 
@@ -28,9 +35,13 @@ You can reproduce the results by executing `./CPUtest.py`
 
 | Activation Memory(Total/Batchsize) |
 | ---------------------------------- |
-| [32,112,112]                       |
+| [32,112,112],[1280,7,7]            |
 
-![image-20220421173843653](./pic/test.jpg)
+![image-20220501111122132](./pic/image-20220501111122132.png)
+
+![image-20220501132419588](./pic/image-20220501132419588.png)
+
+
 
 ### Settings
 
@@ -38,9 +49,9 @@ You can reproduce the results by executing `./CPUtest.py`
 | ---------------------------------- |
 | [128,768]                          |
 
-![image-20220425172011591](./pic/image-20220425172011591.png)
+![image-20220501132118695](./pic/image-20220501132118695.png)
 
-
+![image-20220501132142973](./pic/image-20220501132142973.png)
 
 ## 2.2 GPU
 
@@ -56,7 +67,5 @@ You can reproduce the results by executing `./CPUtest.py`
 | ---------------------------------- |
 | [128,768]                          |
 
-![image-20220425174146944](.
-
-/pic/image-20220425174146944.png)
+![image-20220425174146944](./pic/image-20220425174146944.png)
 

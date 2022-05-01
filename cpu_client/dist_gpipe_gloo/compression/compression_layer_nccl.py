@@ -134,11 +134,7 @@ class QSendGPU(autograd.Function):
     @staticmethod
     def forward(ctx, input, bits, send_rank, rank, pg=None):
         ctx.bits, ctx.recv_rank, ctx.rank, ctx.pg = (bits, send_rank, rank, pg)
-        (
-            output,
-            min,
-            step,
-        ) = QuantizationGPU(input, bits)
+        (output, min, step,) = QuantizationGPU(input, bits)
         # print("quant send",output)
         ctx.min, ctx.step = min, step
         ctx.input = output
@@ -279,9 +275,9 @@ class SortQuantClient(autograd.Function):
         src, index = torch.sort(input, dim=0)
         print("sort time", time.time() - sort_start)
         # the reason of not using chunk is that it seperates tensor not seperately
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
-        min_step = torch.zeros([2**split_bits, 2])
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
+        min_step = torch.zeros([2 ** split_bits, 2])
         # TODO 10bits 12bits
         if bits + split_bits <= 8:
             output = input.type(torch.int8)
@@ -290,7 +286,7 @@ class SortQuantClient(autograd.Function):
         output = output.view(-1)
         print("part1", time.time() - start)
         start = time.time()
-        for i in range(2**split_bits):
+        for i in range(2 ** split_bits):
             if bits + split_bits == 8 or bits + split_bits == 16:
                 # there is no uint8 or uint16 in torch, so the encoding formula is different
                 min, max = src[i].min(), src[i].max()
@@ -351,7 +347,7 @@ class SortQuantClient(autograd.Function):
             recv = grad_output.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2**split_bits, 2])
+        min_step = torch.zeros([2 ** split_bits, 2])
         min_step = min_step.to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
@@ -363,9 +359,9 @@ class SortQuantClient(autograd.Function):
             recv = recv.view(dtype=torch.int16)
         # sort the recv tensor, since we encode by there value, decode do the same
         src, index = torch.sort(recv, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
-        for i in range(2**split_bits):
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
+        for i in range(2 ** split_bits):
             temp_src = src[i].type(torch.float32)
             if bits + split_bits == 8 or bits + split_bits == 16:
                 if min_step[i, 1] == 0:
@@ -406,16 +402,16 @@ class SortQuantGPU(autograd.Function):
         # sort tensor
         src, index = torch.sort(input, dim=0)
         # the reason of not using chunk is that it seperates tensor not seperately
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
-        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
+        min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
         # TODO 10bits 12bits
         if bits + split_bits <= 8:
             output = input.type(torch.int8)
         else:
             output = input.type(torch.int16)
         output = output.view(-1)
-        for i in range(2**split_bits):
+        for i in range(2 ** split_bits):
             if bits + split_bits == 8 or bits + split_bits == 16:
                 # there is no uint8 or uint16 in torch, so the encoding formula is different
                 min, max = src[i].min(), src[i].max()
@@ -473,7 +469,7 @@ class SortQuantGPU(autograd.Function):
             recv = grad_output.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
+        min_step = torch.zeros([2 ** split_bits, 2]).to(grad_output.get_device())
         dist.recv(min_step, recv_rank, group=pg)
         dist.recv(recv, recv_rank, group=pg)
         # should view to int16 since we represent int16 with int8
@@ -481,9 +477,9 @@ class SortQuantGPU(autograd.Function):
             recv = recv.view(dtype=torch.int16)
         # sort the recv tensor, since we encode by there value, decode do the same
         src, index = torch.sort(recv, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
-        for i in range(2**split_bits):
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
+        for i in range(2 ** split_bits):
             temp_src = src[i].type(torch.float32)
             if bits + split_bits == 8 or bits + split_bits == 16:
                 if min_step[i, 1] == 0:
@@ -525,7 +521,7 @@ class SortDeQuantGPU(autograd.Function):
             recv = input.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
+        min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
         ctx.min_step = min_step
         # TODO change the recving method
         if time_count is not False:
@@ -539,10 +535,10 @@ class SortDeQuantGPU(autograd.Function):
             recv = recv.view(dtype=torch.int16)
         src, index = torch.sort(recv, dim=0)
 
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
         # TODO change loop to matrix calculate
-        for i in range(2**split_bits):
+        for i in range(2 ** split_bits):
             temp_src = src[i].type(torch.float32)
             if bits + split_bits == 8 or bits + split_bits == 16:
                 if min_step[i, 1] == 0:
@@ -576,8 +572,8 @@ class SortDeQuantGPU(autograd.Function):
         grad_output = grad_output.view(-1)
         # sort and encode
         src, index = torch.sort(grad_output, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
         min_step = ctx.min_step
         # TODO 10bits 12bits
         if bits + split_bits <= 8:
@@ -586,7 +582,7 @@ class SortDeQuantGPU(autograd.Function):
             output = grad_output.type(torch.int16)
         output = output.view(-1)
         # TODO change loop to matrix calculation
-        for i in range(2**split_bits):
+        for i in range(2 ** split_bits):
             if bits + split_bits == 8 or bits + split_bits == 16:
                 min, max = src[i].min(), src[i].max()
                 if min != max:
@@ -642,7 +638,7 @@ class SortDeQuantClient(autograd.Function):
             recv = input.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2**split_bits, 2])
+        min_step = torch.zeros([2 ** split_bits, 2])
         ctx.min_step = min_step
         min_step = min_step.to(device)
         recv = recv.to(device)
@@ -654,10 +650,10 @@ class SortDeQuantClient(autograd.Function):
             recv = recv.view(dtype=torch.int16)
         src, index = torch.sort(recv, dim=0)
 
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
         # TODO change loop to matrix calculate
-        for i in range(2**split_bits):
+        for i in range(2 ** split_bits):
             temp_src = src[i].type(torch.float32)
             if bits + split_bits == 8 or bits + split_bits == 16:
                 if min_step[i, 1] == 0:
@@ -692,8 +688,8 @@ class SortDeQuantClient(autograd.Function):
         grad_output = grad_output.view(-1)
         # sort and encode
         src, index = torch.sort(grad_output, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
         min_step = ctx.min_step
         # TODO 10bits 12bits
         if bits + split_bits <= 8:
@@ -702,7 +698,7 @@ class SortDeQuantClient(autograd.Function):
             output = grad_output.type(torch.int16)
         output = output.view(-1)
         # TODO change loop to matrix calculation
-        for i in range(2**split_bits):
+        for i in range(2 ** split_bits):
             if bits + split_bits == 8 or bits + split_bits == 16:
                 min, max = src[i].min(), src[i].max()
                 if min != max:
@@ -742,22 +738,22 @@ class SortDeQuantClient(autograd.Function):
         return grad_output, None, None, None, None, None
 
 
-
 class PCASendClient(autograd.Function):
     @staticmethod
-    def forward(ctx, input,q,send_rank,device, pg = None):
-        ctx.q, ctx.recv_rank,ctx.device,ctx.pg = q, send_rank,device,pg
-        U,S,V = torch.svd_lowrank(input,q = q)
+    def forward(ctx, input, q, send_rank, device, pg=None):
+        ctx.q, ctx.recv_rank, ctx.device, ctx.pg = q, send_rank, device, pg
+        U, S, V = torch.svd_lowrank(input, q=q)
         U = U.to(device)
         S = S.to(device)
         V = V.to(device)
-        dist.isend(U,send_rank,group=pg)
-        dist.isend(S,send_rank,group=pg)
-        dist.isend(V,send_rank,group=pg)
+        dist.isend(U, send_rank, group=pg)
+        dist.isend(S, send_rank, group=pg)
+        dist.isend(V, send_rank, group=pg)
         return input * 1.0
+
     @staticmethod
-    def backward(ctx,grad_output:torch.tensor):
-        q, recv_rank,device,pg = ctx.q, ctx.recv_rank,ctx.device,ctx.pg
+    def backward(ctx, grad_output: torch.tensor):
+        q, recv_rank, device, pg = ctx.q, ctx.recv_rank, ctx.device, ctx.pg
         shape = grad_output.shape
         shape[-1] = q
         s_shape = shape[:-1]
@@ -765,9 +761,9 @@ class PCASendClient(autograd.Function):
         U = torch.empty([shape]).to(device)
         V = torch.empty([shape]).to(device)
         S = torch.empty([s_shape]).to(device)
-        dist.recv(U,recv_rank,group = pg)
-        dist.recv(S,recv_rank,group = pg)
-        dist.recv(V,recv_rank,group = pg)
+        dist.recv(U, recv_rank, group=pg)
+        dist.recv(S, recv_rank, group=pg)
+        dist.recv(V, recv_rank, group=pg)
         U = U.cpu()
         V = V.cpu()
         S = S.cpu()
@@ -775,23 +771,23 @@ class PCASendClient(autograd.Function):
         S = torch.diag_embed(S)
         output = torch.matmul(U[..., :, :], S[..., :, :])
         grad_output = torch.matmul(output[..., :, :], V[..., :, :])
-        return grad_output, None, None ,None ,None
+        return grad_output, None, None, None, None
 
 
 class PCARecvClient(autograd.Function):
     @staticmethod
-    def forward(ctx, input,q,recv_rank,device, pg = None):
-        ctx.q, ctx.send_rank,ctx.device,ctx.pg = q, recv_rank,device,pg
-        shape =input.shape
+    def forward(ctx, input, q, recv_rank, device, pg=None):
+        ctx.q, ctx.send_rank, ctx.device, ctx.pg = q, recv_rank, device, pg
+        shape = input.shape
         shape[-1] = q
         s_shape = shape[:-1]
         s_shape[-1] = q
         U = torch.empty([shape]).to(device)
         V = torch.empty([shape]).to(device)
         S = torch.empty([s_shape]).to(device)
-        dist.recv(U,recv_rank,group = pg)
-        dist.recv(S,recv_rank,group = pg)
-        dist.recv(V,recv_rank,group = pg)
+        dist.recv(U, recv_rank, group=pg)
+        dist.recv(S, recv_rank, group=pg)
+        dist.recv(V, recv_rank, group=pg)
         U = U.cpu()
         V = V.cpu()
         S = S.cpu()
@@ -800,31 +796,33 @@ class PCARecvClient(autograd.Function):
         output = torch.matmul(U[..., :, :], S[..., :, :])
         input = torch.matmul(output[..., :, :], V[..., :, :])
         return input * 1.0
+
     @staticmethod
-    def backward(ctx,grad_output:torch.tensor):
-        q, recv_rank,device,pg = ctx.q, ctx.recv_rank,ctx.device,ctx.pg
-        U,S,V = torch.svd_lowrank(grad_output,q = q)
+    def backward(ctx, grad_output: torch.tensor):
+        q, recv_rank, device, pg = ctx.q, ctx.recv_rank, ctx.device, ctx.pg
+        U, S, V = torch.svd_lowrank(grad_output, q=q)
         U = U.to(device)
         S = S.to(device)
         V = V.to(device)
-        dist.isend(U,recv_rank,group=pg)
-        dist.isend(S,recv_rank,group=pg)
-        dist.isend(V,recv_rank,group=pg)
-        return grad_output, None,None,None,None
+        dist.isend(U, recv_rank, group=pg)
+        dist.isend(S, recv_rank, group=pg)
+        dist.isend(V, recv_rank, group=pg)
+        return grad_output, None, None, None, None
 
 
 class PCASendGPU(autograd.Function):
     @staticmethod
-    def forward(ctx, input,q,send_rank,device, pg = None):
-        ctx.q, ctx.recv_rank,ctx.device,ctx.pg = q, send_rank,device,pg
-        U,S,V = torch.svd_lowrank(input,q = q)
-        dist.isend(U,send_rank,group=pg)
-        dist.isend(S,send_rank,group=pg)
-        dist.isend(V,send_rank,group=pg)
+    def forward(ctx, input, q, send_rank, device, pg=None):
+        ctx.q, ctx.recv_rank, ctx.device, ctx.pg = q, send_rank, device, pg
+        U, S, V = torch.svd_lowrank(input, q=q)
+        dist.isend(U, send_rank, group=pg)
+        dist.isend(S, send_rank, group=pg)
+        dist.isend(V, send_rank, group=pg)
         return input * 1.0
+
     @staticmethod
-    def backward(ctx,grad_output:torch.tensor):
-        q, recv_rank,device,pg = ctx.q, ctx.recv_rank,ctx.device,ctx.pg
+    def backward(ctx, grad_output: torch.tensor):
+        q, recv_rank, device, pg = ctx.q, ctx.recv_rank, ctx.device, ctx.pg
         shape = grad_output.shape
         shape[-1] = q
         s_shape = shape[:-1]
@@ -832,40 +830,41 @@ class PCASendGPU(autograd.Function):
         U = torch.empty([shape]).to(device)
         V = torch.empty([shape]).to(device)
         S = torch.empty([s_shape]).to(device)
-        dist.recv(U,recv_rank,group = pg)
-        dist.recv(S,recv_rank,group = pg)
-        dist.recv(V,recv_rank,group = pg)
+        dist.recv(U, recv_rank, group=pg)
+        dist.recv(S, recv_rank, group=pg)
+        dist.recv(V, recv_rank, group=pg)
         V = V.transpose(-1, -2)
         S = torch.diag_embed(S)
         output = torch.matmul(U[..., :, :], S[..., :, :])
         grad_output = torch.matmul(output[..., :, :], V[..., :, :])
-        return grad_output, None, None ,None ,None
+        return grad_output, None, None, None, None
 
 
 class PCARecvGPU(autograd.Function):
     @staticmethod
-    def forward(ctx, input,q,recv_rank,device, pg = None):
-        ctx.q, ctx.send_rank,ctx.device,ctx.pg = q, recv_rank,device,pg
-        shape =input.shape
+    def forward(ctx, input, q, recv_rank, device, pg=None):
+        ctx.q, ctx.send_rank, ctx.device, ctx.pg = q, recv_rank, device, pg
+        shape = input.shape
         shape[-1] = q
         s_shape = shape[:-1]
         s_shape[-1] = q
         U = torch.empty([shape]).to(device)
         V = torch.empty([shape]).to(device)
         S = torch.empty([s_shape]).to(device)
-        dist.recv(U,recv_rank,group = pg)
-        dist.recv(S,recv_rank,group = pg)
-        dist.recv(V,recv_rank,group = pg)
+        dist.recv(U, recv_rank, group=pg)
+        dist.recv(S, recv_rank, group=pg)
+        dist.recv(V, recv_rank, group=pg)
         V = V.transpose(-1, -2)
         S = torch.diag_embed(S)
         output = torch.matmul(U[..., :, :], S[..., :, :])
         input = torch.matmul(output[..., :, :], V[..., :, :])
         return input * 1.0
+
     @staticmethod
-    def backward(ctx,grad_output:torch.tensor):
-        q, recv_rank,device,pg = ctx.q, ctx.recv_rank,ctx.device,ctx.pg
-        U,S,V = torch.svd_lowrank(grad_output,q = q)
-        dist.isend(U,recv_rank,group=pg)
-        dist.isend(S,recv_rank,group=pg)
-        dist.isend(V,recv_rank,group=pg)
-        return grad_output, None,None,None,None
+    def backward(ctx, grad_output: torch.tensor):
+        q, recv_rank, device, pg = ctx.q, ctx.recv_rank, ctx.device, ctx.pg
+        U, S, V = torch.svd_lowrank(grad_output, q=q)
+        dist.isend(U, recv_rank, group=pg)
+        dist.isend(S, recv_rank, group=pg)
+        dist.isend(V, recv_rank, group=pg)
+        return grad_output, None, None, None, None

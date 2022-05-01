@@ -43,7 +43,7 @@ class TopkLayer(nn.Module):
 
 
 topk_layer = TopkLayer(0.2).to(1)
-kmeans = KMeans(n_clusters=2**4, mode="euclidean", device=1)
+kmeans = KMeans(n_clusters=2 ** 4, mode="euclidean", device=1)
 input = torch.rand([100, 20, 20]).to(1)
 output1 = topk_layer(input)
 shape = output1.shape
