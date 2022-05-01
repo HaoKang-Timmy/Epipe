@@ -60,7 +60,7 @@ class DeferredBatchNorm(_BatchNorm):
 
         with torch.no_grad():
             self.sum += input.sum(dim)
-            self.sum_squares += (input ** 2).sum(dim)
+            self.sum_squares += (input**2).sum(dim)
 
         size = input.size().numel() // input.size(1)
         self.counter += size
@@ -78,7 +78,7 @@ class DeferredBatchNorm(_BatchNorm):
             exponential_average_factor = self.momentum
 
         mean = self.sum / self.counter
-        var = self.sum_squares / self.counter - mean ** 2
+        var = self.sum_squares / self.counter - mean**2
 
         # Calculate the exponential moving average here.
         m = exponential_average_factor

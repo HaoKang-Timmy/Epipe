@@ -118,7 +118,6 @@ Only compress the first layer
 | Method      | Separate Strategy         | Compression Ratio(after/before) | Acc  |
 | ----------- | ------------------------- | ------------------------------- | ---- |
 | Lora 56rank | firsrt layer, last layers | 0.5                             | 90.3 |
-|             |                           |                                 |      |
 
 # Reproduce
 

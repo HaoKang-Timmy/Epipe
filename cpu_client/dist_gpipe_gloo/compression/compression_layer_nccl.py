@@ -74,7 +74,11 @@ class QSendGPU(autograd.Function):
     @staticmethod
     def forward(ctx, input, bits, send_rank, rank, pg=None):
         ctx.bits, ctx.recv_rank, ctx.rank, ctx.pg = (bits, send_rank, rank, pg)
-        (output, min, step,) = QuantizationGPU(input, bits)
+        (
+            output,
+            min,
+            step,
+        ) = QuantizationGPU(input, bits)
         # print("quant send",output)
         ctx.min, ctx.step = min, step
         ctx.input = output
@@ -234,7 +238,7 @@ class SortQuantClient(autograd.Function):
             recv = grad_output.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2 ** split_bits, 2])
+        min_step = torch.zeros([2**split_bits, 2])
         min_step = min_step.to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
@@ -283,7 +287,7 @@ class SortQuantGPU(autograd.Function):
             recv = grad_output.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2 ** split_bits, 2]).to(grad_output.get_device())
+        min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
         dist.recv(min_step, recv_rank, group=pg)
         dist.recv(recv, recv_rank, group=pg)
         # should view to int16 since we represent int16 with int8
