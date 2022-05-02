@@ -132,6 +132,7 @@ Compress Algorithm: Uniform Quantization
 | First Layer without Relu, Last Two layers | 0.25(8bits)                     | 91.83 |
 | First Layer without Relu, Last Two layers | 0.281(9bits)                    | 94.44 |
 | First Layer without Relu, Last Two layers | 0.313(10bits)                   | 95.82 |
+| First Layer, Last Two layers              | 0.313(10bits)                   | 86.72 |
 
 ## 7 Explanation About 6
 
@@ -139,13 +140,25 @@ Here is an activation memory distribution of MobileNetV2 first layer without Rel
 
 ![image-20220502003730117](../../pic/image-20220502003730117.png)
 
-Here is an activation memory distribution of MobileNetV2 the first two layers.
+Here is a graph that I separate the activation memory into 100 region linearly.
+
+![image-20220502145932682](../../pic/image-20220502145932682.png)
+
+Here is an activation memory distribution of MobileNetV2 in the first two layers.
 
 ![image-20220502004224247](../../pic/image-20220502004224247.png)
 
 Here is an activation memory distribution of MobileNetV2 first layer with layer.
 
+![image-20220502150724318](../../pic/image-20220502150724318.png)
+
 ![image-20220502005243339](../../pic/image-20220502005243339.png)
+
+
+
+Here is a graph that I separate the activation memory into 100 region linearly.
+
+![image-20220502145056542](../../pic/image-20220502145056542.png)
 
 # Reproduce
 

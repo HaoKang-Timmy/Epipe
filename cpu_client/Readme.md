@@ -25,7 +25,7 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 | Cpu,Gpu                 | None                    | 4     | First layer, last layer | 191.9/s     | 95.92          |
 | GPU,GPU                 | None                    | 4     | First layer, last layer | 228.57/s    | 95.89          |
 | Cpu,Gpu                 | Sort Quantization 8bits | 8     | First layer, last layer | 41.83/s     | 95.59          |
-| Cpu,Gpu                 | PCA 12rank + PCA 2rank  | 8     | First layer, last layer | 40.50/s     |                |
+| Cpu,Gpu                 | PCA 12rank + PCA 2rank  | 8     | First layer, last layer | 40.50/s     | 57.64          |
 
 # 2 Compression Algorithm Analyse
 
