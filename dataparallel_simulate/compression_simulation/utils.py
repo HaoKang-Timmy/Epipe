@@ -578,10 +578,16 @@ class PartialQuantization(autograd.Function):
         input = input.view(-1)
         min, max = input.min(), input.max()
         medium = (min + max) / 2
+        input = input.type(torch.double)
+        greater_matrix = torch.where(input > medium,input,0.0)
         greater = torch.numel(input[input > medium])
         rate = greater / torch.numel(input)
-        right_bits = torch.ceil((2**split_bits) * right_bits)
-        left_bits = torch.ceil((2**split_bits) * right_bits)
+        if rate >=0.5:
+            right_bits = torch.ceil((2 ** split_bits) * (1 - rate))
+            left_bits = 2 ** split_bits - right_bits
+        else:
+            left_bits = torch.ceil((2 ** split_bits) * (1 - rate))
+            right_bits = 2 ** split_bits - left_bits
 
 
 # class LoraLinear(autograd.Function):
