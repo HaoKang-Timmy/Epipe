@@ -130,6 +130,8 @@ Compress Algorithm: Uniform Quantization
 | First Two Layers, Last Two Layers         | 0.25(8bits)                     | 95.83 |
 | First Two Layers, Last Two Layers         | 0.21875(7bits)                  | 95.10 |
 | First Layer without Relu, Last Two layers | 0.25(8bits)                     | 91.83 |
+| First Layer without Relu, Last Two layers | 0.281(9bits)                    | 94.44 |
+| First Layer without Relu, Last Two layers | 0.313(10bits)                   | 95.82 |
 
 ## 7 Explanation About 6
 
