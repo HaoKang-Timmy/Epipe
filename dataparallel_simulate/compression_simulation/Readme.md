@@ -61,7 +61,7 @@ Testing RTE with Roberta for 20 epochs
 | Sort Quantization 12bits(9bits 3split)  | firsrt layer, last two layers | 79.7% |
 | Sort Quantization 16bits(12bits 4split) | firsrt layer, last two layers | 79.7% |
 
-## 3, Comparing with PCA
+## 3 Comparing with PCA
 
 Testing CIFAR10 with MobileNetV2 for 40 epochs
 
@@ -91,7 +91,7 @@ Testing RTE with Roberta-base for 20 epochs. Batch size is 32
 
 
 
-## Comparing with K-means
+## 4 Comparing with K-means
 
 Testing CIFAR10 with MobileNetV2 for 10 epochs
 
@@ -107,7 +107,7 @@ The batch size here is 64, in order to make it possible for K-means.
 | Sort Quantization 4bits(4splits,2bits) | first three layers and last two layers | 641.4/s    | 93.38% |
 | None                                   | first three layers and last two layers | 659.1/s    | 94.21% |
 
-## Lora Implementation
+## 5 Lora Implementation
 
 Dataset : CIFAR10
 
@@ -118,6 +118,32 @@ Only compress the first layer
 | Method      | Separate Strategy         | Compression Ratio(after/before) | Acc  |
 | ----------- | ------------------------- | ------------------------------- | ---- |
 | Lora 56rank | firsrt layer, last layers | 0.5                             | 90.3 |
+
+## 6 Different Separation Strategy
+
+### CIFAR10 with MobileNetV2
+
+Compress Algorithm: Uniform Quantization
+
+| Separate Strategy                         | Compression Ratio(after/before) | Acc   |
+| ----------------------------------------- | ------------------------------- | ----- |
+| First Two Layers, Last Two Layers         | 0.25(8bits)                     | 95.83 |
+| First Two Layers, Last Two Layers         | 0.21875(7bits)                  | 95.10 |
+| First Layer without Relu, Last Two layers | 0.25(8bits)                     | 91.83 |
+
+## 7 Explanation About 6
+
+Here is an activation memory distribution of MobileNetV2 first layer without Relu layer.
+
+![image-20220502003730117](../../pic/image-20220502003730117.png)
+
+Here is an activation memory distribution of MobileNetV2 the first two layers.
+
+![image-20220502004224247](../../pic/image-20220502004224247.png)
+
+Here is an activation memory distribution of MobileNetV2 first layer with layer.
+
+![image-20220502005243339](../../pic/image-20220502005243339.png)
 
 # Reproduce
 
