@@ -75,13 +75,13 @@ Client-Server Partition: First and last layer
 
 Chunk: 4
 
-| Batchsize     | Activation Memory Size(al together) | Compression Method(default3:1) | Compression Ratio | Validation Acc | Client Send Bandwidth | Server Send Bandwidth |
-| ------------- | ----------------------------------- | ------------------------------ | ----------------- | -------------- | --------------------- | --------------------- |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | None                           | 1                 | 95.87%         | 12.17GB/s             | 11.83GB/s             |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 16bits       | 0.5               | 95.84%         | 12.10GB/s             | 11.55GB/s             |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 12bits       | 0.375             | 95.73%         | 12.03GB/s             | 11.54GB/s             |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 8bits        | 0.25              | 95.68%         | 11.95GB/s             | 11.44GB/s             |
-| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 4bits        | 0.125             | 87.10%         | 11.82GB/s             | 10.13GB/s             |
+| Batchsize     | Activation Memory Size(al together) | Compression Method(default3:1) | Compression Ratio | Validation Acc | Client Send Bandwidth(official test) | Server Send Bandwidth(official test) | Client Send Bandwidth(Actually) |
+| ------------- | ----------------------------------- | ------------------------------ | ----------------- | -------------- | ------------------------------------ | ------------------------------------ | ------------------------------- |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | None                           | 1                 | 95.87%         | 12.17GB/s                            | 11.83GB/s                            | 10.75GB/s                       |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 16bits       | 0.5               | 95.84%         | 12.10GB/s                            | 11.55GB/s                            | 10.63GB/s                       |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 12bits       | 0.375             | 95.73%         | 12.03GB/s                            | 11.54GB/s                            | 10.57GB/s                       |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 8bits        | 0.25              | 95.68%         | 11.95GB/s                            | 11.44GB/s                            | 10.49GB/s                       |
+| 256(8 chunks) | [256,32,112,112] [256,1280,7,7]     | Sort Quantization 4bits        | 0.125             | 87.10%         | 11.82GB/s                            | 10.13GB/s                            | 10.13GB/s                       |
 
 ### CIFAR100
 
@@ -119,13 +119,13 @@ Backend:Roberta-base
 
 Client Server Partition: First two and last two layers
 
-| Batchsize    | activation memory size(al together) | Compression method(default3:1) | compression ratio | Validation acc(in cola is Matthew) | Bandwidth |
-| ------------ | ----------------------------------- | ------------------------------ | ----------------- | ---------------------------------- | --------- |
-| 32(4 chunks) | [32,128,768],[32,128,768]           | None                           | 1                 | 78.9%                              | 11.17GB/s |
-| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 16bits       | 0.5               | 79.6%±0.18%                        | 10.81GB/s |
-| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 12bits       | 0.375             | 79.6%±0.20%                        | 10.23GB/s |
-| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 8bits        | 0.25              | 79.4%±0.21%                        | 9.66GB/s  |
-| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 4bits        | 0.125             | 52.2%                              | 8.19GB/s  |
+| Batchsize    | activation memory size(al together) | Compression method(default3:1) | compression ratio | Validation acc(in cola is Matthew) | Bandwidth(official test) | Bandwidth( Actual test) |
+| ------------ | ----------------------------------- | ------------------------------ | ----------------- | ---------------------------------- | ------------------------ | ----------------------- |
+| 32(4 chunks) | [32,128,768],[32,128,768]           | None                           | 1                 | 78.9%                              | 11.17GB/s                | 10.31GB/s               |
+| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 16bits       | 0.5               | 79.6%±0.18%                        | 10.81GB/s                | 9.81GB/s                |
+| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 12bits       | 0.375             | 79.6%±0.20%                        | 10.23GB/s                | 9.27GB/s                |
+| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 8bits        | 0.25              | 79.4%±0.21%                        | 9.66GB/s                 | 8.90GB/s                |
+| 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 4bits        | 0.125             | 52.2%                              | 8.19GB/s                 | 7.78GB/s                |
 
 ### COLA
 
