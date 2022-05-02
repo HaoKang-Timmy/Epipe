@@ -11,6 +11,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 from torch import autograd
 from fast_pytorch_kmeans import KMeans
+import time
 
 
 def relative_error(origin, quant):
@@ -170,6 +171,7 @@ class Fakequantize(autograd.Function):
         step = (max - min) / (pow(2, bits) - 1)
         output = torch.round((input - min) / step) - pow(2, bits - 1)
         output = (output + pow(2, bits - 1)) * step + min
+        # print(bits)
         return output
 
     @staticmethod
@@ -199,9 +201,9 @@ class FQBSQ(autograd.Function):
         shape = grad_backward.shape
         grad_backward = grad_backward.view(-1)
         src, index = torch.sort(grad_backward, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
-        for i in range(2**split_bits):
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
+        for i in range(2 ** split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
@@ -220,10 +222,10 @@ class FSQBQ(autograd.Function):
         shape = input.shape
         input = input.view(-1)
         src, index = torch.sort(input, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
         # print(src1[1])
-        for i in range(2**split_bits):
+        for i in range(2 ** split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
@@ -408,19 +410,34 @@ class PCAQuantize(autograd.Function):
     @staticmethod
     def forward(ctx, input, q):
         ctx.q = q
+        # device = input.get_device()
+        # input = input.cpu()
+        # start = time.time()
         U, S, V = torch.svd_lowrank(input, q=q)
+        # print("svd time",time.time() - start)
+        # U = U.to(device)
+        # S = S.to(device)
+        # V = V.to(device)
         V = V.transpose(-1, -2)
         S = torch.diag_embed(S)
+
         output = torch.matmul(U[..., :, :], S[..., :, :])
         output = torch.matmul(output[..., :, :], V[..., :, :])
+        # print("pca en de",time.time() - start)
         return output
 
     @staticmethod
     def backward(ctx, grad_output):
         q = ctx.q
+        device = grad_output.get_device()
+        # grad_output = grad_output.cpu()
         U, S, V = torch.svd_lowrank(grad_output, q=q)
+        # U = U.to(device)
+        # S = S.to(device)
+        # V = V.to(device)
         V = V.transpose(-1, -2)
         S = torch.diag_embed(S)
+
         output = torch.matmul(U[..., :, :], S[..., :, :])
         grad_output = torch.matmul(output[..., :, :], V[..., :, :])
         return grad_output, None
@@ -478,12 +495,83 @@ class combine_classifier(nn.Module):
         return output
 
 
-# class LoraLinear(autograd.Function):
-#     @staticmethod
-#     def forward(ctx, input,weight):
-#         ctx.save_for_backward(input,weight)
-#         output = torch.matmul(input,weight)
-#         return output
-#     @staticmethod
-#     def backward(ctx,grad_output):
-#         input,weight =
+class FSVDBSQ(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, q, bits, split_bits):
+        ctx.bits, ctx.split_bits = bits, split_bits
+        device = input.get_device()
+        input = input.cpu()
+        U, S, V = torch.svd_lowrank(input, q=q)
+        V = V.transpose(-1, -2)
+        S = torch.diag_embed(S)
+        output = torch.matmul(U[..., :, :], S[..., :, :])
+        input = torch.matmul(output[..., :, :], V[..., :, :])
+        input = input.to(device)
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        bits, split_bits = ctx.bits, ctx.split_bits
+        shape = grad_output.shape
+        grad_output = grad_output.view(-1)
+        src, index = torch.sort(grad_output, dim=0)
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
+        for i in range(2 ** split_bits):
+            min, max = src[i].min(), src[i].max()
+            if min != max:
+                step = (max - min) / (pow(2, bits) - 1)
+                src_temp = torch.round((src[i] - min) / step) - pow(2, bits - 1)
+                src_temp = (src_temp + pow(2, bits - 1)) * step + min
+            else:
+                src_temp = src[i]
+            grad_output.scatter_(0, index[i], src_temp)
+
+        grad_output = grad_output.view(shape)
+
+        return grad_output, None, None, None
+
+
+class FSQBSVD(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, q, bits, split_bits):
+        ctx.q = q
+        shape = input.shape
+        input = input.view(-1)
+        src, index = torch.sort(input, dim=0)
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
+        # print(src1[1])
+        for i in range(2 ** split_bits):
+            min, max = src[i].min(), src[i].max()
+            if min != max:
+                step = (max - min) / (pow(2, bits) - 1)
+                temp_src = torch.round((src[i] - min) / step) - pow(2, bits - 1)
+
+                temp_src = (temp_src + pow(2, bits - 1)) * step + min
+            else:
+                temp_src = src[i]
+            input.scatter_(0, index[i], temp_src)
+        ctx.bits = bits
+        ctx.split_bits = split_bits
+        input = input.view(shape)
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        q = ctx.q
+        device = grad_output.get_device()
+        grad_output = grad_output.cpu()
+        U, S, V = torch.svd_lowrank(grad_output, q=q)
+        V = V.transpose(-1, -2)
+        S = torch.diag_embed(S)
+        output = torch.matmul(U[..., :, :], S[..., :, :])
+        grad_output = torch.matmul(output[..., :, :], V[..., :, :])
+        grad_output = grad_output.to(device)
+        return grad_output
+
+
+class PartialQuantization(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, bits, partial_bits):
+        max, min = input.max(), input.min()

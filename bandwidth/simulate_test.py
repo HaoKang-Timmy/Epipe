@@ -45,10 +45,12 @@ def main_worker(rank, world_size, args):
         input = torch.rand([64, 32, 112, 112]).to(1).type(torch.float16)
         start = time.time()
         dist.recv(input, 0)
+        input = input * 2
         end = time.time() - start
         print("recv time", end)
         start = time.time()
         dist.recv(input, 0)
+        input = input * 2
         end = time.time() - start
         print("irecv time", end)
 

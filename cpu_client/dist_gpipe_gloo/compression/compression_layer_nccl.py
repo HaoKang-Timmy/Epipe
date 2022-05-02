@@ -211,7 +211,7 @@ class SortQuantClient(autograd.Function):
         )
         ctx.device = device
         shape = input.shape
-        min_step = torch.zeros([2**split_bits, 2])
+        min_step = torch.zeros([2 ** split_bits, 2])
         min_step, output = SortQuantization(input, bits, split_bits, min_step)
         min_step = min_step.to(device)
         output = output.to(device)
@@ -262,7 +262,7 @@ class SortQuantGPU(autograd.Function):
             pg,
         )
         shape = input.shape
-        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
+        min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
         min_step, output = SortQuantization(input, bits, split_bits, min_step)
         # print("send",min_step,output,send_rank)
         dist.isend(min_step, send_rank, group=pg)
@@ -314,7 +314,7 @@ class SortDeQuantGPU(autograd.Function):
             recv = input.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
+        min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
 
         # TODO change the recving method
         dist.recv(min_step, recv_rank, group=pg)
@@ -333,7 +333,7 @@ class SortDeQuantGPU(autograd.Function):
         )
         shape = grad_output.shape
         # print(grad_output)
-        min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
+        min_step = torch.zeros([2 ** split_bits, 2]).to(grad_output.get_device())
 
         min_step, output = SortQuantization(grad_output, bits, split_bits, min_step)
         dist.isend(min_step, send_rank, group=pg)
@@ -362,7 +362,7 @@ class SortDeQuantClient(autograd.Function):
             recv = input.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2**split_bits, 2])
+        min_step = torch.zeros([2 ** split_bits, 2])
         min_step = min_step.to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
@@ -384,7 +384,7 @@ class SortDeQuantClient(autograd.Function):
         )
         device = ctx.device
         shape = grad_output.shape
-        min_step = torch.zeros([2**split_bits, 2])
+        min_step = torch.zeros([2 ** split_bits, 2])
         min_step, output = SortQuantization(grad_output, bits, split_bits, min_step)
         min_step = min_step.to(device)
         output = output.to(device)
@@ -574,7 +574,7 @@ class CompressionClientSend(autograd.Function):
         else:
             recv = grad_output.type(torch.int16)
         recv = recv.view(torch.int8)
-        min_step = torch.zeros([2**split_bits, 2]).to(device)
+        min_step = torch.zeros([2 ** split_bits, 2]).to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
         dist.recv(recv, recv_rank, group=pg)
@@ -606,7 +606,7 @@ class CompressionClientRecv(autograd.Function):
             recv = input.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2**split_bits, 2])
+        min_step = torch.zeros([2 ** split_bits, 2])
         min_step = min_step.to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
@@ -635,7 +635,7 @@ class CompressRecvGPU(autograd.Function):
     def forward(ctx, input, q, recv_rank, bits, split_bits, pg=None):
         ctx.bits, ctx.split_bits, ctx.pg = bits, split_bits, pg
         ctx.send_rank = recv_rank
-        ctx.min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
+        ctx.min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
         shape = list(input.shape)
         shape[-1] = q
         s_shape = shape[:-1]
@@ -681,7 +681,7 @@ class CompressSendGPU(autograd.Function):
     def forward(ctx, input, q, send_rank, bits, split_bits, pg=None):
         ctx.q, ctx.recv_rank, ctx.pg = q, send_rank, pg
         shape = input.shape
-        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
+        min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
         min_step, output = SortQuantization(input, bits, split_bits, min_step)
         dist.isend(min_step, send_rank, group=pg)
         dist.isend(output, send_rank, group=pg)

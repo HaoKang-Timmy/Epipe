@@ -11,6 +11,8 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch_batch_svd import svd
 from utils import (
+    FSQBSVD,
+    FSVDBSQ,
     accuracy,
     Reshape1,
     QuantizationLayer,
@@ -18,13 +20,13 @@ from utils import (
     Fakequantize,
     TopkLayer,
     SortQuantization,
-    PCAQuantize,
+    Fakequantize,
     FQBSQ,
     FSQBQ,
 )
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
-parser.add_argument("--log", default="./test", type=str)
+parser.add_argument("--log", default="./test.txt", type=str)
 parser.add_argument("--pretrained", default=0, action="store_true")
 parser.add_argument("--warmup", default=0, action="store_true")
 parser.add_argument("--lr", default=0.01, type=float)
@@ -33,6 +35,7 @@ parser.add_argument("--batches", default=64, type=int)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prune", default=0.0, type=float)
 parser.add_argument("--avgpool", default=0, action="store_true")
+parser.add_argument("--secondlayer", default=0, action="store_true")
 parser.add_argument("--split", default=0, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
 parser.add_argument("--kmeans", default=0, type=int)
@@ -100,14 +103,18 @@ def main_worker(rank, process_num, args):
     #     pass
     model = models.mobilenet_v2(pretrained=True)
     model.classifier[-1] = torch.nn.Linear(1280, 10)
-    lora_layer1 = torch.nn.Linear(112, 56)
-    lora_layer2 = torch.nn.Linear(56, 112)
-    lora_layer3 = torch.nn.Linear(7, 4)
-    lora_layer4 = torch.nn.Linear(4, 7)
-    layer1 = nn.Sequential(*[model.features[0:1]])
-    layer2 = nn.Sequential(*[model.features[1:]])
-    layer3 = nn.Sequential(*[Reshape1(), model.classifier])
-
+    # layer1 = nn.Sequential(*[model.features[0:1]])
+    feature = model.features[0].children()
+    conv = next(feature)
+    bn = next(feature)
+    if args.secondlayer == 0:
+        layer1 = nn.Sequential(*[conv, bn])
+        layer2 = nn.Sequential(*[nn.ReLU6(inplace=True), model.features[1:-1]])
+        layer3 = nn.Sequential(*[model.features[-1], Reshape1(), model.classifier])
+    else:
+        layer1 = nn.Sequential(*[model.features[0:2]])
+        layer2 = nn.Sequential(*[model.features[2:-1]])
+        layer3 = nn.Sequential(*[model.features[-1], Reshape1(), model.classifier])
     # quant_layer1 = QuantizationLayer(args.quant)
     # dequant_layer1 = DequantizationLayer(args.quant)
     # quant_layer2 = QuantizationLayer(args.quant)
@@ -154,9 +161,9 @@ def main_worker(rank, process_num, args):
         train_loss = 0.0
         train_acc1 = 0.0
         time_avg = 0.0
-
+        start = time.time()
         for i, (image, label) in enumerate(train_loader):
-            start = time.time()
+
             image = image.to(rank, non_blocking=True)
             label = label.to(rank, non_blocking=True)
 
@@ -175,10 +182,10 @@ def main_worker(rank, process_num, args):
             #         outputs = upsample2(outputs)
             #         # print("avg")
             #     if args.pca1 != 0:
-            #         outputs = PCAQuantize.apply(outputs, args.pca1)
+            #         outputs = Fakequantize.apply(outputs, args.pca1)
             # elif args.sortquant != 0:
             #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
-            outputs = FQBSQ.apply(outputs, 8, 6, 2)
+            outputs = Fakequantize.apply(outputs, args.quant)
             outputs = layer2(outputs)
             # if args.sortquant == 0:
             #     if args.prune != 0:
@@ -194,10 +201,14 @@ def main_worker(rank, process_num, args):
             #         outputs = upsample2(outputs)
             #         # print("avg")
             #     if args.pca2 != 0:
-            #         outputs = PCAQuantize.apply(outputs, args.pca2)
+            #         outputs = Fakequantize.apply(outputs, args.pca2)
             # elif args.sortquant != 0:
             #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
-            outputs = FSQBQ.apply(outputs, 6, 8, 2)
+            shape = outputs.shape
+            # outputs = outputs.view(64,1280,49)
+            # print(outputs.shape)
+            outputs = Fakequantize.apply(outputs, args.quant)
+            # outputs = outputs.view(64,1280,7,7)
             outputs = layer3(outputs)
             # print(outputs)
             # while(1):
@@ -215,7 +226,8 @@ def main_worker(rank, process_num, args):
             end = time.time() - start
             time_avg += end
             if i % 20 == 0 and rank == 0:
-                print("train_loss", loss.item(), "train_acc", acc.item())
+                print("train_loss", loss.item(), "train_acc", acc.item(), "time", end)
+            start = time.time()
         train_loss /= len(train_loader)
         train_acc1 /= len(train_loader)
         time_avg /= len(train_loader)
@@ -248,12 +260,12 @@ def main_worker(rank, process_num, args):
                 #         outputs = upsample2(outputs)
                 #         # print("avg")
                 #     if args.pca1 != 0:
-                #         outputs = PCAQuantize.apply(outputs, args.pca1)
+                #         outputs = Fakequantize.apply(outputs, args.pca1)
                 # elif args.sortquant != 0:
                 #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
                 # # outputs,min,step = quant_layer1(outputs)
                 # outputs = dequant_layer1(outputs,min,step,quant_layer1.backward_min,quant_layer1.backward_step)
-                outputs = FQBSQ.apply(outputs, 8, 6, 2)
+                outputs = Fakequantize.apply(outputs, args.quant)
                 outputs = layer2(outputs)
 
                 # if args.sortquant == 0:
@@ -270,10 +282,12 @@ def main_worker(rank, process_num, args):
                 #         outputs = upsample2(outputs)
                 #         # print("avg")
                 #     if args.pca2 != 0:
-                #         outputs = PCAQuantize.apply(outputs, args.pca2)
+                #         outputs = Fakequantize.apply(outputs, args.pca2)
                 # elif args.sortquant != 0:
                 #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
-                outputs = FSQBQ.apply(outputs, 6, 8, 2)
+                # outputs = outputs.view(64,1280,49)
+                outputs = Fakequantize.apply(outputs, args.quant)
+                # outputs = outputs.view(64,1280,7,7)
                 outputs = layer3(outputs)
                 loss = criterion(outputs, label)
                 acc, _ = accuracy(outputs, label, topk=(1, 2))
