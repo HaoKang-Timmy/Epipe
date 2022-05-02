@@ -17,7 +17,7 @@
 # python3 mix_test.py --pca1 14 --sortquant --quant 4 --split 4 --log ./CIFAR10_pca14_q4s4.txt
 # python3 mix_test.py --pca1 14 --sortquant --quant 6 --split 2 --log ./CIFAR10_pca14_q6s2.txt
 
-python3 dataparallel_test_cv.py --log ./test_quant8_2l2l.txt --quant 8 --secondlayer
+python3 dataparallel_test_cv.py --log ./test_quant10_2l2l.txt --quant 10 --secondlayer
 # python3 dataparallel_test_cv.py --log ./test_quant12_2l2l.txt --quant 12
 python3 dataparallel_test_cv.py --log ./test_quant9_1l1l_relu.txt --quant 9
 python3 dataparallel_test_cv.py --log ./test_quant10_1l1l_relu.txt --quant 10

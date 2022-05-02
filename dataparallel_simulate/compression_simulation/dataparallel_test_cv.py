@@ -112,8 +112,8 @@ def main_worker(rank, process_num, args):
         layer2 = nn.Sequential(*[nn.ReLU6(inplace=True), model.features[1:-1]])
         layer3 = nn.Sequential(*[model.features[-1], Reshape1(), model.classifier])
     else:
-        layer1 = nn.Sequential(*[model.features[0:2]])
-        layer2 = nn.Sequential(*[model.features[2:-1]])
+        layer1 = nn.Sequential(*[model.features[0:1]])
+        layer2 = nn.Sequential(*[model.features[1:-1]])
         layer3 = nn.Sequential(*[model.features[-1], Reshape1(), model.classifier])
     # quant_layer1 = QuantizationLayer(args.quant)
     # dequant_layer1 = DequantizationLayer(args.quant)

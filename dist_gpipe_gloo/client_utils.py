@@ -47,7 +47,11 @@ def init_models_client(train_settings, client_settings):
 
 
 def client_trainer(
-    train_settings, client_settings, optimizer, warmup_scheduler, criterion,
+    train_settings,
+    client_settings,
+    optimizer,
+    warmup_scheduler,
+    criterion,
 ):
     acc1_avg = 0.0
     losses_avg = 0.0
@@ -436,12 +440,18 @@ def client(train_settings, client_settings):
                 train_loss,
                 bandwidth_avg,
             ) = client_trainer(
-                train_settings, client_settings, optimizer, warmup_scheduler, criterion,
+                train_settings,
+                client_settings,
+                optimizer,
+                warmup_scheduler,
+                criterion,
             )
             if train_settings["tasktype"] == "cv":
                 warmup_scheduler.step()
             val_acc, val_metric, val_loss = client_validation(
-                train_settings, client_settings, criterion,
+                train_settings,
+                client_settings,
+                criterion,
             )
             print(
                 "epoch",

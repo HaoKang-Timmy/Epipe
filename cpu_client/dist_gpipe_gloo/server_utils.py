@@ -47,7 +47,10 @@ def init_models_server(train_settings, server_settings):
 
 
 def server_trainer(
-    train_settings, server_settings, optimizer, warmup_scheduler,
+    train_settings,
+    server_settings,
+    optimizer,
+    warmup_scheduler,
 ):
     if train_settings["tasktype"] == "cv":
         timerecv_avg = 0.0
@@ -245,7 +248,10 @@ def server(train_settings, server_settings):
         # print("server",group_list)
         for epoch in range(train_settings["epochs"]):
             server_trainer(
-                train_settings, server_settings, optimizer, warmup_scheduler,
+                train_settings,
+                server_settings,
+                optimizer,
+                warmup_scheduler,
             )
             if train_settings["tasktype"] == "cv":
                 warmup_scheduler.step()

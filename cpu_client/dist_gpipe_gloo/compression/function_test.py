@@ -85,7 +85,7 @@ else:
         part1 = nlp_sequential([model.roberta.encoder.layer[-1:]])
         part2 = model.classifier
         model1 = combine_classifier([part1], [part2])
-min_step = torch.rand([2 ** split_bits, 2])
+min_step = torch.rand([2**split_bits, 2])
 firstlayer_time = []
 sq_time = []
 sdq_time = []
