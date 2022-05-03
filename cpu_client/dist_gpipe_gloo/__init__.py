@@ -6,8 +6,4 @@ from .compression import (
     QSendGPU,
     QrecvGPU,
     TopkPruning,
-    SortQuantClient,
-    SortDeQuantClient,
-    SortDeQuantGPU,
-    SortQuantGPU,
 )

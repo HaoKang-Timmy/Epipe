@@ -18,7 +18,7 @@ parser.add_argument("--batches", default=64, type=int)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prune", default=0.0, type=float)
 parser.add_argument("--world-size", default=2, type=int)
-parser.add_argument("--showperiod", default=20, type=int)
+parser.add_argument("--showperiod", default=10, type=int)
 parser.add_argument("--tasktype", default="cv", type=str)
 parser.add_argument("--root", default="../data", type=str)
 parser.add_argument("--devices", default=[0, 1], type=list)
@@ -37,11 +37,11 @@ def main():
     model = mobilenet_v2(pretrained=True)
     model.classifier[-1] = nn.Linear(1280, 10)
     devices = args.devices
-    layer1 = [model.features[0:1]]
-    layer2 = [model.features[1:]]
+    layer1 = [model.features[0:2]]
+    layer2 = [model.features[2:-1]]
     # layer3 = [model.features[3:7]]
     # layer4 = [model.features[7:]]
-    layer5 = [Reshape1(), model.classifier]
+    layer5 = [model.features[-1], Reshape1(), model.classifier]
 
     layer1 = nn.Sequential(*layer1)
     layer2 = nn.Sequential(*layer2)
@@ -104,8 +104,8 @@ def main():
     partition = [[layer1, layer5], [layer2]]
     tensor_size = [
         [
-            (int(args.batches / args.chunks), 32, 112, 112),
-            (int(args.batches / args.chunks), 1280, 7, 7),
+            (int(args.batches / args.chunks), 16, 112, 112),
+            (int(args.batches / args.chunks), 320, 7, 7),
         ],
         # [
         #     (int(args.batches / args.chunks), 24, 56, 56),
@@ -116,8 +116,8 @@ def main():
         #     (int(args.batches / args.chunks), 24, 56, 56),
         # ],
         [
-            (int(args.batches / args.chunks), 1280, 7, 7),
-            (int(args.batches / args.chunks), 32, 112, 112),
+            (int(args.batches / args.chunks), 320, 7, 7),
+            (int(args.batches / args.chunks), 16, 112, 112),
         ],
     ]
     print(tensor_size)

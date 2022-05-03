@@ -47,16 +47,14 @@ def init_models_server(train_settings, server_settings):
 
 
 def server_trainer(
-    train_settings,
-    server_settings,
-    optimizer,
-    warmup_scheduler,
+    train_settings, server_settings, optimizer, warmup_scheduler,
 ):
     if train_settings["tasktype"] == "cv":
         timerecv_avg = 0.0
         timecount = torch.tensor([0.0])
         for batch_iter in range(train_settings["len_trainloader"]):
             batches = []
+            torch.cuda.synchronize()
             start = time.time()
             for i, model in enumerate(train_settings["models"]):
                 model.train()
@@ -84,7 +82,8 @@ def server_trainer(
                     batch.append(output)
                 batches.append(batch)
                 # timecount /= chunk
-            # forward_time = time.time() - start
+            torch.cuda.synchronize()
+            forward_time = time.time() - start
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 for chunk in range(server_settings["chunks"]):
                     # print("server backward pre",chunk)
@@ -95,9 +94,10 @@ def server_trainer(
                         )
                     )
                     # print("server backward",chunk)
+            torch.cuda.synchronize()
             end = time.time() - start
-            # if batch_iter % server_settings["showperiod"] == 0:
-            #     print("server_time", end, "forward_time", forward_time)
+            if batch_iter % server_settings["showperiod"] == 0:
+                print("server_time", end, "forward_time", forward_time)
 
             optimizer.step()
             optimizer.zero_grad()
@@ -248,10 +248,7 @@ def server(train_settings, server_settings):
         # print("server",group_list)
         for epoch in range(train_settings["epochs"]):
             server_trainer(
-                train_settings,
-                server_settings,
-                optimizer,
-                warmup_scheduler,
+                train_settings, server_settings, optimizer, warmup_scheduler,
             )
             if train_settings["tasktype"] == "cv":
                 warmup_scheduler.step()

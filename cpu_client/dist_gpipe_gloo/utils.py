@@ -18,8 +18,6 @@ from .compression import (
     TopkLayer,
     QSendLayerGPU,
     QRecvLayerGPU,
-    SortQuantGPU,
-    SortDeQuantGPU,
 )
 from torch.optim import AdamW, SGD
 from transformers import get_scheduler
@@ -35,9 +33,11 @@ from .compression.compression_layer_nccl import (
     PCASendGPU,
     QrecvGPU,
     QSendGPU,
-    SortDeQuantClient,
+    FastDequantClient,
+    FastQuantClient,
+    FastDequantizationServer,
+    FastQuantizationServer,
     TopkPruning,
-    SortQuantClient,
     PCARecvClient,
     PCASendClient,
     CompressionClientRecv,
@@ -74,7 +74,7 @@ def SendTensorCPU(input, settings, train_settings, chunk, edge=False):
             settings["group_list"][chunk],
         )
     elif train_settings["sortquant"] != 0:
-        output = SortQuantClient.apply(
+        output = FastQuantClient.apply(
             input,
             train_settings["quant"],
             train_settings["split"],
@@ -116,7 +116,7 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
             )
         elif train_settings["sortquant"] != 0:
             # print("sort quant send")
-            output = SortQuantGPU.apply(
+            output = FastQuantizationServer.apply(
                 input,
                 train_settings["quant"],
                 train_settings["split"],
@@ -127,10 +127,7 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
 
         elif train_settings["quant"] != 0:
             output = QSendGPU.apply(
-                input,
-                train_settings["quant"],
-                settings["send_rank"],
-                settings["rank"],
+                input, train_settings["quant"], settings["send_rank"], settings["rank"],
             )
         else:
             output = FSBRFunction.apply(
@@ -166,7 +163,7 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
                 settings["group_list"][chunk],
             )
         elif train_settings["sortquant"] != 0:
-            output = SortDeQuantGPU.apply(
+            output = FastDequantizationServer.apply(
                 input,
                 train_settings["quant"],
                 train_settings["split"],
@@ -176,10 +173,7 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
             # print("rank:",settings["rank"],"recv",settings["recv_rank"])
         elif train_settings["quant"] != 0:
             output = QrecvGPU.apply(
-                input,
-                train_settings["quant"],
-                settings["recv_rank"],
-                settings["rank"],
+                input, train_settings["quant"], settings["recv_rank"], settings["rank"],
             )
         else:
             output = FRBSFunction.apply(
@@ -214,7 +208,7 @@ def RecvTensorCPU(input, settings, train_settings, chunk, edge=False):
             settings["group_list"][chunk],
         )
     elif train_settings["sortquant"] != 0:
-        output = SortDeQuantClient.apply(
+        output = FastDequantClient.apply(
             input,
             train_settings["quant"],
             train_settings["split"],

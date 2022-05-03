@@ -69,53 +69,45 @@ def DequantizationonGPU(input, bits, min, step):
 
 def SortQuantization(input, bits, split_bits, min_step):
     shape = input.shape
+    # print('sq',input)
     input = input.view(-1)
-
     src, index = torch.sort(input, dim=0)
     # print(src)
-    index = torch.tensor_split(index, 2**split_bits)
-    src = torch.tensor_split(src, 2**split_bits)
+    index = torch.tensor_split(index, 2 ** split_bits)
+    src = torch.tensor_split(src, 2 ** split_bits)
     if bits + split_bits <= 8:
         output = input.type(torch.int8)
     else:
         output = input.type(torch.int16)
     output = output.view(-1)
 
-    for i in range(2**split_bits):
+    for i in range(2 ** split_bits):
 
         if bits + split_bits == 8 or bits + split_bits == 16:
 
             min, max = src[i].min(), src[i].max()
 
-            if min != max:
+            # if min != max:
 
-                step = (max - min) / (pow(2, bits) - 1)
+            step = (max - min) / (pow(2, bits) - 1)
 
-                min_step[i, 0], min_step[i, 1] = min, step
-
-                temp_src = torch.round((src[i] - min) / step) - pow(
-                    2, bits + split_bits - 1
-                )
-                temp_src += pow(2, bits) * i
+            min_step[i, 0], min_step[i, 1] = min, step
+            if step != 0.0:
+                temp_src = torch.round((src[i] - min) / step)
 
             else:
-                # some = time.time()
-                min_step[i, 0], min_step[i, 1] = min, 0.0
-                temp_src = src[i] - src[i] - pow(2, bits + split_bits - 1)
-                temp_src += pow(2, bits) * i
-                # print(time.time() - some)
-
+                temp_src = src[i] - src[i]
+            temp_src += -pow(2, bits + split_bits - 1) + pow(2, bits) * i
         else:
             min, max = src[i].min(), src[i].max()
-            if min != max:
-                step = (max - min) / (pow(2, bits) - 1)
-                min_step[i, 0], min_step[i, 1] = min, step
+            # if min != max:
+            step = (max - min) / (pow(2, bits) - 1)
+            min_step[i, 0], min_step[i, 1] = min, step
+            if step != 0.0:
                 temp_src = torch.round((src[i] - min) / step)
-                temp_src += pow(2, bits) * i
             else:
-                min_step[i, 0], min_step[i, 1] = min, 0.0
-                temp_src = 1 + src[i] - src[i]
-                temp_src += pow(2, bits) * i
+                temp_src = src[i] - src[i]
+            temp_src += pow(2, bits) * i
         temp_src = temp_src.type(output.dtype)
         output.scatter_(0, index[i], temp_src)
 
@@ -130,21 +122,30 @@ def SortDeQuantization(recv, bits, split_bits, min_step, grad_output):
     shape = grad_output.shape
     if bits + split_bits > 8 and bits + split_bits <= 16:
         recv = recv.view(dtype=torch.int16)
+
     src, index = torch.sort(recv, dim=0)
-    index = torch.tensor_split(index, 2**split_bits)
-    src = torch.tensor_split(src, 2**split_bits)
-    for i in range(2**split_bits):
+
+    index = torch.tensor_split(index, 2 ** split_bits)
+    src = torch.tensor_split(src, 2 ** split_bits)
+
+    for i in range(2 ** split_bits):
+        # torch.cuda.synchronize()
+        # start = time.time()
         temp_src = src[i].type(torch.float32)
+
         if bits + split_bits == 8 or bits + split_bits == 16:
-            if min_step[i, 1] == 0:
-                # step = 0
-                # temp_src = min_step[i,0]
-                temp_src.fill_(min_step[i, 0])
-            else:
-                offset = pow(2, bits + split_bits - 1) - pow(2, bits) * i
-                temp_src += offset
-                temp_src *= min_step[i, 1]
-                temp_src += min_step[i, 0]
+
+            # if min_step[i, 1] == 0:
+            #     # step = 0
+            #     # temp_src = min_step[i,0]
+            #     temp_src.fill_(min_step[i, 0])
+            # else:
+            # torch.cuda.synchronize()
+            # print(time.time()- start)
+            offset = pow(2, bits + split_bits - 1) - pow(2, bits) * i
+            temp_src += offset
+            temp_src *= min_step[i, 1]
+            temp_src += min_step[i, 0]
         else:
             if min_step[i, 1] == 0:
                 temp_src.fill_(min_step[i, 0])
@@ -154,64 +155,109 @@ def SortDeQuantization(recv, bits, split_bits, min_step, grad_output):
                 temp_src *= min_step[i, 1]
                 temp_src += min_step[i, 0]
         grad_output.scatter_(0, index[i], temp_src)
+    # print("deq",grad_output)
+
     return grad_output
 
 
-def FastDeQuantization(recv: torch.tensor, bits, split_bits, min_step, grad_output):
+def FastDequantizationGPU(recv, bits, split_bits, min_step, lower_bound, upper_bound):
+    shape = recv.shape
+    if bits + split_bits > 8 and bits + split_bits <= 16:
+        recv = recv.view(dtype=torch.int16)
+    recv = recv.view(-1)
+    src, index = torch.sort(recv, dim=0)
+    # print(src,index)
+    recv = recv.type(torch.float32)
+    # index = torch.tensor_split(index, 2**split_bits)
+    # src = torch.tensor_split(src, 2**split_bits)
+    for i in range(2 ** split_bits):
+
+        # lowerbound, upperbound = min_step[i, 2].type(torch.int).cpu(), min_step[i,3].type(torch.int).cpu()
+
+        # split_src = src[i].type(torch.float32)
+
+        # print(lowerbound,upperbound)
+        split_index = index[lower_bound[i] : upper_bound[i]]
+
+        # print(upperbound - lowerbound)
+        split_src = src[lower_bound[i] : upper_bound[i]]
+        split_src = split_src.type(torch.float32)
+        # print(split_src)
+        # print(lower_bound,upper_bound)
+        if bits + split_bits == 8 or bits + split_bits == 16:
+
+            offset = pow(2, bits + split_bits - 1) - pow(2, bits) * i
+            split_src += offset
+            # print(split_src)
+            split_src *= min_step[i, 1]
+            split_src += min_step[i, 0]
+        else:
+            # if min_step[i, 1] == 0:
+            #     temp_src.fill_(min_step[i, 0])
+            # else:
+            offset = -pow(2, bits) * i
+            split_src += offset
+            split_src *= min_step[i, 1]
+            split_src += min_step[i, 0]
+        recv.scatter_(0, split_index, split_src)
+    # print("deq",grad_output)
+    recv = recv.view(shape)
+    return recv
+
+
+def SortDequantizationCPU(recv: torch.tensor, bits, split_bits, min_step, grad_output):
+    shape = recv.shape
+    recv = recv.view(-1)
+    grad_output = grad_output.view(-1)
     if bits + split_bits > 8 and bits + split_bits <= 16:
         recv = recv.view(dtype=torch.int16)
     recv = recv.type(torch.long)
 
-    for i in range(2**split_bits):
-
+    for i in range(2 ** split_bits):
         if bits + split_bits == 8 or bits + split_bits == 16:
             upperbound = -pow(2, bits + split_bits - 1) + pow(2, bits) * (i + 1)
             lowerbound = -pow(2, bits + split_bits - 1) + pow(2, bits) * i
-            # start = time.time()
-            temp = torch.where((recv < upperbound) & (recv >= lowerbound), recv, 0)
-            # upper = recv < upperbound
-            # lower = recv >= lowerbound
-            # mask = upper * lower
-            # temp = torch.masked_select(recv,mask)
-            # slower than where, not used
-            # print(time.time() - start)
-            temp = temp.type(torch.float)
-            # print(temp)
-            indexs = torch.nonzero(temp)
-            # print(indexs)
+            # print(upperbound,lowerbound)
+            temp = torch.where(
+                (recv < upperbound) & (recv >= lowerbound), recv, -100000
+            )
+            indexs = (temp != -100000).nonzero()
             indexs = indexs.view(-1)
-            # print(indexs)
             temp = torch.index_select(temp, 0, indexs)
-
-            if min_step[i, 1] == 0:
-                temp.fill_(min_step[i, 0])
-            else:
-                offset = pow(2, bits + split_bits - 1) - pow(2, bits) * i
-                temp += offset
-                temp *= min_step[i, 1]
-                temp += min_step[i, 0]
+            offset = pow(2, bits + split_bits - 1) - pow(2, bits) * i
+            temp += offset
+            # print(min_step[i, 1],min_step[i, 0])
+            temp = temp.type(torch.float)
+            temp *= min_step[i, 1]
+            temp += min_step[i, 0]
         else:
             upperbound = pow(2, bits) * (i + 1)
             lowerbound = pow(2, bits) * i
             temp = torch.where((recv < upperbound) & (recv >= lowerbound), recv, 0)
-            temp = temp.type(torch.float)
+
             indexs = torch.nonzero(temp)
             indexs = indexs.view(-1)
             temp = torch.index_select(temp, 0, indexs)
-            if min_step[i, 1] == 0:
-                temp.fill_(min_step[i, 0])
-            else:
-                offset = -pow(2, bits) * i
-                temp += offset
-                temp *= min_step[i, 1]
-                temp += min_step[i, 0]
+            offset = -pow(2, bits) * i
+            temp += offset
+            temp = temp.type(torch.float)
+            temp *= min_step[i, 1]
+            temp += min_step[i, 0]
 
         grad_output.scatter_(0, indexs, temp)
+
+    grad_output = grad_output.view(shape)
+    recv = recv.view(shape)
+    # print("fastdeq",grad_output)
     return grad_output
 
 
-def FastQuantization(input, bits, split_bits, min_step):
+def FastQuantizationCPU(input, bits, split_bits, min_step):
+    # print("fastq",input)
+    lowerbound = 0.0
+    upperbound = 0.0
     shape_tensor = input.shape
+    batch = shape_tensor[0]
     input = input.view(-1).type(torch.double)
     separate = torch.tensor(-1e9).type(torch.double)
     shape = int(input.shape[0])
@@ -219,72 +265,73 @@ def FastQuantization(input, bits, split_bits, min_step):
         output = input.type(torch.int8)
     else:
         output = input.type(torch.int16)
-    for i in range(2**split_bits):
-        if i == 2**split_bits - 1:
+    for i in range(2 ** split_bits):
+
+        if i == 2 ** split_bits - 1:
             kthvalue = input.max()
         else:
-            # print(shape * (i + 1)/(2 ** split_bits))
-            # start = time.time()
+            input = input.view(batch, -1)
             kthvalue, indice = torch.kthvalue(
-                input, int(shape * (i + 1) / (2**split_bits)), keepdim=False
+                input[0],
+                int(shape * (i + 1) / (2 ** split_bits) / batch),
+                keepdim=False,
             )
-            # print(kthvalue,indice)
-            # print(time.time() - start)
-            # start = time.time()
-            # test = torch.median(input)
-            # print(time.time() - start)
+
+            input = input.view(-1)
+
             kthvalue = kthvalue.type(torch.double)
-            # kthvalue += 1e-7
-
-            # print(time.time() - start)
-        # special for sparse tensor
-        if kthvalue != 0.0:
-            temp = torch.where((input <= kthvalue) & (input > separate), input, 0.0)
-            # print(temp.shape)
-            temp = temp.type(torch.float)
-            indexs = torch.nonzero(temp)
-            indexs = indexs.view(-1)
-            temp = torch.index_select(temp, 0, indexs)
+        if kthvalue == separate:
+            temp = torch.where((input == kthvalue), input, -1000000.0)
         else:
-            temp = torch.where((input <= kthvalue) & (input > separate), input, -1.0)
-            temp = temp.type(torch.float)
-            indexs = (temp != -1.0).nonzero()
-            indexs = indexs.view(-1)
-            # print(indexs)
-            temp = torch.index_select(temp, 0, indexs)
-
-        # print(temp.shape)
+            temp = torch.where(
+                (input <= kthvalue) & (input > separate), input, -1000000.0
+            )
+        temp = temp.type(torch.float)
+        # print(temp)
+        indexs = (temp != -1000000.0).nonzero()
+        indexs = indexs.view(-1)
+        temp = torch.index_select(temp, 0, indexs)
         if bits + split_bits == 8 or bits + split_bits == 16:
             offset = -pow(2, bits + split_bits - 1) + pow(2, bits) * i
-            if kthvalue == separate or kthvalue == 0.0:
-                min_step[i, 0], min_step[i, 1] = kthvalue, 0.0
-                temp = temp - temp + 1
-                # print(temp)
-                temp += offset
-            else:
-                min = temp.min()
-                step = (kthvalue - min) / (pow(2, bits) - 1)
-                min_step[i, 0], min_step[i, 1] = min, step
+            min = temp.min()
+            step = (kthvalue - min) / (pow(2, bits) - 1)
+            min_step[i, 0], min_step[i, 1] = min, step
+            if step != 0.0:
                 temp = torch.round((temp - temp.min()) / step)
-                temp += offset
+            else:
+                temp = temp - temp
+            temp += offset
         else:
             offset = pow(2, bits) * i
-            if kthvalue == separate:
-
-                min_step[i, 0], min_step[i, 1] = kthvalue, 0.0
-                temp = temp - temp + 1
-                temp += offset
-            else:
-                min = temp.min()
-                step = (kthvalue - min) / (pow(2, bits) - 1)
-                min_step[i, 0], min_step[i, 1] = min, step
+            min = temp.min()
+            step = (kthvalue - min) / (pow(2, bits) - 1)
+            min_step[i, 0], min_step[i, 1] = min, step
+            if step != 0.0:
                 temp = torch.round((temp - min) / step)
-                temp += pow(2, bits) * i
-        separate = kthvalue
+            else:
+                temp = temp - temp
+            temp += pow(2, bits) * i
+
         # print(temp)
         temp = temp.type(output.dtype)
         output.scatter_(0, indexs, temp)
+        # print(time.time() - start)
+        # print(kthvalue, separate)
+        if kthvalue != separate:
+            lowerbound = upperbound
+            upperbound += temp.shape[0]
+            # print(upperbound,lowerbound)
+        min_step[i, 2], min_step[i, 3] = lowerbound, upperbound
+        separate = kthvalue
+
     output = output.view(shape_tensor)
     if bits + split_bits > 8 and bits + split_bits <= 16:
         output = output.view(dtype=torch.int8)
+    # print(min_step)
+    # print(output)
     return min_step, output
+
+
+def ParallelSortQuantization(input, bits, split_bits, min_step):
+    shape_input = input.shape
+    input = input.view(2 ** split_bits, -1).type(torch.double)
