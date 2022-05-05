@@ -17,7 +17,7 @@ class dist_gpipe:
     def __init__(
         self, args, model_list, devices, tensor_size, train_loader, val_loader
     ) -> None:
-        torch.multiprocessing.set_start_method("spawn")
+
         client_settings = {}
         server_settings_list = []
         client_train_settings = {}

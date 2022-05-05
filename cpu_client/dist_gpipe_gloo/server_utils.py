@@ -47,15 +47,18 @@ def init_models_server(train_settings, server_settings):
 
 
 def server_trainer(
-    train_settings, server_settings, optimizer, warmup_scheduler,
+    train_settings,
+    server_settings,
+    optimizer,
+    warmup_scheduler,
 ):
     if train_settings["tasktype"] == "cv":
         timerecv_avg = 0.0
         timecount = torch.tensor([0.0])
         for batch_iter in range(train_settings["len_trainloader"]):
             batches = []
-            torch.cuda.synchronize()
-            start = time.time()
+            # torch.cuda.synchronize()
+            # start = time.time()
             for i, model in enumerate(train_settings["models"]):
                 model.train()
                 batch = []
@@ -73,7 +76,7 @@ def server_trainer(
                     # print("server, recv", chunk)
                     # print("server",server_settings['rank'],"recv",server_settings['recv_rank'],input.shape)
                     output = model(input)
-
+                    # output = output.view([output.shape[0],output.shape[1],49])
                     output = SendTensor(output, server_settings, train_settings, chunk)
                     # print("server, send", chunk)
                     # print("server",server_settings['rank'],"send",server_settings['send_rank'],output.shape)
@@ -82,8 +85,8 @@ def server_trainer(
                     batch.append(output)
                 batches.append(batch)
                 # timecount /= chunk
-            torch.cuda.synchronize()
-            forward_time = time.time() - start
+            # torch.cuda.synchronize()
+            # forward_time = time.time() - start
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 for chunk in range(server_settings["chunks"]):
                     # print("server backward pre",chunk)
@@ -94,10 +97,10 @@ def server_trainer(
                         )
                     )
                     # print("server backward",chunk)
-            torch.cuda.synchronize()
-            end = time.time() - start
-            if batch_iter % server_settings["showperiod"] == 0:
-                print("server_time", end, "forward_time", forward_time)
+            # torch.cuda.synchronize()
+            # end = time.time() - start
+            # if batch_iter % server_settings["showperiod"] == 0:
+            #     print("server_time", end, "forward_time", forward_time)
 
             optimizer.step()
             optimizer.zero_grad()
@@ -248,7 +251,10 @@ def server(train_settings, server_settings):
         # print("server",group_list)
         for epoch in range(train_settings["epochs"]):
             server_trainer(
-                train_settings, server_settings, optimizer, warmup_scheduler,
+                train_settings,
+                server_settings,
+                optimizer,
+                warmup_scheduler,
             )
             if train_settings["tasktype"] == "cv":
                 warmup_scheduler.step()

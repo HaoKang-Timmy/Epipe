@@ -22,6 +22,7 @@ from utils import (
     SortQuantization,
     Fakequantize,
     FQBSQ,
+    FastQuantization,
     FSQBQ,
 )
 
@@ -38,7 +39,10 @@ parser.add_argument("--avgpool", default=0, action="store_true")
 parser.add_argument("--secondlayer", default=0, action="store_true")
 parser.add_argument("--split", default=0, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
+parser.add_argument("--qsq", default=0, action="store_true")
+parser.add_argument("--svdq", default=0, action="store_true")
 parser.add_argument("--kmeans", default=0, type=int)
+parser.add_argument("--qquant", default=0, type=int)
 parser.add_argument("--pca1", default=0, type=int)
 parser.add_argument("--pca2", default=0, type=int)
 parser.add_argument("--root", default="../../data", type=str)
@@ -113,8 +117,8 @@ def main_worker(rank, process_num, args):
         layer3 = nn.Sequential(*[model.features[-1], Reshape1(), model.classifier])
     else:
         layer1 = nn.Sequential(*[model.features[0:1]])
-        layer2 = nn.Sequential(*[model.features[1:-1]])
-        layer3 = nn.Sequential(*[model.features[-1], Reshape1(), model.classifier])
+        layer2 = nn.Sequential(*[model.features[1:]])
+        layer3 = nn.Sequential(*[Reshape1(), model.classifier])
     # quant_layer1 = QuantizationLayer(args.quant)
     # dequant_layer1 = DequantizationLayer(args.quant)
     # quant_layer2 = QuantizationLayer(args.quant)
@@ -185,7 +189,12 @@ def main_worker(rank, process_num, args):
             #         outputs = Fakequantize.apply(outputs, args.pca1)
             # elif args.sortquant != 0:
             #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
-            outputs = Fakequantize.apply(outputs, args.quant)
+            if args.sortquant != 0:
+                outputs = FastQuantization.apply(outputs, args.quant, args.split)
+            elif args.qsq != 0:
+                outputs = FQBSQ.apply(outputs, args.qquant, args.quant, args.split)
+            elif args.svdq != 0:
+                outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
             outputs = layer2(outputs)
             # if args.sortquant == 0:
             #     if args.prune != 0:
@@ -204,10 +213,14 @@ def main_worker(rank, process_num, args):
             #         outputs = Fakequantize.apply(outputs, args.pca2)
             # elif args.sortquant != 0:
             #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
-            shape = outputs.shape
             # outputs = outputs.view(64,1280,49)
             # print(outputs.shape)
-            outputs = Fakequantize.apply(outputs, args.quant)
+            if args.sortquant != 0:
+                outputs = FastQuantization.apply(outputs, args.quant, args.split)
+            elif args.qsq != 0:
+                outputs = FSQBQ.apply(outputs, args.qquant, args.quant, args.split)
+            elif args.svdq != 0:
+                outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
             # outputs = outputs.view(64,1280,7,7)
             outputs = layer3(outputs)
             # print(outputs)
@@ -265,7 +278,12 @@ def main_worker(rank, process_num, args):
                 #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
                 # # outputs,min,step = quant_layer1(outputs)
                 # outputs = dequant_layer1(outputs,min,step,quant_layer1.backward_min,quant_layer1.backward_step)
-                outputs = Fakequantize.apply(outputs, args.quant)
+                if args.sortquant != 0:
+                    outputs = FastQuantization.apply(outputs, args.quant, args.split)
+                elif args.qsq != 0:
+                    outputs = FQBSQ.apply(outputs, args.qquant, args.quant, args.split)
+                elif args.svdq != 0:
+                    outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
                 outputs = layer2(outputs)
 
                 # if args.sortquant == 0:
@@ -286,7 +304,12 @@ def main_worker(rank, process_num, args):
                 # elif args.sortquant != 0:
                 #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
                 # outputs = outputs.view(64,1280,49)
-                outputs = Fakequantize.apply(outputs, args.quant)
+                if args.sortquant != 0:
+                    outputs = FastQuantization.apply(outputs, args.quant, args.split)
+                elif args.qsq != 0:
+                    outputs = FSQBQ.apply(outputs, args.qquant, args.quant, args.split)
+                elif args.svdq != 0:
+                    outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
                 # outputs = outputs.view(64,1280,7,7)
                 outputs = layer3(outputs)
                 loss = criterion(outputs, label)

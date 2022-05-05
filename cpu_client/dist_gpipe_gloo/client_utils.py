@@ -54,7 +54,11 @@ def init_models_client(train_settings, client_settings):
 
 
 def client_trainer(
-    train_settings, client_settings, optimizer, warmup_scheduler, criterion,
+    train_settings,
+    client_settings,
+    optimizer,
+    warmup_scheduler,
+    criterion,
 ):
     acc1_avg = 0.0
     losses_avg = 0.0
@@ -102,9 +106,15 @@ def client_trainer(
                             .requires_grad_()
                         )
                         # print("client, pre_recv",chunk)
+                        # input = input.view([client_settings["recv_size"][0],client_settings["recv_size"][1],49])
                         input = RecvTensorCPU(
-                            input, client_settings, train_settings, chunk, True,
+                            input,
+                            client_settings,
+                            train_settings,
+                            chunk,
+                            True,
                         )
+                        # input.view(client_settings["recv_size"])
                         # print("client, recv",chunk)
                         # print("client",client_settings['rank'],"recv",input.shape)
                         # print("client desortquant time:", time.time() - some)
@@ -166,14 +176,12 @@ def client_trainer(
 
     else:
         start = time.time()
-        bandwidth = torch.tensor([0.0])
-        bandwidth_avg = 0.0
         for batch_iter, batch in enumerate(train_settings["train_loader"]):
             # print("client batch_iter")
-            batch = {
-                k: v.to(client_settings["rank"], non_blocking=True)
-                for k, v in batch.items()
-            }
+            # batch = {
+            #     k: v.to(client_settings["rank"], non_blocking=True)
+            #     for k, v in batch.items()
+            # }
             acc1 = 0.0
             losses = 0.0
             batch["attention_mask"] = (
@@ -186,13 +194,14 @@ def client_trainer(
                         int(batch["attention_mask"].shape[-1]),
                     ],
                 )
-                .to(client_settings["rank"])
+                # .to(client_settings["rank"])
                 .type(torch.float32)
             )
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
+            attention_mask = batch["attention_mask"].to(client_settings["rank"])
             for rank in client_settings["devices"]:
                 if rank != client_settings["rank"]:
-                    dist.isend(batch["attention_mask"], rank)
+                    dist.isend(attention_mask, rank)
             batch["attention_mask"] = batch["attention_mask"].chunk(
                 client_settings["chunks"]
             )
@@ -209,25 +218,24 @@ def client_trainer(
                             batch["input_ids"][chunk], batch["attention_mask"][chunk]
                         )
 
-                        output = SendTensor(
-                            output, client_settings, train_settings, chunk, True
+                        output = SendTensorCPU(
+                            output, client_settings, train_settings, chunk
                         )
 
                     else:
                         input = (
                             torch.zeros(client_settings["recv_size"])
-                            .to(client_settings["device"])
+                            # .to(client_settings["device"])
                             .requires_grad_()
                             # .type(torch.long)
                         )
 
-                        input = RecvTensor(
+                        input = RecvTensorCPU(
                             input,
                             client_settings,
                             train_settings,
                             chunk,
                             True,
-                            bandwidth,
                         )
 
                         # input = input.type(torch.long)
@@ -322,10 +330,11 @@ def client_validation(train_settings, client_settings, criterion):
                                 # .to(client_settings["device"])
                                 .requires_grad_()
                             )
-
+                            # input = input.view(client_settings["recv_size"][0],client_settings["recv_size"][1],49)
                             input = RecvTensorCPU(
                                 input, client_settings, train_settings, chunk, True
                             )
+                            # input = input.view(client_settings["recv_size"])
                             output = model(input)
                             acc, _ = accuracy(output, targets[chunk], topk=(1, 2))
                             output = criterion(output, targets[chunk])
@@ -348,7 +357,7 @@ def client_validation(train_settings, client_settings, criterion):
         with torch.no_grad():
             for batch_iter, batch in enumerate(train_settings["valloader"]):
                 # print("client",client_settings["rank"],batch_iter)
-                batch = {k: v.to(client_settings["rank"]) for k, v in batch.items()}
+                # batch = {k: v.to(client_settings["rank"]) for k, v in batch.items()}
                 acc1 = 0.0
                 losses = 0.0
                 batch["attention_mask"] = torch.reshape(
@@ -359,14 +368,15 @@ def client_validation(train_settings, client_settings, criterion):
                         1,
                         int(batch["attention_mask"].shape[-1]),
                     ],
-                ).to(client_settings["rank"])
+                )
                 batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
                 # dist.isend(batch["attention_mask"],1)
                 # # dist.isend(batch["attention_mask"],2)
                 # # dist.isend(batch["attention_mask"],3)
+                attention_mask = batch["attention_mask"].to(client_settings["rank"])
                 for rank in client_settings["devices"]:
                     if rank != client_settings["rank"]:
-                        dist.isend(batch["attention_mask"], rank)
+                        dist.isend(attention_mask, rank)
                 batch["attention_mask"] = batch["attention_mask"].chunk(
                     client_settings["chunks"]
                 )
@@ -383,18 +393,18 @@ def client_validation(train_settings, client_settings, criterion):
                                 batch["attention_mask"][chunk],
                             )
 
-                            output = SendTensor(
+                            output = SendTensorCPU(
                                 output, client_settings, train_settings, chunk, True
                             )
                         else:
                             input = (
                                 torch.zeros(client_settings["recv_size"])
-                                .to(client_settings["device"])
+                                # .to(client_settings["device"])
                                 .requires_grad_()
                                 # .type(torch.long)
                             )
 
-                            input = RecvTensor(
+                            input = RecvTensorCPU(
                                 input, client_settings, train_settings, chunk, True
                             )
                             # input = input.type(torch.long)
@@ -452,12 +462,18 @@ def client(train_settings, client_settings):
                 train_loss,
                 bandwidth_avg,
             ) = client_trainer(
-                train_settings, client_settings, optimizer, warmup_scheduler, criterion,
+                train_settings,
+                client_settings,
+                optimizer,
+                warmup_scheduler,
+                criterion,
             )
             if train_settings["tasktype"] == "cv":
                 warmup_scheduler.step()
             val_acc, val_metric, val_loss = client_validation(
-                train_settings, client_settings, criterion,
+                train_settings,
+                client_settings,
+                criterion,
             )
             print(
                 "epoch",

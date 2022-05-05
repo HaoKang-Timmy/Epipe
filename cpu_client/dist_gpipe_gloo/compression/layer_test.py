@@ -1,10 +1,12 @@
 import torch
 from compression_layer_nccl import (
     FastQuantClient,
-    FastDequantizationGPU,
     FastDequantizationServer,
+    # FastDequantizationServer,
     FastDequantClient,
     FastQuantizationServer,
+    QSendClient,
+    QrecvGPU,
 )
 import torch.nn as nn
 import torch.multiprocessing as mp
@@ -28,9 +30,9 @@ def main_worker(rank, world_size, args):
     print("process begin", rank)
 
     if rank == 0:
-        for i in range(10):
-            input = torch.rand([64, 32, 112, 112]).requires_grad_()
-            recv = torch.zeros([64, 32, 112, 112])
+        for i in range(1):
+            input = torch.zeros([10, 15]).requires_grad_()
+            recv = torch.zeros([10, 15])
             # input = torch.rand([10,10])
             # send[0,0] = 1e-9
             # send[3,5] = 2e-9
@@ -41,34 +43,36 @@ def main_worker(rank, world_size, args):
             torch.cuda.synchronize()
             end = time.time()
             print("rank0 forward", end - start)
-            torch.cuda.synchronize()
-            start = time.time()
-            output.backward(recv)
-            torch.cuda.synchronize()
-            end = time.time()
-            print("rank0 backward", end - start)
+            print(output)
+            # torch.cuda.synchronize()
+            # start = time.time()
+            # output.backward(recv)
+            # torch.cuda.synchronize()
+            # end = time.time()
+            # print("rank0 backward", end - start)
             # print(recv)
     elif rank == 1:
         # layer = FastDequantizationServerLayer(6,2,0).to(1)
-        for i in range(10):
-            input = torch.rand([64, 32, 112, 112]).requires_grad_().to(1)
-            send = torch.zeros([64, 32, 112, 112]).to(1)
-            # input[0,0] = 1e-9
-            # input[3,5] = 2e-9
+        for i in range(1):
+            input = torch.rand([10, 15]).requires_grad_().to(1)
+            send = torch.zeros([10, 15]).to(1)
+            send[0, 0] = 1e-9
+            send[3, 5] = 2e-9
             # input = torch.rand([10,10]).to(1)
-            torch.cuda.synchronize()
+            torch.cuda.synchronize(device=1)
             start = time.time()
             output = FastQuantizationServer.apply(input, 6, 2, 0)
-            torch.cuda.synchronize()
+            torch.cuda.synchronize(device=1)
             end = time.time()
             print("rank1 forward", end - start)
-            torch.cuda.synchronize()
-            start = time.time()
-            output.backward(send)
-            torch.cuda.synchronize()
-            end = time.time()
-            print("rank1 backward", end - start)
-            # print(output)
+            print(output)
+            # torch.cuda.synchronize(device= 1)
+            # start = time.time()
+            # output.backward(send)
+            # torch.cuda.synchronize(device= 1)
+            # end = time.time()
+            # print("rank1 backward", end - start)
+            # print(send)
 
 
 def main():

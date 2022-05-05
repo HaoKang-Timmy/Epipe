@@ -74,12 +74,16 @@ class QSendGPU(autograd.Function):
     @staticmethod
     def forward(ctx, input, bits, send_rank, rank, pg=None):
         ctx.bits, ctx.recv_rank, ctx.rank, ctx.pg = (bits, send_rank, rank, pg)
-        (output, min, step,) = QuantizationGPU(input, bits)
+        (
+            output,
+            min,
+            step,
+        ) = QuantizationGPU(input, bits)
         # print("quant send",output)
         ctx.min, ctx.step = min, step
         ctx.input = output
         # print("pre send to",send_rank )
-        QtensorSendonGPU(output, min, step, send_rank, pg)
+        QtensorSend(output, min, step, send_rank, pg)
         # print("send")
 
         # print("input",input.shape)
@@ -102,7 +106,7 @@ class QSendGPU(autograd.Function):
         if bits <= 16 and bits > 8:
             input = input.view(dtype=torch.int16)
 
-        grad_output = DequantizationonGPU(input, bits, min, step)
+        grad_output = Dequantizationon(input, bits, min, step)
         # print(grad_output)
         # print(grad_output.shape)
         return grad_output, None, None, None, None
@@ -163,7 +167,7 @@ class QrecvGPU(autograd.Function):
         # print("recv quant",recv)
         if bits <= 16 and bits > 8:
             recv = recv.view(dtype=torch.int16)
-        input = DequantizationonGPU(recv, bits, min, step)
+        input = Dequantizationon(recv, bits, min, step)
         return input
 
     @staticmethod
@@ -178,7 +182,7 @@ class QrecvGPU(autograd.Function):
         output, min, step = QuantizationGPU(grad_output, bits)
         # dist.send(min_step.cpu(), recv_rank)
         # dist.send(output.cpu(), recv_rank)
-        QtensorSendonGPU(output, min, step, send_rank, pg)
+        QtensorSend(output, min, step, send_rank, pg)
         return grad_output, None, None, None, None
 
 
@@ -195,6 +199,100 @@ class QRecvLayerGPU(nn.Module):
         return QrecvGPU.apply(input, self.bits, self.recv_rank, self.rank)
 
 
+class QSendClient(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, bits, send_rank, device, pg=None):
+        ctx.bits, ctx.recv_rank, ctx.device, ctx.pg = (bits, send_rank, device, pg)
+        min = torch.tensor(0.0)
+        step = torch.tensor(0.0)
+        output, min, step = QuantizationCPU(input, bits)
+        # print("quant send",output)
+
+        # print("pre send to",send_rank )
+
+        # print("send")
+        min = min.to(device)
+        step = step.to(device)
+        output = output.to(device)
+        ctx.min, ctx.step = min, step
+        ctx.input = output
+        dist.send(min, send_rank, group=pg)
+        dist.send(step, send_rank, group=pg)
+        dist.send(output, send_rank, group=pg)
+        # print("input",input.shape)
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        bits, recv_rank, device, min, step, pg = (
+            ctx.bits,
+            ctx.recv_rank,
+            ctx.device,
+            ctx.min,
+            ctx.step,
+            ctx.pg,
+        )
+        input = ctx.input
+        # input = input.to(device)
+        min, step, input = QtensorRecvonGPU1(input, bits, min, step, recv_rank, pg)
+        # print("backward recv",input,min,step)
+        min = min.to("cpu")
+        step = step.to("cpu")
+        input = input.to("cpu")
+        if bits <= 16 and bits > 8:
+            input = input.view(dtype=torch.int16)
+
+        grad_output = Dequantizationon(input, bits, min, step)
+        return grad_output, None, None, None, None
+
+
+class QrecvClient(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, bits, recv_rank, device, pg=None):
+        min = torch.tensor(0.0).to(device)
+        step = torch.tensor(0.0).to(device)
+        ctx.bits, ctx.send_rank, ctx.device, ctx.min, ctx.step, ctx.pg = (
+            bits,
+            recv_rank,
+            device,
+            min,
+            step,
+            pg,
+        )
+        input = input.to(device)
+
+        min, step, recv = QtensorRecvonGPU(input, bits, min, step, recv_rank, pg)
+        # print("recv quant",recv)
+        if bits <= 16 and bits > 8:
+            recv = recv.view(dtype=torch.int16)
+        recv = recv.to("cpu")
+        min = min.to("cpu")
+        step = step.to("cpu")
+
+        input = Dequantizationon(recv, bits, min, step)
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        bits, send_rank, device, min, step, pg = (
+            ctx.bits,
+            ctx.send_rank,
+            ctx.device,
+            ctx.min,
+            ctx.step,
+            ctx.pg,
+        )
+        output, min, step = QuantizationCPU(grad_output, bits)
+        # dist.send(min_step.cpu(), recv_rank)
+        # dist.send(output.cpu(), recv_rank)
+        min = min.to(device)
+        step = step.to(device)
+        output = output.to(device)
+
+        QtensorSend(output, min, step, send_rank, pg)
+        return grad_output, None, None, None, None
+
+
 # need to add each number of split to get and dequantize
 class FastQuantClient(autograd.Function):
     @staticmethod
@@ -207,7 +305,7 @@ class FastQuantClient(autograd.Function):
         )
         ctx.device = device
         shape = input.shape
-        min_step = torch.zeros([2 ** split_bits, 4])
+        min_step = torch.zeros([2**split_bits, 4])
         # min_step, output = SortQuantization(input, bits, split_bits, min_step)
         min_step, output = FastQuantizationCPU(input, bits, split_bits, min_step)
         min_step = min_step.to(device)
@@ -235,15 +333,18 @@ class FastQuantClient(autograd.Function):
             recv = grad_output.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2 ** split_bits, 2])
+        min_step = torch.zeros([2**split_bits, 2])
         min_step = min_step.to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
         dist.recv(recv, recv_rank, group=pg)
         min_step = min_step.cpu()
         recv = recv.cpu()
-        SortDequantizationCPU(recv, bits, split_bits, min_step, grad_output)
+        grad_output = FastDequantizationCPU(
+            recv, bits, split_bits, min_step, grad_output
+        )
         grad_output = grad_output.view(shape)
+        # print(grad_output)
         return grad_output, None, None, None, None, None
 
 
@@ -258,7 +359,7 @@ class FastQuantizationServer(autograd.Function):
             pg,
         )
         shape = input.shape
-        min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
+        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
         min_step, output = SortQuantization(input, bits, split_bits, min_step)
 
         dist.isend(min_step, send_rank, group=pg)
@@ -283,14 +384,14 @@ class FastQuantizationServer(autograd.Function):
             recv = grad_output.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2 ** split_bits, 4]).to(grad_output.get_device())
+        min_step = torch.zeros([2**split_bits, 4]).to(grad_output.get_device())
         dist.recv(min_step, recv_rank, group=pg)
         dist.recv(recv, recv_rank, group=pg)
         # should view to int16 since we represent int16 with int8
-        lower_bound = min_step[:, -2].to("cpu").type(torch.int32)
-        upper_bound = min_step[:, -1].to("cpu").type(torch.int32)
-        grad_output = FastDequantizationGPU(
-            recv, bits, split_bits, min_step, lower_bound, upper_bound
+        # lower_bound = min_step[:, -2].to("cpu").type(torch.int32)
+        # upper_bound = min_step[:, -1].to("cpu").type(torch.int32)
+        grad_output = FastDequantizationGPU1(
+            recv, bits, split_bits, min_step, min_step[:, -2], min_step[:, -1]
         )
         grad_output = grad_output.view(shape)
         # print("server backward recv")
@@ -315,23 +416,18 @@ class FastDequantizationServer(autograd.Function):
             input = input.type(torch.int16)
             input = input.view(torch.int8)
 
-        min_step = torch.zeros([2 ** split_bits, 4]).to(input.get_device())
-
+        min_step = torch.zeros([2**split_bits, 4]).to(input.get_device())
+        # recv = torch.rand([64,32,112,112]).to(input.get_device())
         # TODO change the recving method
+
         dist.recv(min_step, recv_rank, group=pg)
         dist.recv(input, recv_rank, group=pg)
-        # torch.cuda.synchronize()
-        # start = time.time()
-        lower_bound = min_step[:, -2].to("cpu").type(torch.int32)
-        upper_bound = min_step[:, -1].to("cpu").type(torch.int32)
-        # torch.cuda.synchronize()
-        # print(time.time()- start)
-        # print(bound.shape)
-        input = FastDequantizationGPU(
-            input, bits, split_bits, min_step, lower_bound, upper_bound
-        )
 
-        # input = SortDequantizationCPU(recv, bits, split_bits, min_step, input)
+        # input = FastDequantizationCPU(input,bits,split_bits,min_step,recv)
+        # print(end - start)
+        input = FastDequantizationGPU1(
+            input, bits, split_bits, min_step, min_step[:, -2], min_step[:, -1]
+        )
         input = input.view(shape)
         return input
 
@@ -348,7 +444,7 @@ class FastDequantizationServer(autograd.Function):
         shape = grad_output.shape
         # print(grad_output)
 
-        min_step = torch.zeros([2 ** split_bits, 2]).to(grad_output.get_device())
+        min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
         min_step, output = SortQuantization(grad_output, bits, split_bits, min_step)
 
         dist.isend(min_step, send_rank, group=pg)
@@ -389,14 +485,14 @@ class FastDequantClient(autograd.Function):
             recv = input.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2 ** split_bits, 2])
+        min_step = torch.zeros([2**split_bits, 2])
         min_step = min_step.to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
         dist.recv(recv, recv_rank, group=pg)
         min_step = min_step.cpu()
         recv = recv.cpu()
-        input = SortDequantizationCPU(recv, bits, split_bits, min_step, input)
+        input = FastDequantizationCPU(recv, bits, split_bits, min_step, input)
         # input = input * 1.0
         input = input.view(shape)
         return input
@@ -411,7 +507,7 @@ class FastDequantClient(autograd.Function):
         )
         device = ctx.device
         shape = grad_output.shape
-        min_step = torch.zeros([2 ** split_bits, 4])
+        min_step = torch.zeros([2**split_bits, 4])
         # min_step, output = SortQuantization(grad_output, bits, split_bits, min_step)
         min_step, output = FastQuantizationCPU(grad_output, bits, split_bits, min_step)
         min_step = min_step.to(device)
@@ -604,7 +700,7 @@ class CompressionClientSend(autograd.Function):
         else:
             recv = grad_output.type(torch.int16)
         recv = recv.view(torch.int8)
-        min_step = torch.zeros([2 ** split_bits, 2]).to(device)
+        min_step = torch.zeros([2**split_bits, 2]).to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
         dist.recv(recv, recv_rank, group=pg)
@@ -636,7 +732,7 @@ class CompressionClientRecv(autograd.Function):
             recv = input.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2 ** split_bits, 2])
+        min_step = torch.zeros([2**split_bits, 2])
         min_step = min_step.to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
@@ -665,7 +761,7 @@ class CompressRecvGPU(autograd.Function):
     def forward(ctx, input, q, recv_rank, bits, split_bits, pg=None):
         ctx.bits, ctx.split_bits, ctx.pg = bits, split_bits, pg
         ctx.send_rank = recv_rank
-        ctx.min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
+        ctx.min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
         shape = list(input.shape)
         shape[-1] = q
         s_shape = shape[:-1]
@@ -711,7 +807,7 @@ class CompressSendGPU(autograd.Function):
     def forward(ctx, input, q, send_rank, bits, split_bits, pg=None):
         ctx.q, ctx.recv_rank, ctx.pg = q, send_rank, pg
         shape = input.shape
-        min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
+        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
         min_step, output = SortQuantization(input, bits, split_bits, min_step)
         dist.isend(min_step, send_rank, group=pg)
         dist.isend(output, send_rank, group=pg)

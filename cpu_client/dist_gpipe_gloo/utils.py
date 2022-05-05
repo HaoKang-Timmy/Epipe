@@ -44,6 +44,8 @@ from .compression.compression_layer_nccl import (
     CompressionClientSend,
     CompressRecvGPU,
     CompressSendGPU,
+    QrecvClient,
+    QSendClient,
 )
 
 
@@ -82,7 +84,16 @@ def SendTensorCPU(input, settings, train_settings, chunk, edge=False):
             settings["rank"],
             settings["group_list"][chunk],
         )
+    elif train_settings["quant"] != 0:
+        output = QSendClient.apply(
+            input,
+            train_settings["quant"],
+            settings["send_rank"],
+            settings["rank"],
+            settings["group_list"][chunk],
+        )
     else:
+        # print("client send",settings["send_rank"],settings["rank"])
         output = FSBRFunctionClient.apply(
             input,
             settings["send_rank"],
@@ -127,7 +138,11 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
 
         elif train_settings["quant"] != 0:
             output = QSendGPU.apply(
-                input, train_settings["quant"], settings["send_rank"], settings["rank"],
+                input,
+                train_settings["quant"],
+                settings["send_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
             )
         else:
             output = FSBRFunction.apply(
@@ -173,9 +188,14 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
             # print("rank:",settings["rank"],"recv",settings["recv_rank"])
         elif train_settings["quant"] != 0:
             output = QrecvGPU.apply(
-                input, train_settings["quant"], settings["recv_rank"], settings["rank"],
+                input,
+                train_settings["quant"],
+                settings["recv_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
             )
         else:
+            # print("server recv",settings["recv_rank"],settings["rank"])
             output = FRBSFunction.apply(
                 input,
                 settings["recv_rank"],
@@ -212,6 +232,14 @@ def RecvTensorCPU(input, settings, train_settings, chunk, edge=False):
             input,
             train_settings["quant"],
             train_settings["split"],
+            settings["recv_rank"],
+            settings["rank"],
+            settings["group_list"][chunk],
+        )
+    elif train_settings["quant"] != 0:
+        output = QrecvClient.apply(
+            input,
+            train_settings["quant"],
             settings["recv_rank"],
             settings["rank"],
             settings["group_list"][chunk],
@@ -263,7 +291,7 @@ def make_dictions(
     client_settings["device"] = 0
     client_settings["devices"] = devices
     client_settings["rank"] = devices[0]
-    client_settings["backend"] = args.bachend
+    client_settings["backend"] = args.backend
     client_settings["dist_url"] = args.url
     client_settings["world_size"] = args.world_size
     client_settings["savepath"] = args.log
@@ -294,7 +322,7 @@ def make_dictions(
         server_settings["devices"] = devices
         server_settings["device"] = devices[server_num + 1]
         server_settings["rank"] = server_num + 1
-        server_settings["backend"] = args.bachend
+        server_settings["backend"] = args.backend
         server_settings["dist_url"] = args.url
         server_settings["world_size"] = args.world_size
         server_settings["send_size"] = tensor_size[server_num + 1][0]

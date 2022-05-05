@@ -96,7 +96,11 @@ def main_worker(rank, process_num, args):
     model = models.mobilenet_v2(pretrained=True)
     model.classifier[-1] = torch.nn.Linear(1280, 10)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9,)
+    optimizer = torch.optim.SGD(
+        model.parameters(),
+        lr=args.lr,
+        momentum=0.9,
+    )
 
     lr_scheduler = get_scheduler(
         name="cosine",
