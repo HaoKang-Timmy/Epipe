@@ -368,7 +368,7 @@ def client_validation(train_settings, client_settings, criterion):
                         1,
                         int(batch["attention_mask"].shape[-1]),
                     ],
-                )
+                ).type(torch.float32)
                 batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
                 # dist.isend(batch["attention_mask"],1)
                 # # dist.isend(batch["attention_mask"],2)

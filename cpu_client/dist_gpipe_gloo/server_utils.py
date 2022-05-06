@@ -136,10 +136,11 @@ def server_trainer(
                         .requires_grad_()
                         # .type(torch.long)
                     )
-
+                    # print("server recv1",input.shape)
                     output = RecvTensor(
                         input, server_settings, train_settings, chunk, False, timecount
                     )
+                    # print("server recv3",output.shape)
                     output = model(output, attention_mask[chunk])
 
                     output = SendTensor(output, server_settings, train_settings, chunk)

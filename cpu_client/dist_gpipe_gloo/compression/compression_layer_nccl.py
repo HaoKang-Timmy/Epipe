@@ -530,9 +530,9 @@ class PCASendClient(autograd.Function):
         U = U.to(device)
         S = S.to(device)
         V = V.to(device)
-        # print("send U",U)
-        # print("send S",S)
-        # print("send V",V)
+        # print("send U",U.shape)
+        # print("send S",S.shape)
+        # print("send V",V.shape)
         dist.isend(U, send_rank, group=pg)
         dist.isend(S, send_rank, group=pg)
         dist.isend(V, send_rank, group=pg)
@@ -542,11 +542,14 @@ class PCASendClient(autograd.Function):
     def backward(ctx, grad_output: torch.tensor):
         q, recv_rank, device, pg = ctx.q, ctx.recv_rank, ctx.device, ctx.pg
         shape = list(grad_output.shape)
+        v_shape = shape.copy()
+        v_shape[-2] = shape[-1]
+        v_shape[-1] = q
         shape[-1] = q
         s_shape = shape[:-1]
         s_shape[-1] = q
         U = torch.empty(shape).to(device)
-        V = torch.empty(shape).to(device)
+        V = torch.empty(v_shape).to(device)
         S = torch.empty(s_shape).to(device)
         dist.recv(U, recv_rank, group=pg)
         dist.recv(S, recv_rank, group=pg)
@@ -566,11 +569,14 @@ class PCARecvClient(autograd.Function):
     def forward(ctx, input, q, recv_rank, device, pg=None):
         ctx.q, ctx.send_rank, ctx.device, ctx.pg = q, recv_rank, device, pg
         shape = list(input.shape)
+        v_shape = shape.copy()
+        v_shape[-2] = shape[-1]
+        v_shape[-1] = q
         shape[-1] = q
         s_shape = shape[:-1]
         s_shape[-1] = q
         U = torch.empty(shape).to(device)
-        V = torch.empty(shape).to(device)
+        V = torch.empty(v_shape).to(device)
         S = torch.empty(s_shape).to(device)
         dist.recv(U, recv_rank, group=pg)
         dist.recv(S, recv_rank, group=pg)
@@ -616,11 +622,14 @@ class PCASendGPU(autograd.Function):
     def backward(ctx, grad_output: torch.tensor):
         q, recv_rank, device, pg = ctx.q, ctx.recv_rank, ctx.device, ctx.pg
         shape = list(grad_output.shape)
+        v_shape = shape.copy()
+        v_shape[-2] = shape[-1]
+        v_shape[-1] = q
         shape[-1] = q
         s_shape = shape[:-1]
         s_shape[-1] = q
         U = torch.empty(shape).to(device)
-        V = torch.empty(shape).to(device)
+        V = torch.empty(v_shape).to(device)
         S = torch.empty(s_shape).to(device)
         dist.recv(U, recv_rank, group=pg)
         dist.recv(S, recv_rank, group=pg)
@@ -638,23 +647,32 @@ class PCARecvGPU(autograd.Function):
     def forward(ctx, input, q, recv_rank, device, pg=None):
         ctx.q, ctx.send_rank, ctx.device, ctx.pg = q, recv_rank, device, pg
         shape = list(input.shape)
+        # print("before",shape)
+        v_shape = shape.copy()
+        v_shape[-2] = shape[-1]
+        v_shape[-1] = q
         shape[-1] = q
         s_shape = shape[:-1]
         s_shape[-1] = q
+        # print("after",shape)
         U = torch.empty(shape).to(device)
-        V = torch.empty(shape).to(device)
+        V = torch.empty(v_shape).to(device)
         S = torch.empty(s_shape).to(device)
+        # print("recv U",U.shape)
+        # print("recv S",S.shape)
+        # print("recv V",V.shape)
         dist.recv(U, recv_rank, group=pg)
         dist.recv(S, recv_rank, group=pg)
         dist.recv(V, recv_rank, group=pg)
-        # print("recv U",U)
-        # print("recv S",S)
-        # print("recv V",V)
+
         V = V.transpose(-1, -2)
         S = torch.diag_embed(S)
-
+        # print("U",U.shape)
+        # print("S",S.shape)
+        # print("V",V.shape)
         output = torch.matmul(U[..., :, :], S[..., :, :])
         input = torch.matmul(output[..., :, :], V[..., :, :])
+        # print("server recv2",input.shape)
         return input * 1.0
 
     @staticmethod
@@ -763,11 +781,14 @@ class CompressRecvGPU(autograd.Function):
         ctx.send_rank = recv_rank
         ctx.min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
         shape = list(input.shape)
+        v_shape = shape
+        v_shape[-2] = shape[-1]
+        v_shape[-1] = q
         shape[-1] = q
         s_shape = shape[:-1]
         s_shape[-1] = q
         U = torch.empty(shape).to(input.get_device())
-        V = torch.empty(shape).to(input.get_device())
+        V = torch.empty(v_shape).to(input.get_device())
         S = torch.empty(s_shape).to(input.get_device())
         dist.recv(U, recv_rank, group=pg)
         dist.recv(S, recv_rank, group=pg)

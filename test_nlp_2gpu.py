@@ -23,7 +23,7 @@ import os
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 parser.add_argument("--chunks", default=4, type=int)
-parser.add_argument("--log", default="./log/cv/quant12.txt", type=str)
+parser.add_argument("--log", default="./nlp_test.txt", type=str)
 parser.add_argument("--train-method", default="finetune", type=str)
 # parser.add_argument("--warmup", default=0, action="store_true")
 parser.add_argument("--lr", default=2e-5, type=float)
@@ -143,4 +143,5 @@ def main():
 
 
 if __name__ == "__main__":
+    torch.multiprocessing.set_start_method("spawn")
     main()

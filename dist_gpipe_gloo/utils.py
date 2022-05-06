@@ -55,10 +55,20 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
                 settings["rank"],
             )
         else:
-            output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
+            output = FSBRFunction.apply(
+                input,
+                settings["send_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
+            )
     else:
         # print("rank:",settings["rank"],"send",settings["send_rank"])
-        output = FSBRFunction.apply(input, settings["send_rank"], settings["rank"])
+        output = FSBRFunction.apply(
+            input,
+            settings["send_rank"],
+            settings["rank"],
+            settings["group_list"][chunk],
+        )
     return output
 
 
@@ -91,10 +101,20 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
                 settings["rank"],
             )
         else:
-            output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
+            output = FRBSFunction.apply(
+                input,
+                settings["recv_rank"],
+                settings["rank"],
+                settings["group_list"][chunk],
+            )
     else:
         # print("rank:",settings["rank"],"recv",settings["recv_rank"])
-        output = FRBSFunction.apply(input, settings["recv_rank"], settings["rank"])
+        output = FRBSFunction.apply(
+            input,
+            settings["recv_rank"],
+            settings["rank"],
+            settings["group_list"][chunk],
+        )
     return output
 
 
