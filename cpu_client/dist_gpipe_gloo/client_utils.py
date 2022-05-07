@@ -85,14 +85,17 @@ def client_trainer(
                 for chunk in range(client_settings["chunks"]):
 
                     if i == 0:
+                        # print("client begin")
                         # some = time.time()
                         output = model(images[chunk])
                         # print("client first layer time:", time.time() - some)
                         # start = time.time()
                         # some = time.time()
+                        # print("client finish")
                         output = SendTensorCPU(
                             output, client_settings, train_settings, chunk
                         )
+                        # print("client send")
                         # print("client sortquant time:", time.time() - some)
                         # print("client, send",chunk)
                         # print("client",client_settings['rank'],"send",output.shape)
@@ -455,6 +458,7 @@ def client(train_settings, client_settings):
         client_settings["group_list"] = group_list
         print("client", group_list)
         for epoch in range(train_settings["epochs"]):
+            print("client:", epoch)
             (
                 train_time,
                 train_acc,

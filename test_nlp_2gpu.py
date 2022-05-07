@@ -42,6 +42,7 @@ parser.add_argument("--bachend", default="nccl", type=str)
 parser.add_argument("--split", default=0, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
 parser.add_argument("--task", default="rte", type=str)
+parser.add_argument("--fastquant", default=0, action="store_true")
 parser.add_argument("--bandwidth", default=0, action="store_true")
 task_to_keys = {
     "cola": ("sentence", None),

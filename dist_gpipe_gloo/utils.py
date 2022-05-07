@@ -20,6 +20,10 @@ from .compression import (
     QRecvLayerGPU,
     SortQuantGPU,
     SortDeQuantGPU,
+    FastDequantClient,
+    FastQuantClient,
+    FastDequantizationServer,
+    FastQuantizationServer,
 )
 from torch.optim import AdamW, SGD
 from transformers import get_scheduler
@@ -44,9 +48,19 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
                 train_settings["quant"],
                 train_settings["split"],
                 settings["send_rank"],
+                settings["group_list"][chunk],
             )
             # print("rank:",settings["rank"],"send",settings["send_rank"])
+        elif train_settings["fastquant"] != 0:
 
+            # server
+            output = FastQuantizationServer.apply(
+                input,
+                train_settings["quant"],
+                train_settings["split"],
+                settings["send_rank"],
+                settings["group_list"][chunk],
+            )
         elif train_settings["quant"] != 0:
             output = QSendGPU.apply(
                 input,
@@ -82,6 +96,7 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
                     train_settings["quant"],
                     train_settings["split"],
                     settings["recv_rank"],
+                    settings["group_list"][chunk],
                 )
             else:
                 output = SortDeQuantGPU.apply(
@@ -89,10 +104,18 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
                     train_settings["quant"],
                     train_settings["split"],
                     settings["recv_rank"],
-                    None,
+                    settings["group_list"][chunk],
                     time_count,
                 )
             # print("rank:",settings["rank"],"recv",settings["recv_rank"])
+        elif train_settings["fastquant"] != 0:
+            output = FastDequantizationServer.apply(
+                input,
+                train_settings["quant"],
+                train_settings["split"],
+                settings["recv_rank"],
+                settings["group_list"][chunk],
+            )
         elif train_settings["quant"] != 0:
             output = QrecvGPU.apply(
                 input,
@@ -177,6 +200,7 @@ def make_dictions(
     client_train_settings["wd"] = args.wd
     client_train_settings["split"] = args.split
     client_train_settings["sortquant"] = args.sortquant
+    client_train_settings["fastquant"] = args.fastquant
     for server_num in range(len(devices) - 1):
         train_settings = {}
         server_settings = {}
@@ -202,6 +226,7 @@ def make_dictions(
         train_settings["wd"] = args.wd
         train_settings["split"] = args.split
         train_settings["sortquant"] = args.sortquant
+        train_settings["fastquant"] = args.fastquant
         train_settings["prune"] = args.prune
         train_settings["quant"] = args.quant
         train_settings["len_trainloader"] = len(train_loader)

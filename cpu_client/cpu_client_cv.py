@@ -107,14 +107,6 @@ def main():
             (int(args.batches / args.chunks), 32, 112, 112),
             (int(args.batches / args.chunks), 1280, 7, 7),
         ],
-        # [
-        #     (int(args.batches / args.chunks), 24, 56, 56),
-        #     (int(args.batches / args.chunks), 32, 112, 112),
-        # ],
-        # [
-        #     (int(args.batches / args.chunks), 32, 28, 28),
-        #     (int(args.batches / args.chunks), 24, 56, 56),
-        # ],
         [
             (int(args.batches / args.chunks), 1280, 7, 7),
             (int(args.batches / args.chunks), 32, 112, 112),
@@ -126,4 +118,5 @@ def main():
 
 
 if __name__ == "__main__":
+    torch.multiprocessing.set_start_method("spawn")
     main()

@@ -15,6 +15,7 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 import time
+from .functions import *
 
 
 def create_sparse(input: torch.tensor, bit_saving=True):
@@ -34,6 +35,212 @@ def unzip_sparse(input, index, src, shape):
     input.scatter_(0, index, src)
     input = input.view(shape)
     return input
+
+
+class FastQuantClient(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, bits, split_bits, send_rank, device, pg=None):
+        ctx.recv_rank, ctx.bits, ctx.split_bits, ctx.pg = (
+            send_rank,
+            bits,
+            split_bits,
+            pg,
+        )
+        ctx.device = device
+        shape = input.shape
+        min_step = torch.zeros([2**split_bits, 4])
+        # min_step, output = SortQuantization(input, bits, split_bits, min_step)
+        min_step, output = FastQuantization(input, bits, split_bits, min_step)
+        min_step = min_step.to(device)
+        output = output.to(device)
+        dist.isend(min_step, send_rank, group=pg)
+        dist.isend(output, send_rank, group=pg)
+        input = input.view(shape)
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output: torch.tensor):
+        recv_rank, bits, split_bits, pg = (
+            ctx.recv_rank,
+            ctx.bits,
+            ctx.split_bits,
+            ctx.pg,
+        )
+        device = ctx.device
+        shape = grad_output.shape
+        grad_output = grad_output.view(-1)
+        # must use the right dtype to recv tensor
+        if bits + split_bits <= 8:
+            recv = grad_output.type(torch.int8)
+        else:
+            recv = grad_output.type(torch.int16)
+            recv = recv.view(torch.int8)
+
+        min_step = torch.zeros([2**split_bits, 2])
+        min_step = min_step.to(device)
+        recv = recv.to(device)
+        dist.recv(min_step, recv_rank, group=pg)
+        dist.recv(recv, recv_rank, group=pg)
+        min_step = min_step.cpu()
+        recv = recv.cpu()
+        grad_output = FastDequantization(recv, bits, split_bits, min_step, grad_output)
+        grad_output = grad_output.view(shape)
+        # print(grad_output)
+        return grad_output, None, None, None, None, None
+
+
+class FastDequantClient(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, bits, split_bits, recv_rank, device, pg=None):
+        ctx.send_rank, ctx.bits, ctx.split_bits, ctx.pg = (
+            recv_rank,
+            bits,
+            split_bits,
+            pg,
+        )
+        ctx.device = device
+        shape = input.shape
+        input = input.view(-1)
+        if bits + split_bits <= 8:
+            recv = input.type(torch.int8)
+        else:
+            recv = input.type(torch.int16)
+            recv = recv.view(torch.int8)
+
+        min_step = torch.zeros([2**split_bits, 2])
+        min_step = min_step.to(device)
+        recv = recv.to(device)
+        dist.recv(min_step, recv_rank, group=pg)
+        dist.recv(recv, recv_rank, group=pg)
+        min_step = min_step.cpu()
+        recv = recv.cpu()
+        input = FastDequantization(recv, bits, split_bits, min_step, input)
+        # input = input * 1.0
+        input = input.view(shape)
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        send_rank, bits, split_bits, pg = (
+            ctx.send_rank,
+            ctx.bits,
+            ctx.split_bits,
+            ctx.pg,
+        )
+        device = ctx.device
+        shape = grad_output.shape
+        min_step = torch.zeros([2**split_bits, 4])
+        # min_step, output = SortQuantization(grad_output, bits, split_bits, min_step)
+        min_step, output = FastQuantization(grad_output, bits, split_bits, min_step)
+        min_step = min_step.to(device)
+        output = output.to(device)
+        dist.isend(min_step, send_rank, group=pg)
+        dist.isend(output, send_rank, group=pg)
+        grad_output = grad_output.view(shape)
+        return grad_output, None, None, None, None, None
+
+
+class FastQuantizationServer(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, bits, split_bits, send_rank, pg=None):
+        ctx.recv_rank, ctx.bits, ctx.split_bits, ctx.pg = (
+            send_rank,
+            bits,
+            split_bits,
+            pg,
+        )
+        shape = input.shape
+        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
+        min_step, output = FastQuantization(input, bits, split_bits, min_step)
+
+        dist.isend(min_step, send_rank, group=pg)
+        dist.isend(output, send_rank, group=pg)
+        input = input.view(shape)
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        recv_rank, bits, split_bits, pg = (
+            ctx.recv_rank,
+            ctx.bits,
+            ctx.split_bits,
+            ctx.pg,
+        )
+        shape = grad_output.shape
+        grad_output = grad_output.view(-1)
+        # must use the right dtype to recv tensor
+        if bits + split_bits <= 8:
+            recv = grad_output.type(torch.int8)
+        else:
+            recv = grad_output.type(torch.int16)
+            recv = recv.view(torch.int8)
+
+        min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
+        dist.recv(min_step, recv_rank, group=pg)
+        dist.recv(recv, recv_rank, group=pg)
+        # should view to int16 since we represent int16 with int8
+        # lower_bound = min_step[:, -2].to("cpu").type(torch.int32)
+        # upper_bound = min_step[:, -1].to("cpu").type(torch.int32)
+        grad_output = FastDequantization(recv, bits, split_bits, min_step, grad_output)
+        grad_output = grad_output.view(shape)
+        # print("server backward recv")
+        # print(grad_output)
+        return grad_output, None, None, None, None
+
+
+class FastDequantizationServer(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, bits, split_bits, recv_rank, pg=None):
+        ctx.send_rank, ctx.bits, ctx.split_bits, ctx.pg = (
+            recv_rank,
+            bits,
+            split_bits,
+            pg,
+        )
+        shape = input.shape
+        input = input.view(-1)
+        if bits + split_bits <= 8:
+            recv = input.type(torch.int8)
+        else:
+            recv = input.type(torch.int16)
+            recv = input.view(torch.int8)
+
+        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
+        # recv = torch.rand([64,32,112,112]).to(input.get_device())
+        # TODO change the recving method
+
+        dist.recv(min_step, recv_rank, group=pg)
+        dist.recv(recv, recv_rank, group=pg)
+
+        # input = FastDequantizationCPU(input,bits,split_bits,min_step,recv)
+        # print(end - start)
+        input = FastDequantization(recv, bits, split_bits, min_step, input)
+        input = input.view(shape)
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        send_rank, bits, split_bits, pg = (
+            ctx.send_rank,
+            ctx.bits,
+            ctx.split_bits,
+            ctx.pg,
+        )
+        # torch.cuda.synchronize()
+        # start = time.time()
+        shape = grad_output.shape
+        # print(grad_output)
+
+        min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
+        min_step, output = FastQuantization(grad_output, bits, split_bits, min_step)
+
+        dist.isend(min_step, send_rank, group=pg)
+        dist.isend(output, send_rank, group=pg)
+        grad_output = grad_output.view(shape)
+        # print(grad_output)
+        # torch.cuda.synchronize()
+        # print(time.time()- start)
+        return grad_output, None, None, None, None, None
 
 
 class TopkPruning(autograd.Function):
@@ -268,55 +475,9 @@ class SortQuantGPU(autograd.Function):
             pg,
         )
         shape = input.shape
-        # flatten
-        input = input.view(-1)
-        # sort tensor
-        src, index = torch.sort(input, dim=0)
-        # the reason of not using chunk is that it seperates tensor not seperately
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
         min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
-        # TODO 10bits 12bits
-        if bits + split_bits <= 8:
-            output = input.type(torch.int8)
-        else:
-            output = input.type(torch.int16)
-        output = output.view(-1)
-        for i in range(2**split_bits):
-            if bits + split_bits == 8 or bits + split_bits == 16:
-                # there is no uint8 or uint16 in torch, so the encoding formula is different
-                min, max = src[i].min(), src[i].max()
-                if min != max:
-                    step = (max - min) / (pow(2, bits) - 1)
-                    min_step[i, 0], min_step[i, 1] = min, step
-                    temp_src = torch.round((src[i] - min) / step) - pow(
-                        2, bits + split_bits - 1
-                    )
-                    temp_src += pow(2, bits) * i
 
-                else:
-                    min_step[i, 0], min_step[i, 1] = min, 0.0
-                    temp_src = src[i] - src[i] - pow(2, bits + split_bits - 1)
-                    temp_src += pow(2, bits) * i
-            # others will waste bits
-            else:
-                min, max = src[i].min(), src[i].max()
-                if min != max:
-                    step = (max - min) / (pow(2, bits) - 1)
-                    min_step[i, 0], min_step[i, 1] = min, step
-                    temp_src = torch.round((src[i] - min) / step)
-                    temp_src += pow(2, bits) * i
-                else:
-                    min_step[i, 0], min_step[i, 1] = min, 0.0
-                    temp_src = 1 + src[i] - src[i]
-                    temp_src += pow(2, bits) * i
-            temp_src = temp_src.type(output.dtype)
-            # fill the encode tensor into send tensor
-            output.scatter_(0, index[i], temp_src)
-        output = output.view(shape)
-        if bits + split_bits > 8 and bits + split_bits <= 16:
-            # int16 is not supported by nccl backend
-            output = output.view(dtype=torch.int8)
+        min_step, output = SortQuantization(input, bits, split_bits, min_step)
         dist.isend(min_step, send_rank, group=pg)
         dist.isend(output, send_rank, group=pg)
         input = input.view(shape)
@@ -343,33 +504,7 @@ class SortQuantGPU(autograd.Function):
         dist.recv(min_step, recv_rank, group=pg)
         dist.recv(recv, recv_rank, group=pg)
         # should view to int16 since we represent int16 with int8
-        if bits + split_bits > 8 and bits + split_bits <= 16:
-            recv = recv.view(dtype=torch.int16)
-        # sort the recv tensor, since we encode by there value, decode do the same
-        src, index = torch.sort(recv, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
-        for i in range(2**split_bits):
-            temp_src = src[i].type(torch.float32)
-            if bits + split_bits == 8 or bits + split_bits == 16:
-                if min_step[i, 1] == 0:
-                    # step = 0
-                    # temp_src = min_step[i,0]
-                    temp_src.fill_(min_step[i, 0])
-                else:
-                    offset = pow(2, bits + split_bits - 1) - pow(2, bits) * i
-                    temp_src += offset
-                    temp_src *= min_step[i, 1]
-                    temp_src += min_step[i, 0]
-            else:
-                if min_step[i, 1] == 0:
-                    temp_src.fill_(min_step[i, 0])
-                else:
-                    offset = -pow(2, bits) * i
-                    temp_src += offset
-                    temp_src *= min_step[i, 1]
-                    temp_src += min_step[i, 0]
-            grad_output.scatter_(0, index[i], temp_src)
+        grad_output = SortDeQuantization(recv, bits, split_bits, min_step, grad_output)
         grad_output = grad_output.view(shape)
         return grad_output, None, None, None, None
 
@@ -393,40 +528,9 @@ class SortDeQuantGPU(autograd.Function):
 
         min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
         ctx.min_step = min_step
-        # TODO change the recving method
-        if time_count is not False:
-            start = time.time()
         dist.recv(min_step, recv_rank, group=pg)
         dist.recv(recv, recv_rank, group=pg)
-        if time_count is not False:
-            end = time.time() - start
-            time_count[0] = recv.element_size() * recv.nelement() / end
-        if bits + split_bits > 8 and bits + split_bits <= 16:
-            recv = recv.view(dtype=torch.int16)
-        src, index = torch.sort(recv, dim=0)
-
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
-        # TODO change loop to matrix calculate
-        for i in range(2**split_bits):
-            temp_src = src[i].type(torch.float32)
-            if bits + split_bits == 8 or bits + split_bits == 16:
-                if min_step[i, 1] == 0:
-                    temp_src.fill_(min_step[i, 0])
-                else:
-                    offset = pow(2, bits + split_bits - 1) - pow(2, bits) * i
-                    temp_src += offset
-                    temp_src *= min_step[i, 1]
-                    temp_src += min_step[i, 0]
-            else:
-                if min_step[i, 1] == 0:
-                    temp_src.fill_(min_step[i, 0])
-                else:
-                    offset = -pow(2, bits) * i
-                    temp_src += offset
-                    temp_src *= min_step[i, 1]
-                    temp_src += min_step[i, 0]
-            input.scatter_(0, index[i], temp_src)
+        input = SortDeQuantization(recv, bits, split_bits, min_step, input)
         input = input.view(shape)
         return input
 
@@ -439,50 +543,8 @@ class SortDeQuantGPU(autograd.Function):
             ctx.pg,
         )
         shape = grad_output.shape
-        grad_output = grad_output.view(-1)
-        # sort and encode
-        src, index = torch.sort(grad_output, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
-        min_step = ctx.min_step
-        # TODO 10bits 12bits
-        if bits + split_bits <= 8:
-            output = grad_output.type(torch.int8)
-        else:
-            output = grad_output.type(torch.int16)
-        output = output.view(-1)
-        # TODO change loop to matrix calculation
-        for i in range(2**split_bits):
-            if bits + split_bits == 8 or bits + split_bits == 16:
-                min, max = src[i].min(), src[i].max()
-                if min != max:
-                    step = (max - min) / (pow(2, bits) - 1)
-                    min_step[i, 0], min_step[i, 1] = min, step
-                    temp_src = torch.round((src[i] - min) / step) - pow(
-                        2, bits + split_bits - 1
-                    )
-                    temp_src += pow(2, bits) * i
-                else:
-                    min_step[i, 0], min_step[i, 1] = min, 0.0
-                    temp_src = src[i] - src[i] - pow(2, bits + split_bits - 1)
-                    temp_src += pow(2, bits) * i
-            else:
-                min, max = src[i].min(), src[i].max()
-                if min != max:
-                    step = (max - min) / (pow(2, bits) - 1)
-                    min_step[i, 0], min_step[i, 1] = min, step
-                    temp_src = torch.round((src[i] - min) / step)
-                    temp_src += pow(2, bits) * i
-                else:
-                    min_step[i, 0], min_step[i, 1] = min, 0.0
-                    temp_src = src[i] - src[i]
-                    temp_src += pow(2, bits) * i
-            # dtype must fetch and fill the decode result
-            temp_src = temp_src.type(output.dtype)
-            output.scatter_(0, index[i], temp_src)
-        output = output.view(shape)
-        if bits + split_bits > 8 and bits + split_bits <= 16:
-            output = output.view(dtype=torch.int8)
+        min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
+        min_step, output = SortQuantization(grad_output, bits, split_bits, min_step)
         dist.isend(min_step, send_rank, group=pg)
         dist.isend(output, send_rank, group=pg)
         grad_output = grad_output.view(shape)

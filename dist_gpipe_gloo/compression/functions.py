@@ -165,7 +165,7 @@ def SortDeQuantization(recv, bits, split_bits, min_step, grad_output):
                 temp_src += min_step[i, 0]
         grad_output.scatter_(0, index[i], temp_src)
     # print("deq",grad_output)
-
+    grad_output.view(shape)
     return grad_output
 
 
@@ -235,7 +235,7 @@ def SortDeQuantization(recv, bits, split_bits, min_step, grad_output):
 
 
 def FastDequantization(recv: torch.tensor, bits, split_bits, min_step, grad_output):
-    shape = grad_output.shape
+    shape = recv.shape
     recv = recv.view(-1)
     grad_output = grad_output.view(-1)
     if bits + split_bits > 8 and bits + split_bits <= 16:
@@ -251,17 +251,13 @@ def FastDequantization(recv: torch.tensor, bits, split_bits, min_step, grad_outp
             )
             indexs = (temp != -100000).nonzero()
             indexs = indexs.view(-1)
-            # print(indexs.shape)
             temp = torch.index_select(temp, 0, indexs)
-            # print(temp)
             offset = pow(2, bits + split_bits - 1) - pow(2, bits) * i
             temp += offset
             # print(min_step[i, 1],min_step[i, 0])
             temp = temp.type(torch.float)
             temp *= min_step[i, 1]
             temp += min_step[i, 0]
-            # print(temp)
-            # print("dequant",indexs)
         else:
             upperbound = pow(2, bits) * (i + 1)
             lowerbound = pow(2, bits) * i
@@ -277,14 +273,14 @@ def FastDequantization(recv: torch.tensor, bits, split_bits, min_step, grad_outp
             temp += min_step[i, 0]
 
         grad_output.scatter_(0, indexs, temp)
-    # print(shape)
+
     grad_output = grad_output.view(shape)
-    # recv = recv.view(shape)
+    recv = recv.view(shape)
     # print("fastdeq",grad_output)
     return grad_output
 
 
-def FastQuantization(input, bits, split_bits, min_step, downsample_rate=1):
+def FastQuantization(input, bits, split_bits, min_step):
     # print("fastq",input)
     shape_tensor = input.shape
     batch = shape_tensor[0]
@@ -300,10 +296,10 @@ def FastQuantization(input, bits, split_bits, min_step, downsample_rate=1):
         if i == 2**split_bits - 1:
             kthvalue = input.max()
         else:
-            input = input.view(int(batch / downsample_rate), -1)
+            input = input.view(batch, -1)
             kthvalue, indice = torch.kthvalue(
                 input[0],
-                int(shape * (i + 1) / (2**split_bits) / (batch / downsample_rate)),
+                int(shape * (i + 1) / (2**split_bits) / batch),
                 keepdim=False,
             )
 
@@ -319,14 +315,11 @@ def FastQuantization(input, bits, split_bits, min_step, downsample_rate=1):
                 (input <= kthvalue) & (input > separate), input, -1000000.0
             )
         temp = temp.type(torch.float)
-
+        # print(temp)
         indexs = (temp != -1000000.0).nonzero()
         indexs = indexs.view(-1)
-        # print(indexs.shape)
         temp = torch.index_select(temp, 0, indexs)
         if bits + split_bits == 8 or bits + split_bits == 16:
-            # print("before quant", temp)
-            # print("quant",indexs)
             offset = -pow(2, bits + split_bits - 1) + pow(2, bits) * i
             min = temp.min()
             step = (kthvalue - min) / (pow(2, bits) - 1)
@@ -349,7 +342,6 @@ def FastQuantization(input, bits, split_bits, min_step, downsample_rate=1):
 
         # print(temp)
         temp = temp.type(output.dtype)
-        # print("quant",temp)
         output.scatter_(0, indexs, temp)
         # print(time.time() - start)
         # print(kthvalue, separate)
@@ -360,7 +352,6 @@ def FastQuantization(input, bits, split_bits, min_step, downsample_rate=1):
         output = output.view(dtype=torch.int8)
     # print(min_step)
     # print(output)
-    # print("quant shape",output.shape)
     return min_step, output
 
 

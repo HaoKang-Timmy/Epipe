@@ -7,8 +7,8 @@ import torchvision
 import torchvision.transforms as transforms
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
-parser.add_argument("--chunks", default=1, type=int)
-parser.add_argument("--log", default="./log/cv/quant12.txt", type=str)
+parser.add_argument("--chunks", default=4, type=int)
+parser.add_argument("--log", default="./cifar10_test.txt", type=str)
 parser.add_argument("--train-method", default="finetune", type=str)
 # parser.add_argument("--warmup", default=0, action="store_true")
 parser.add_argument("--lr", default=0.005, type=float)
@@ -26,6 +26,7 @@ parser.add_argument("--url", default="tcp://127.0.0.1:1226", type=str)
 parser.add_argument("--bachend", default="nccl", type=str)
 parser.add_argument("--split", default=0, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
+parser.add_argument("--fastquant", default=0, action="store_true")
 parser.add_argument("--bandwidth", default=0, action="store_true")
 
 
@@ -34,11 +35,11 @@ def main():
     model = mobilenet_v2(pretrained=True)
     model.classifier[-1] = nn.Linear(1280, 10)
     devices = args.devices
-    layer1 = [model.features[0:3]]
-    layer2 = [model.features[3:-2]]
+    layer1 = [model.features[0:1]]
+    layer2 = [model.features[1:]]
     # layer3 = [model.features[3:7]]
     # layer4 = [model.features[7:]]
-    layer5 = [model.features[-2:], Reshape1(), model.classifier]
+    layer5 = [Reshape1(), model.classifier]
 
     layer1 = nn.Sequential(*layer1)
     layer2 = nn.Sequential(*layer2)
@@ -101,8 +102,8 @@ def main():
     partition = [[layer1, layer5], [layer2]]
     tensor_size = [
         [
-            (int(args.batches / args.chunks), 24, 56, 56),
-            (int(args.batches / args.chunks), 160, 7, 7),
+            (int(args.batches / args.chunks), 32, 112, 112),
+            (int(args.batches / args.chunks), 1280, 7, 7),
         ],
         # [
         #     (int(args.batches / args.chunks), 24, 56, 56),
@@ -113,8 +114,8 @@ def main():
         #     (int(args.batches / args.chunks), 24, 56, 56),
         # ],
         [
-            (int(args.batches / args.chunks), 160, 7, 7),
-            (int(args.batches / args.chunks), 24, 56, 56),
+            (int(args.batches / args.chunks), 1280, 7, 7),
+            (int(args.batches / args.chunks), 32, 112, 112),
         ],
     ]
     print(tensor_size)
@@ -123,4 +124,5 @@ def main():
 
 
 if __name__ == "__main__":
+    torch.multiprocessing.set_start_method("spawn")
     main()
