@@ -14,6 +14,7 @@ from dist_gpipe_gloo import (
     nlp_sequential,
     combine_classifier,
     combine_embeding,
+    embeddingandattention,
 )
 import torch.nn as nn
 import argparse

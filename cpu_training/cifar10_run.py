@@ -7,8 +7,8 @@ import torchvision
 import torchvision.transforms as transforms
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
-parser.add_argument("--chunks", default=8, type=int)
-parser.add_argument("--log", default="./test.txt", type=str)
+parser.add_argument("--chunks", default=4, type=int)
+parser.add_argument("--log", default="./cifar10_test.txt", type=str)
 parser.add_argument("--train-method", default="finetune", type=str)
 # parser.add_argument("--warmup", default=0, action="store_true")
 parser.add_argument("--lr", default=0.005, type=float)
@@ -18,18 +18,16 @@ parser.add_argument("--batches", default=64, type=int)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prune", default=0.0, type=float)
 parser.add_argument("--world-size", default=2, type=int)
-parser.add_argument("--showperiod", default=10, type=int)
+parser.add_argument("--showperiod", default=30, type=int)
 parser.add_argument("--tasktype", default="cv", type=str)
 parser.add_argument("--root", default="../data", type=str)
 parser.add_argument("--devices", default=[0, 1], type=list)
 parser.add_argument("--url", default="tcp://127.0.0.1:1226", type=str)
-parser.add_argument("--backend", default="nccl", type=str)
+parser.add_argument("--bachend", default="nccl", type=str)
 parser.add_argument("--split", default=0, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
-parser.add_argument("--mix", default=0, action="store_true")
+parser.add_argument("--fastquant", default=0, action="store_true")
 parser.add_argument("--bandwidth", default=0, action="store_true")
-parser.add_argument("--pca1", default=0, type=int)
-parser.add_argument("--pca2", default=0, type=int)
 
 
 def main():
@@ -107,6 +105,14 @@ def main():
             (int(args.batches / args.chunks), 32, 112, 112),
             (int(args.batches / args.chunks), 1280, 7, 7),
         ],
+        # [
+        #     (int(args.batches / args.chunks), 24, 56, 56),
+        #     (int(args.batches / args.chunks), 32, 112, 112),
+        # ],
+        # [
+        #     (int(args.batches / args.chunks), 32, 28, 28),
+        #     (int(args.batches / args.chunks), 24, 56, 56),
+        # ],
         [
             (int(args.batches / args.chunks), 1280, 7, 7),
             (int(args.batches / args.chunks), 32, 112, 112),

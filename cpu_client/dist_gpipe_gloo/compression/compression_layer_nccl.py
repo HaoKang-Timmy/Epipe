@@ -358,7 +358,7 @@ class FastQuantizationServer(autograd.Function):
         )
         shape = input.shape
         min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
-        min_step, output = FastQuantization(input, bits, split_bits, min_step)
+        min_step, output = SortQuantization(input, bits, split_bits, min_step)
         # print("quant min step",min_step)
         dist.isend(min_step, send_rank, group=pg)
         dist.isend(output, send_rank, group=pg)
@@ -442,7 +442,7 @@ class FastDequantizationServer(autograd.Function):
         # print(grad_output)
 
         min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
-        min_step, output = FastQuantization(grad_output, bits, split_bits, min_step)
+        min_step, output = SortQuantization(grad_output, bits, split_bits, min_step)
 
         dist.isend(min_step, send_rank, group=pg)
         dist.isend(output, send_rank, group=pg)
@@ -494,7 +494,7 @@ class FastDequantClient(autograd.Function):
         )
         device = ctx.device
         shape = grad_output.shape
-        min_step = torch.zeros([2**split_bits, 4])
+        min_step = torch.zeros([2**split_bits, 2])
         # min_step, output = SortQuantization(grad_output, bits, split_bits, min_step)
         min_step, output = FastQuantization(grad_output, bits, split_bits, min_step)
         min_step = min_step.to(device)
