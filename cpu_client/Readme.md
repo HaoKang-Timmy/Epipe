@@ -20,8 +20,8 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 
 | Hardware(Client,Server) | Compression method         | Chunk | Sever Client Partition          | Time  per Batch | Throughputs | Validation Acc |
 | ----------------------- | -------------------------- | ----- | ------------------------------- | --------------- | ----------- | -------------- |
-| CPU,CPU(Mac M1)         | None                       | None  | None                            | 6.10s           | 10.49/s     | 95.92          |
-| CPU,CPU(CPU at server)  | None                       | None  | None                            | 1.97s           | 32.48/s     | 95.87          |
+| CPU(Mac M1)             | None                       | None  | None                            | 6.10s           | 10.49/s     | 95.92          |
+| CPU(CPU at server)      | None                       | None  | None                            | 1.97s           | 32.48/s     | 95.87          |
 | Cpu,Gpu                 | None                       | 8     | First layer, last layer         | 0.33s           | 191.9/s     | 95.92          |
 | GPU,GPU                 | None                       | 8     | First layer, last layer         | 0.28s           | 228.57/s    | 95.89          |
 | Cpu,Gpu                 | Sort Quantization 8bits    | 8     | First layer, last layer         | 1.53s           | 41.83/s     | 95.79          |
@@ -48,11 +48,16 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 
 ### 2.2 Results
 
-| Hardware(Client,Server) | Compression method | Chunk | Sever Client Partition | Time  per Batch | Throughputs | Validation Acc |
-| ----------------------- | ------------------ | ----- | ---------------------- | --------------- | ----------- | -------------- |
-| CPU,CPU(Mac M1)         | None               | None  | None                   | 6.10s           | 10.49/s     | 95.92          |
-| CPU,CPU(CPU at server)  | None               | None  | None                   | 1.97s           | 32.48/s     | 95.87          |
-|                         |                    |       |                        |                 |             |                |
+| Hardware(Client,Server) | Compression method         | Chunk | Sever Client Partition | Time  per Batch | Throughputs | Validation Acc |
+| ----------------------- | -------------------------- | ----- | ---------------------- | --------------- | ----------- | -------------- |
+| CPU(Mac M1)             | None                       | None  | None                   | 53.49s          | 0.60/s      | 78.66          |
+| CPU(CPU at server)      | None                       | None  | None                   | 1.97s           | 32.48/s     | 95.87          |
+| CPU,GPU                 | None                       | 4     | Condition 2            | 1.51s           | 21.19       | 78.90          |
+| CPU,GPU                 | Uniform Quantization 8bits | 4     | Condition 2            | 1.54s           | 20.78/s     | 79.68          |
+| CPU,GPU                 | Uniform Quantization 6bits | 4     | Condition 2            | 1.54s           | 20.78/s     | 78.78          |
+| CPU,GPU                 | None                       | 4     | Condition 3            | 0.90s           | 35.56/s     | 78.50          |
+| CPU,GPU                 | Uniform Quantization 8bits | 4     | Condition 3            | 0.92s           | 34.78/s     | 78.13          |
+| CPU,GPU                 | Uniform Quantization 6bits | 4     | Condition 3            | 0.92s           | 34.78/s     | 78.51          |
 
 # 2 Compression Algorithm Analyse
 
