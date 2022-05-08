@@ -13,7 +13,7 @@ from utils import (
     Fakequantize,
     TopkLayer,
     SortQuantization,
-    KMeansLayer,
+    # KMeansLayer,
     PCAQuantize,
     combine_classifier,
     combine_embeding,
@@ -66,11 +66,11 @@ def main():
 
 
 def main_worker(rank, process_num, args):
-    dist.init_process_group(
-        backend="nccl", init_method="tcp://127.0.0.1:1237", world_size=4, rank=rank
-    )
+    # dist.init_process_group(
+    #     backend="nccl", init_method="tcp://127.0.0.1:1237", world_size=4, rank=rank
+    # )
     # dataset dataloaer
-
+    print("process begin")
     os.environ["TOKENIZERS_PARALLELISM"] = "true"
     train_dataset = load_dataset("glue", args.task, split="train")
     val_dataset = load_dataset("glue", args.task, split="validation")
@@ -109,7 +109,7 @@ def main_worker(rank, process_num, args):
     )
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=8,
+        batch_size=32,
         num_workers=12,
         pin_memory=True,
         drop_last=True,
@@ -117,7 +117,7 @@ def main_worker(rank, process_num, args):
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=8,
+        batch_size=32,
         num_workers=12,
         pin_memory=True,
         drop_last=True,

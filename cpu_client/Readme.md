@@ -18,14 +18,41 @@ A simulation by using CPUs to train client tasks and one GTX 1080 to train serve
 
 Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithms in CPUs.
 
-| Hardware(Client,Server) | Compression method      | Chunk | Sever Client Partition  | Throughputs | Validation Acc |
-| ----------------------- | ----------------------- | ----- | ----------------------- | ----------- | -------------- |
-| CPU,CPU(Mac M1)         | None                    | None  | None                    | 10.49/s     | 95.92          |
-| CPU,CPU(CPU at server)  | None                    | None  | None                    | 32.48/s     | 95.87          |
-| Cpu,Gpu                 | None                    | 4     | First layer, last layer | 191.9/s     | 95.92          |
-| GPU,GPU                 | None                    | 4     | First layer, last layer | 228.57/s    | 95.89          |
-| Cpu,Gpu                 | Sort Quantization 8bits | 8     | First layer, last layer | 41.83/s     | 95.59          |
-| Cpu,Gpu                 | PCA 12rank + PCA 2rank  | 8     | First layer, last layer | 40.50/s     | 57.64          |
+| Hardware(Client,Server) | Compression method         | Chunk | Sever Client Partition          | Time  per Batch | Throughputs | Validation Acc |
+| ----------------------- | -------------------------- | ----- | ------------------------------- | --------------- | ----------- | -------------- |
+| CPU,CPU(Mac M1)         | None                       | None  | None                            | 6.10s           | 10.49/s     | 95.92          |
+| CPU,CPU(CPU at server)  | None                       | None  | None                            | 1.97s           | 32.48/s     | 95.87          |
+| Cpu,Gpu                 | None                       | 8     | First layer, last layer         | 0.33s           | 191.9/s     | 95.92          |
+| GPU,GPU                 | None                       | 8     | First layer, last layer         | 0.28s           | 228.57/s    | 95.89          |
+| Cpu,Gpu                 | Sort Quantization 8bits    | 8     | First layer, last layer         | 1.53s           | 41.83/s     | 95.79          |
+| Cpu,Gpu                 | Fast Quantization 8bits    | 8     | First layer, last layer         | 1.21s           | 52.89/s     | 95.79          |
+| Cpu,Gpu                 | None                       | 8     | First two layer, last two layer | 0.40s           | 160.01/s    | 95.84          |
+| Cpu,Gpu                 | Fast Quantization 8bits    | 8     | First two layer, last two layer | 1.01s           | 63.37/s     | 95.84          |
+| Cpu,Gpu                 | Uniform Quantization 8bits | 8     | First two layer, last two layer | 0.43s           | 148.84/s    | 95.84          |
+
+## 2 RTE
+
+### 2.1 Settings
+
+| Backend      | Epochs | Lr   | Batch Size |
+| ------------ | ------ | ---- | ---------- |
+| Roberta-base | 20     | 2e-5 | 32         |
+
+| Sever Client Partition | Explaination                                                 |
+| ---------------------- | ------------------------------------------------------------ |
+| Condition 1            | Client: embedding+robertalayer(0),robertalayer(11)+classifier Server:robertalayer(1-10) |
+| Condition 2            | Client: embedding+selfattention,robertalayer(11)+classifier Server:robertalayer(0-10) |
+| Condition 3            | Client: embedding+selfattention,classifier Server:robertalayer(0-11) |
+
+
+
+### 2.2 Results
+
+| Hardware(Client,Server) | Compression method | Chunk | Sever Client Partition | Time  per Batch | Throughputs | Validation Acc |
+| ----------------------- | ------------------ | ----- | ---------------------- | --------------- | ----------- | -------------- |
+| CPU,CPU(Mac M1)         | None               | None  | None                   | 6.10s           | 10.49/s     | 95.92          |
+| CPU,CPU(CPU at server)  | None               | None  | None                   | 1.97s           | 32.48/s     | 95.87          |
+|                         |                    |       |                        |                 |             |                |
 
 # 2 Compression Algorithm Analyse
 
