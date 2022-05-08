@@ -8,13 +8,13 @@ A simulation by using CPUs to train client tasks and one GTX 1080 to train serve
 
 ## 1 CIFAR
 
-## 1.1 Settings
+### 1.1 Settings
 
 | Backend     | Epochs | Lr    | Batch Size |
 | ----------- | ------ | ----- | ---------- |
 | MoblienetV2 | 40     | 0.005 | 64         |
 
-## 1.2 Results
+### 1.2 Results
 
 Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithms in CPUs.
 
