@@ -316,6 +316,7 @@ def make_dictions(
     client_train_settings["mix"] = args.mix
     client_train_settings["pca1"] = args.pca1
     client_train_settings["pca2"] = args.pca2
+    client_settings["tight"] = args.tight
     for server_num in range(len(devices) - 1):
         train_settings = {}
         server_settings = {}
@@ -352,3 +353,4 @@ def make_dictions(
         server_settings_list.append(server_settings)
         server_train_settings_list.append(train_settings)
         server_settings["bandwidth"] = args.bandwidth
+        server_settings["tight"] = args.tight

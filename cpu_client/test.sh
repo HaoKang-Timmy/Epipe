@@ -18,7 +18,17 @@
 # python3 cpu_client_cv.py --sortquant --quant 6 --split 2 --chunk 8 --log ./cifar10_CPUGPU_chunk8_40epochs_sq6s2.txt
 # python3 cpu_client_cv.py --sortquant --pca1 12 --log ./cifar10_CPUGPU_chunk8_40epochs_pca1_12.txt
 # python3 clientserver_nlp.py --sortquant --quant 8 --split 2 --log rte_sq_8_2.txt
-python3 clientserver_nlp.py --sortquant --quant 6 --split 2 --log rte_sq_6_2.txt
-python3 clientserver_nlp.py --sortquant --pca1 48 --pca2 48 --log rte_pca48.txt
-python3 clientserver_nlp.py --log nlp_test.txt
+# python3 clientserver_nlp.py --sortquant --quant 6 --split 2 --log rte_sq_6_2.txt
+# python3 clientserver_nlp.py --sortquant --quant 6 --split 2 --log rte_sq_6_2.txt
+# python3 clientserver_nlp.py --tight --sortquant --quant 6 --split 2 --log tight_rte_sq_6_2.txt
+# python3 clientserver_nlp.py --tight --sortquant --quant 6 --split 2 --log tight_rte_sq_6_2.txt
+# python3 clientserver_nlp.py --tight --log tight_rte.txt
+# python3 clientserver_nlp.py --log rte.txt
+# python3 clientserver_nlp.py --tight --log tight_rte.txt
+# python3 clientserver_nlp.py --log rte.txt
+# python3 clientserver_nlp.py --pca1 56 --pca2 56 --log rte_pca56.txt
+# python3 clientserver_nlp.py --tight --pca1 56 --pca2 56 --log tight_rte_pca56.txt
+# python3 clientserver_nlp.py --sortquant --pca1 48 --pca2 48 --log rte_pca48.txt
+# python3 clientserver_nlp.py --log nlp_test.txt
+python3 clientserver_nlp.py --quant 8 --log rte_q8.txt 
 

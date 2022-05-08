@@ -242,7 +242,10 @@ def client_trainer(
                         )
 
                         # input = input.type(torch.long)
-                        output = model(input, batch["attention_mask"][chunk])
+                        if client_settings["tight"] == 0:
+                            output = model(input, batch["attention_mask"][chunk])
+                        else:
+                            output = model(input)
                         acc, _ = accuracy(output, batch["labels"][chunk], topk=(1, 2))
                         output = criterion(output, batch["labels"][chunk])
                         losses += output.item()
@@ -411,7 +414,10 @@ def client_validation(train_settings, client_settings, criterion):
                                 input, client_settings, train_settings, chunk, True
                             )
                             # input = input.type(torch.long)
-                            output = model(input, batch["attention_mask"][chunk])
+                            if client_settings["tight"] == 0:
+                                output = model(input, batch["attention_mask"][chunk])
+                            else:
+                                output = model(input)
                             acc, _ = accuracy(
                                 output, batch["labels"][chunk], topk=(1, 2)
                             )
