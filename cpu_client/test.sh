@@ -31,4 +31,5 @@
 # python3 clientserver_nlp.py --sortquant --pca1 48 --pca2 48 --log rte_pca48.txt
 # python3 clientserver_nlp.py --log nlp_test.txt
 python3 clientserver_nlp.py --quant 8 --log rte_q8.txt 
+python3 clientserver_nlp.py --quant 6 --log rte_q6.txt --tight
 
