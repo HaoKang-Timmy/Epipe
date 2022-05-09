@@ -13,7 +13,8 @@ from dist_gpipe_gloo import (
     Reshape1,
     nlp_sequential,
     combine_classifier,
-    combine_embeding,
+    CombineLayer,
+    EmbeddingAndAttention,
 )
 from torchvision.models import mobilenet_v2
 import torch.nn as nn
@@ -35,7 +36,7 @@ parser.add_argument("--prune", default=0.0, type=float)
 parser.add_argument("--world-size", default=2, type=int)
 parser.add_argument("--showperiod", default=20, type=int)
 parser.add_argument("--tasktype", default="nlp", type=str)
-parser.add_argument("--root", default="./data", type=str)
+parser.add_argument("--root", default="../data", type=str)
 parser.add_argument("--devices", default=[0, 1], type=list)
 parser.add_argument("--url", default="tcp://127.0.0.1:1224", type=str)
 parser.add_argument("--bachend", default="nccl", type=str)
@@ -114,20 +115,31 @@ def main():
         drop_last=True,
         shuffle=False,
     )
-    model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
-    model1 = [model.roberta.embeddings]
-    model7 = nlp_sequential([model.roberta.encoder.layer[0:1]])
-    model2 = nlp_sequential([model.roberta.encoder.layer[1:-1]])
-
-    model5 = nlp_sequential([model.roberta.encoder.layer[-1:]])
-    model6 = model.classifier
-    model5 = combine_classifier([model5], [model6])
-    # model1 = nn.Sequential(*model1)
-    model1 = combine_embeding([model7], model1)
-    # model4 = nn.Sequential(*model4)
     devices = args.devices
+    model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
+    if args.tight != 0:
+        embedding = model.roberta.embeddings
+        attention = model.roberta.encoder.layer[0].attention
+        medium = model.roberta.encoder.layer[0].intermediate
+        output_layer = model.roberta.encoder.layer[0].output
+        roberta_layers = model.roberta.encoder.layer[1:]
 
-    partition = [[model1, model5], [model2]]
+        part1 = EmbeddingAndAttention([embedding], [attention])
+        part2 = CombineLayer([medium], [output_layer], [roberta_layers])
+        part3 = model.classifier
+    else:
+        embedding = model.roberta.embeddings
+        attention = model.roberta.encoder.layer[0].attention
+        medium = model.roberta.encoder.layer[0].intermediate
+        output_layer = model.roberta.encoder.layer[0].output
+        roberta_layers = model.roberta.encoder.layer[1:-1]
+        last_layer = nlp_sequential([model.roberta.encoder.layer[-1:]])
+
+        part1 = EmbeddingAndAttention([embedding], [attention])
+        part2 = CombineLayer([medium], [output_layer], [roberta_layers])
+        classifier = model.classifier
+        part3 = combine_classifier([last_layer], [classifier])
+    partition = [[part1, part3], [part2]]
     tensor_size = [
         [
             (int(args.batches / args.chunks), 128, 768),

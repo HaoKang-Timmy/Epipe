@@ -13,7 +13,7 @@ from utils import (
     Fakequantize,
     TopkLayer,
     SortQuantization,
-    KMeansLayer,
+    # KMeansLayer,
     PCAQuantize,
     combine_classifier,
     combine_embeding,
@@ -62,15 +62,11 @@ task_to_keys = {
 
 def main():
     args = parser.parse_args()
-    mp.spawn(main_worker, nprocs=1, args=(1, args))
-
-
-def main_worker(rank, process_num, args):
-    dist.init_process_group(
-        backend="nccl", init_method="tcp://127.0.0.1:1237", world_size=4, rank=rank
-    )
+    # dist.init_process_group(
+    #     backend="nccl", init_method="tcp://127.0.0.1:1237", world_size=4, rank=rank
+    # )
     # dataset dataloaer
-
+    print("process begin")
     os.environ["TOKENIZERS_PARALLELISM"] = "true"
     train_dataset = load_dataset("glue", args.task, split="train")
     val_dataset = load_dataset("glue", args.task, split="validation")
@@ -109,16 +105,16 @@ def main_worker(rank, process_num, args):
     )
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=8,
-        num_workers=12,
+        batch_size=32,
+        num_workers=8,
         pin_memory=True,
         drop_last=True,
         shuffle=True,
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=8,
-        num_workers=12,
+        batch_size=32,
+        num_workers=8,
         pin_memory=True,
         drop_last=True,
         shuffle=False,
@@ -174,19 +170,15 @@ def main_worker(rank, process_num, args):
         for i, batch in enumerate(train_dataloader):
             start = time.time()
             optimizer.zero_grad()
-            batch["attention_mask"] = (
-                torch.reshape(
-                    batch["attention_mask"],
-                    [
-                        int(batch["attention_mask"].shape[0]),
-                        1,
-                        1,
-                        int(batch["attention_mask"].shape[-1]),
-                    ],
-                )
-                .to(rank)
-                .type(torch.float32)
-            )
+            batch["attention_mask"] = torch.reshape(
+                batch["attention_mask"],
+                [
+                    int(batch["attention_mask"].shape[0]),
+                    1,
+                    1,
+                    int(batch["attention_mask"].shape[-1]),
+                ],
+            ).type(torch.float32)
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
             outputs = part1(batch["input_ids"], batch["attention_mask"])
 
@@ -204,8 +196,10 @@ def main_worker(rank, process_num, args):
 
             end = time.time() - start
             time_avg += end
-            if i % 20 == 0 and rank == 1:
-                print("train_loss", loss.item(), "train_acc", acc["accuracy"])
+            if i % 5 == 0:
+                print(
+                    "train_loss", loss.item(), "train_acc", acc["accuracy"], "time", end
+                )
         train_loss /= len(train_dataloader)
         train_acc1 /= len(train_dataloader)
         time_avg /= len(train_dataloader)
@@ -220,7 +214,7 @@ def main_worker(rank, process_num, args):
         metric_mat = load_metric("glue", args.task)
         with torch.no_grad():
             for i, batch in enumerate(val_dataloader):
-                batch = {k: v.to(rank) for k, v in batch.items()}
+                # batch = {k: v.to(rank) for k, v in batch.items()}
                 batch["attention_mask"] = (
                     torch.reshape(
                         batch["attention_mask"],
@@ -231,7 +225,7 @@ def main_worker(rank, process_num, args):
                             int(batch["attention_mask"].shape[-1]),
                         ],
                     )
-                    .to(rank)
+                    # .to(rank)
                     .type(torch.float32)
                 )
                 batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
@@ -248,46 +242,45 @@ def main_worker(rank, process_num, args):
                 metric_mat.add_batch(predictions=pred, references=batch["labels"])
                 val_loss += loss.item()
                 val_acc1 += acc["accuracy"]
-                if i % 20 == 0 and rank == 1:
+                if i % 20 == 0:
                     print("val_loss", loss.item(), "val_acc", acc["accuracy"], "matt")
             val_loss /= len(val_dataloader)
             val_acc1 /= len(val_dataloader)
             val_matt = metric_mat.compute()
 
-        if rank == 1:
-            print(
-                "epoch:",
-                epoch,
-                "train_loss",
-                train_loss,
-                "train_acc",
-                train_acc1,
-                "val_loss",
-                val_loss,
-                "val_acc",
-                val_acc1,
-                "matt",
-                val_matt,
-            )
-            file_save = open(args.log, mode="a")
-            file_save.write(
-                "\n"
-                + "step:"
-                + str(epoch)
-                + "  loss_train:"
-                + str(train_loss)
-                + "  acc1_train:"
-                + str(train_acc1)
-                + "  loss_val:"
-                + str(val_loss)
-                + "  acc1_val:"
-                + str(val_acc1)
-                + "  time_per_batch:"
-                + str(time_avg)
-                + "  matthew:"
-                + str(val_matt)
-            )
-            file_save.close()
+        print(
+            "epoch:",
+            epoch,
+            "train_loss",
+            train_loss,
+            "train_acc",
+            train_acc1,
+            "val_loss",
+            val_loss,
+            "val_acc",
+            val_acc1,
+            "matt",
+            val_matt,
+        )
+        file_save = open(args.log, mode="a")
+        file_save.write(
+            "\n"
+            + "step:"
+            + str(epoch)
+            + "  loss_train:"
+            + str(train_loss)
+            + "  acc1_train:"
+            + str(train_acc1)
+            + "  loss_val:"
+            + str(val_loss)
+            + "  acc1_val:"
+            + str(val_acc1)
+            + "  time_per_batch:"
+            + str(time_avg)
+            + "  matthew:"
+            + str(val_matt)
+        )
+        file_save.close()
 
 
 if __name__ == "__main__":

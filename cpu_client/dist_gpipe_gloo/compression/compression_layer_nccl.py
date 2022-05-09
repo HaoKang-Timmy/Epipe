@@ -840,3 +840,23 @@ class CompressSendGPU(autograd.Function):
         output = torch.matmul(U[..., :, :], S[..., :, :])
         grad_output = torch.matmul(output[..., :, :], V[..., :, :])
         return grad_output, None, None, None, None, None
+
+
+class InsertConv(nn.Module):
+    def __init__(self, kernel_size, stride, infeature, outfeature) -> None:
+        super(InsertConv, self).__init__()
+        self.conv1 = nn.Conv2d(infeature, outfeature, kernel_size, stride)
+        self.conv2 = nn.Conv2d(outfeature, infeature, kernel_size, stride)
+
+    def forward(self, input):
+        return self.conv2(self.conv1(input))
+
+
+class InsertLinear(nn.Module):
+    def __init__(self, kernel_size, stride, infeature, outfeature) -> None:
+        super(InsertLinear, self).__init__()
+        self.linear1 = nn.Conv2d(infeature, outfeature, kernel_size, stride)
+        self.linear2 = nn.Conv2d(outfeature, infeature, kernel_size, stride)
+
+    def forward(self, input):
+        return self.linear2(self.linear1(input))

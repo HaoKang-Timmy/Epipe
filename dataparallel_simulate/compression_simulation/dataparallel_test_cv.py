@@ -46,6 +46,7 @@ parser.add_argument("--qquant", default=0, type=int)
 parser.add_argument("--pca1", default=0, type=int)
 parser.add_argument("--pca2", default=0, type=int)
 parser.add_argument("--root", default="../../data", type=str)
+parser.add_argument("--conv", default=0, action="store_true")
 
 
 def get_lr(optimizer):
@@ -138,16 +139,35 @@ def main_worker(rank, process_num, args):
     layer1 = torch.nn.parallel.DistributedDataParallel(layer1)
     layer2 = torch.nn.parallel.DistributedDataParallel(layer2)
     layer3 = torch.nn.parallel.DistributedDataParallel(layer3)
-    optimizer = torch.optim.SGD(
-        [
-            {"params": layer1.parameters()},
-            {"params": layer2.parameters()},
-            {"params": layer3.parameters()},
-        ],
-        lr=args.lr,
-        momentum=0.9,
-    )
-
+    if args.conv != 0:
+        conv2d = torch.nn.Conv2d(32, 32, (2, 2), (2, 2)).to(rank)
+        conv_t = torch.nn.ConvTranspose2d(32, 32, (2, 2), (2, 2)).to(rank)
+        conv2d2 = torch.nn.Conv2d(1280, 320, (1, 1)).to(rank)
+        conv_t2 = torch.nn.ConvTranspose2d(320, 1280, (1, 1)).to(rank)
+    if args.conv == 0:
+        optimizer = torch.optim.SGD(
+            [
+                {"params": layer1.parameters()},
+                {"params": layer2.parameters()},
+                {"params": layer3.parameters()},
+            ],
+            lr=args.lr,
+            momentum=0.9,
+        )
+    else:
+        optimizer = torch.optim.SGD(
+            [
+                {"params": layer1.parameters()},
+                {"params": layer2.parameters()},
+                {"params": layer3.parameters()},
+                {"params": conv2d.parameters(), "lr": args.lr},
+                {"params": conv_t.parameters(), "lr": args.lr},
+                {"params": conv2d2.parameters(), "lr": args.lr},
+                {"params": conv_t2.parameters(), "lr": args.lr},
+            ],
+            lr=args.lr,
+            momentum=0.9,
+        )
     lr_scheduler = get_scheduler(
         name="cosine",
         optimizer=optimizer,
@@ -156,6 +176,7 @@ def main_worker(rank, process_num, args):
     )
 
     criterion = nn.CrossEntropyLoss().to(rank)
+
     # optimizer = torch.optim.AdamW(params=model.parameters(), lr=1e-5)
     for epoch in range(args.epochs):
         layer1.train()
@@ -195,7 +216,11 @@ def main_worker(rank, process_num, args):
                 outputs = FQBSQ.apply(outputs, args.qquant, args.quant, args.split)
             elif args.svdq != 0:
                 outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
+            elif args.conv != 0:
+                outputs = conv2d(outputs)
+                outputs = conv_t(outputs)
             outputs = layer2(outputs)
+
             # if args.sortquant == 0:
             #     if args.prune != 0:
             #         outputs = topk_layer(outputs)
@@ -221,6 +246,9 @@ def main_worker(rank, process_num, args):
                 outputs = FSQBQ.apply(outputs, args.qquant, args.quant, args.split)
             elif args.svdq != 0:
                 outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
+            elif args.conv != 0:
+                outputs = conv2d2(outputs)
+                outputs = conv_t2(outputs)
             # outputs = outputs.view(64,1280,7,7)
             outputs = layer3(outputs)
             # print(outputs)
@@ -284,6 +312,9 @@ def main_worker(rank, process_num, args):
                     outputs = FQBSQ.apply(outputs, args.qquant, args.quant, args.split)
                 elif args.svdq != 0:
                     outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
+                elif args.conv != 0:
+                    outputs = conv2d(outputs)
+                    outputs = conv_t(outputs)
                 outputs = layer2(outputs)
 
                 # if args.sortquant == 0:
@@ -310,6 +341,9 @@ def main_worker(rank, process_num, args):
                     outputs = FSQBQ.apply(outputs, args.qquant, args.quant, args.split)
                 elif args.svdq != 0:
                     outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
+                elif args.conv != 0:
+                    outputs = conv2d2(outputs)
+                    outputs = conv_t2(outputs)
                 # outputs = outputs.view(64,1280,7,7)
                 outputs = layer3(outputs)
                 loss = criterion(outputs, label)
