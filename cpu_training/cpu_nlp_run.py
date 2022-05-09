@@ -170,18 +170,15 @@ def main():
         for i, batch in enumerate(train_dataloader):
             start = time.time()
             optimizer.zero_grad()
-            batch["attention_mask"] = (
-                torch.reshape(
-                    batch["attention_mask"],
-                    [
-                        int(batch["attention_mask"].shape[0]),
-                        1,
-                        1,
-                        int(batch["attention_mask"].shape[-1]),
-                    ],
-                )
-                .type(torch.float32)
-            )
+            batch["attention_mask"] = torch.reshape(
+                batch["attention_mask"],
+                [
+                    int(batch["attention_mask"].shape[0]),
+                    1,
+                    1,
+                    int(batch["attention_mask"].shape[-1]),
+                ],
+            ).type(torch.float32)
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
             outputs = part1(batch["input_ids"], batch["attention_mask"])
 
@@ -200,7 +197,9 @@ def main():
             end = time.time() - start
             time_avg += end
             if i % 5 == 0:
-                print("train_loss", loss.item(), "train_acc", acc["accuracy"],"time",end)
+                print(
+                    "train_loss", loss.item(), "train_acc", acc["accuracy"], "time", end
+                )
         train_loss /= len(train_dataloader)
         train_acc1 /= len(train_dataloader)
         time_avg /= len(train_dataloader)

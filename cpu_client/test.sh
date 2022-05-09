@@ -30,6 +30,12 @@
 # python3 clientserver_nlp.py --tight --pca1 56 --pca2 56 --log tight_rte_pca56.txt
 # python3 clientserver_nlp.py --sortquant --pca1 48 --pca2 48 --log rte_pca48.txt
 # python3 clientserver_nlp.py --log nlp_test.txt
-python3 clientserver_nlp.py --quant 8 --log rte_q8.txt 
-python3 clientserver_nlp.py --quant 6 --log rte_q6.txt --tight
-
+# python3 nlp_run.py --quant 8 --log rte_q8_tight.txt --tight
+# python3 nlp_run.py --quant 8 --log rte_q8.txt 
+# python3 nlp_run.py --quant 6 --log rte_q6_tight.txt --tight
+# python3 nlp_run.py --quant 6 --log rte_q6.txt 
+# python3 nlp_run.py --quant 5 --log rte_q5_tight.txt --tight
+# python3 nlp_run.py --quant 5 --log rte_q5.txt 
+python3 nlp_run.py --pca1 56 --pca2 56 --log rte_pca56_tight.txt --tight
+python3 nlp_run.py --sortquant  --quant 1 --split 4 --log rte_fq14_tight.txt --tight
+python3 nlp_run.py --sortquant  --quant 1 --split 4 --log rte_fq14.txt

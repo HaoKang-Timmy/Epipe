@@ -92,6 +92,8 @@ def SendTensorCPU(input, settings, train_settings, chunk, edge=False):
             settings["rank"],
             settings["group_list"][chunk],
         )
+    elif train_settings["convinsert"] != 0:
+        output = train_settings["convlayer"](output)
     else:
         # print("client send",settings["send_rank"],settings["rank"])
         output = FSBRFunctionClient.apply(
