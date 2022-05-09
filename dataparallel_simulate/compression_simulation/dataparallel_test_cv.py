@@ -24,6 +24,7 @@ from utils import (
     FQBSQ,
     FastQuantization,
     FSQBQ,
+    ChannelwiseQuantization,
 )
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
@@ -43,10 +44,12 @@ parser.add_argument("--qsq", default=0, action="store_true")
 parser.add_argument("--svdq", default=0, action="store_true")
 parser.add_argument("--kmeans", default=0, type=int)
 parser.add_argument("--qquant", default=0, type=int)
+parser.add_argument("--channelquant", default=0, type=int)
 parser.add_argument("--pca1", default=0, type=int)
 parser.add_argument("--pca2", default=0, type=int)
 parser.add_argument("--root", default="../../data", type=str)
-parser.add_argument("--conv", default=0, action="store_true")
+parser.add_argument("--conv1", default=0, action="store_true")
+parser.add_argument("--conv2", default=0, action="store_true")
 
 
 def get_lr(optimizer):
@@ -114,8 +117,8 @@ def main_worker(rank, process_num, args):
     bn = next(feature)
     if args.secondlayer == 0:
         layer1 = nn.Sequential(*[conv, bn])
-        layer2 = nn.Sequential(*[nn.ReLU6(inplace=True), model.features[1:-1]])
-        layer3 = nn.Sequential(*[model.features[-1], Reshape1(), model.classifier])
+        layer2 = nn.Sequential(*[nn.ReLU6(inplace=False), model.features[1:]])
+        layer3 = nn.Sequential(*[Reshape1(), model.classifier])
     else:
         layer1 = nn.Sequential(*[model.features[0:1]])
         layer2 = nn.Sequential(*[model.features[1:]])
@@ -131,25 +134,35 @@ def main_worker(rank, process_num, args):
     # dequant_layer1 = dequant_layer1.to(rank)
     # quant_layer2 =quant_layer2.to(rank)
     # dequant_layer2 = dequant_layer2.to(rank)
-    topk_layer = TopkLayer(args.prune)
-    avgpool1 = nn.AvgPool2d((2, 2))
-    avgpool2 = nn.AvgPool2d((2, 2))
-    upsample1 = nn.UpsamplingBilinear2d(scale_factor=2)
-    upsample2 = nn.UpsamplingBilinear2d(scale_factor=2)
     layer1 = torch.nn.parallel.DistributedDataParallel(layer1)
     layer2 = torch.nn.parallel.DistributedDataParallel(layer2)
     layer3 = torch.nn.parallel.DistributedDataParallel(layer3)
-    if args.conv != 0:
+    if args.conv1 != 0:
         conv2d = torch.nn.Conv2d(32, 32, (2, 2), (2, 2)).to(rank)
         conv_t = torch.nn.ConvTranspose2d(32, 32, (2, 2), (2, 2)).to(rank)
+    if args.conv2 != 0:
         conv2d2 = torch.nn.Conv2d(1280, 320, (1, 1)).to(rank)
         conv_t2 = torch.nn.ConvTranspose2d(320, 1280, (1, 1)).to(rank)
-    if args.conv == 0:
+    if args.conv1 == 0 and args.conv2 == 0:
         optimizer = torch.optim.SGD(
             [
                 {"params": layer1.parameters()},
                 {"params": layer2.parameters()},
                 {"params": layer3.parameters()},
+            ],
+            lr=args.lr,
+            momentum=0.9,
+        )
+    elif args.conv2 != 0 and args.conv1 == 0:
+        optimizer = torch.optim.SGD(
+            [
+                {"params": layer1.parameters()},
+                {"params": layer2.parameters()},
+                {"params": layer3.parameters()},
+                # {"params": conv2d.parameters(), "lr": args.lr},
+                # {"params": conv_t.parameters(), "lr": args.lr},
+                {"params": conv2d2.parameters(), "lr": args.lr},
+                {"params": conv_t2.parameters(), "lr": args.lr},
             ],
             lr=args.lr,
             momentum=0.9,
@@ -216,9 +229,11 @@ def main_worker(rank, process_num, args):
                 outputs = FQBSQ.apply(outputs, args.qquant, args.quant, args.split)
             elif args.svdq != 0:
                 outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
-            elif args.conv != 0:
+            elif args.conv1 != 0:
                 outputs = conv2d(outputs)
                 outputs = conv_t(outputs)
+            elif args.channelquant != 0:
+                outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
             outputs = layer2(outputs)
 
             # if args.sortquant == 0:
@@ -246,9 +261,10 @@ def main_worker(rank, process_num, args):
                 outputs = FSQBQ.apply(outputs, args.qquant, args.quant, args.split)
             elif args.svdq != 0:
                 outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
-            elif args.conv != 0:
+            elif args.conv2 != 0:
                 outputs = conv2d2(outputs)
                 outputs = conv_t2(outputs)
+
             # outputs = outputs.view(64,1280,7,7)
             outputs = layer3(outputs)
             # print(outputs)
@@ -312,9 +328,11 @@ def main_worker(rank, process_num, args):
                     outputs = FQBSQ.apply(outputs, args.qquant, args.quant, args.split)
                 elif args.svdq != 0:
                     outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
-                elif args.conv != 0:
+                elif args.conv1 != 0:
                     outputs = conv2d(outputs)
                     outputs = conv_t(outputs)
+                elif args.channelquant != 0:
+                    outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
                 outputs = layer2(outputs)
 
                 # if args.sortquant == 0:
@@ -341,7 +359,7 @@ def main_worker(rank, process_num, args):
                     outputs = FSQBQ.apply(outputs, args.qquant, args.quant, args.split)
                 elif args.svdq != 0:
                     outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
-                elif args.conv != 0:
+                elif args.conv2 != 0:
                     outputs = conv2d2(outputs)
                     outputs = conv_t2(outputs)
                 # outputs = outputs.view(64,1280,7,7)

@@ -1,31 +1,42 @@
 import torch
 import torch.autograd as autograd
+
+
 def linear_seperate(input_tensor, chunk):
     min, max = input_tensor.min(), input_tensor.max()
-    step = (max - max)/chunk
+    step = (max - max) / chunk
     input_tensor = input_tensor.type(torch.long)
     chunk_list = []
 
     for i in range(chunk):
         lowerbound = min + i * step
         upperbound = min + (i + 1) * step
-        temp = torch.where((input_tensor < upperbound) & (input_tensor >= lowerbound),input_tensor, -10000.0)
+        temp = torch.where(
+            (input_tensor < upperbound) & (input_tensor >= lowerbound),
+            input_tensor,
+            -10000.0,
+        )
         indexs = (temp != -10000.0).nonzero()
         indexs = indexs.view(-1)
         number = indexs.shape[0]
         chunk_list.append(number)
-def abl_err(input,label):
+
+
+def abl_err(input, label):
     diff = torch.abs(input) - torch.abs(label)
     return torch.abs(diff).mean()
-def relative_err(input,label):
+
+
+def relative_err(input, label):
     diff = input - label
     diff = torch.abs(diff)
     relative = diff / label
     relative = relative.view(-1)
-    not_nan = (relative == relative)
+    not_nan = relative == relative
     # src = relative * not_nan
     src = relative.masked_select(not_nan)
     return torch.abs(src).mean()
+
 
 class Fakequantize(autograd.Function):
     @staticmethod
@@ -46,6 +57,8 @@ class Fakequantize(autograd.Function):
         grad_output = torch.round((grad_output - min) / step) - pow(2, bits - 1)
         grad_output = (grad_output + pow(2, bits - 1)) * step + min
         return grad_output, None
+
+
 class SortQuantization(autograd.Function):
     @staticmethod
     def forward(ctx, input, bits, split_bits):

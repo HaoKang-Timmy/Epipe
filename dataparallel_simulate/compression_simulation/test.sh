@@ -24,5 +24,13 @@
 # python3 dataparallel_test_cv.py --log ./test_quant9_1l1l_relu.txt --quant 9
 # python3 dataparallel_test_cv.py --log ./test_quant10_1l1l_relu.txt --quant 10
 # python3 dataparallel_test_cv.py --log ./test_quant11_1l1l_relu.txt --quant 11
-python3 dataparallel_test_nlp.py --linear --log ./linear_insert_cola.txt --task cola
-python3 dataparallel_test_nlp.py --linear --log ./linear_insert_rte.txt
+# python3 dataparallel_test_nlp.py --linear --log ./linear_insert_cola.txt --task cola
+# python3 dataparallel_test_nlp.py --linear --log ./linear_insert_rte.txt
+# python3 dataparallel_test_cv.py --log ./norelu_q10.txt --quant 10 --relu
+# python3 dataparallel_test_cv.py --log ./_q10.txt --quant 10
+# python3 dataparallel_test_nlp.py --task cola --sortquant --sort 2 --squant 6 --log ./cola_sq62.txt
+# python3 dataparallel_test_nlp.py --task cola --quant 8 --log ./cola_q8.txt
+# python3 dataparallel_test_cv.py --conv2 --log ./cifar10_cnquant8_conv.txt --secondlayer
+# python3 dataparallel_test_cv.py --channelquant 10 --conv2 --log ./cifar10_cnquant10_conv.txt
+python3 dataparallel_test_nlp.py --task cola --sortquant --sort 2 --squant 4 --log ./cola_sq42.txt
+python3 dataparallel_test_nlp.py --task cola --quant 6 --log ./cola_q6.txt

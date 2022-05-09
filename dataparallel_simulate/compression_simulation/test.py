@@ -8,8 +8,15 @@ Description: 打开koroFileHeader查看配置 进行设置: https://github.com/O
 FilePath: /research/gpipe_test/dataparallel_simulate/compression_simulation/test.py
 """
 import torch
-from utils import SortQuantization
+from utils import SortQuantization, ChannelwiseQuantization
+import torchvision.models as models
 
-input = torch.rand([10, 10])
-some = input > 0
-print(some)
+input = torch.rand([10, 10]).requires_grad_()
+some = torch.rand([10, 10])
+print(input)
+
+output = ChannelwiseQuantization.apply(input, 8)
+print(output)
+
+
+output.backward(some)
