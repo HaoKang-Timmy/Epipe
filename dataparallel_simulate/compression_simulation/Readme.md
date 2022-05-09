@@ -24,7 +24,7 @@ NLP tasks with Roberta
 | Tasks | Training method | Compression method | Validation_value |
 | ----- | --------------- | ------------------ | ---------------- |
 | Cola  | Sota            | None               | 0.636            |
-| Cola  | Finetune        | None               | 0.638～0.008     |
+| Cola  | Finetune        | None               | 0.645～0.008     |
 | Cola  | Finetune        | Prune 0.5          | 0.633～0.013     |
 | Cola  | Finetune        | Quantization 16    | 0.632～0.010     |
 | Cola  | Finetune        | Quantization 10    | 0.635~0.014      |
@@ -58,6 +58,8 @@ Testing RTE with Roberta for 20 epochs
 | Sort Quantization 8bits(6bits 2split)   | firsrt layer, last two layers | 79.7% |
 | Sort Quantization 12bits(9bits 3split)  | firsrt layer, last two layers | 79.7% |
 | Sort Quantization 16bits(12bits 4split) | firsrt layer, last two layers | 79.7% |
+
+
 
 ## 3 Comparing with PCA
 
@@ -117,7 +119,13 @@ Only compress the first layer
 | ----------- | ------------------------- | ------------------------------- | ---- |
 | Lora 56rank | firsrt layer, last layers | 0.5                             | 90.3 |
 
-## 6 Different Separation Strategy
+## 6 Convolution Insertion Implementation
+
+| Method                | Separate Strategy         | Compression Ratio(after/before) | Acc   |
+| --------------------- | ------------------------- | ------------------------------- | ----- |
+| Convolution insertion | firsrt layer, last layers | 0.25                            | 95.42 |
+
+## 7 Different Separation Strategy
 
 ### CIFAR10 with MobileNetV2
 

@@ -674,3 +674,37 @@ class CombineLayer(nn.Module):
             output = layer(output, mask)
             output = output[0]
         return output
+
+class ChannelwiseQuantization(autograd.Function):
+    @staticmethod
+    def forward(ctx,input:torch.tensor,bits):
+        ctx.bits = bits
+        input =input.transpose(0,1)
+        shape = input.shape
+        input = input.reshape(input.shape[0],-1)
+        min,index = input.min(dim = 1)
+        max,index = input.max(dim = 1)
+        min = min.view(-1,1)
+        max = max.view(-1,1)
+        step = (max -min) / (2 ** bits)
+        input[:,...] = torch.floor((input[:,...] - min[:])/step[:])
+        input[:,...] = input[:,...] * step[:] + min[:]
+        input =input.view(shape)
+        input =input.transpose(0,1)
+        return input
+    @staticmethod
+    def backward(ctx,grad_output):
+        bits = ctx.bits
+        grad_output =grad_output.transpose(0,1)
+        shape = grad_output.shape
+        grad_output = grad_output.reshape(grad_output.shape[0],-1)
+        min,index = grad_output.min(dim = 1)
+        max,index = grad_output.max(dim = 1)
+        min = min.view(-1,1)
+        max = max.view(-1,1)
+        step = (max -min) / (2 ** bits)
+        grad_output[:,...] = torch.floor((grad_output[:,...] - min[:])/step[:])
+        grad_output[:,...] = grad_output[:,...] * step[:] + min[:]
+        grad_output =grad_output.view(shape)
+        grad_output =grad_output.transpose(0,1)
+        return grad_output

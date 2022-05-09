@@ -50,11 +50,28 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 | CPU,GPU                 | None                       | 4     | Condition 2            | 31.79MB/s | 1.51s           | 21.19/s     | 78.90          |
 | CPU,GPU                 | Uniform Quantization 8bits | 4     | Condition 2            | 7.91MB/s  | 1.54s           | 20.78/s     | 79.68          |
 | CPU,GPU                 | Uniform Quantization 6bits | 4     | Condition 2            | 5.96MB/s  | 1.54s           | 20.74/s     | 79.78          |
+| CPU,GPU                 | Fast Quantization 6bits    | 4     | Condition 2            | 6.04MB/s  | 2.07            | 15.45/s     | 79.90          |
 | CPU,GPU                 | Fast Quantization 5bits    | 4     | Condition 2            | 4.93MB/s  | 2.02s           | 15.84/s     | 74.61          |
 | CPU,GPU                 | None                       | 4     | Condition 3            | 53.34MB/s | 0.90s           | 35.56/s     | 78.50          |
 | CPU,GPU                 | Uniform Quantization 8bits | 4     | Condition 3            | 13.33MB/s | 0.92s           | 34.78/s     | 78.13          |
 | CPU,GPU                 | Uniform Quantization 6bits | 4     | Condition 3            | 10.01MB/s | 0.92s           | 34.78/s     | 78.51          |
 | CPU,GPU                 | Fast Quantization 5bits    | 4     | Condition 3            | 8.37MB/s  | 1.24s           | 25.80/s     | 74.60          |
+
+## 2 Cola
+
+### 2.1 Settings
+
+| Backend      | Epochs | Lr   | Batch Size |
+| ------------ | ------ | ---- | ---------- |
+| Roberta-base | 20     | 2e-5 | 32         |
+
+| Sever Client Partition | Explaination                                                 |
+| ---------------------- | ------------------------------------------------------------ |
+| Condition 1            | Client: embedding+robertalayer(0),robertalayer(11)+classifier Server:robertalayer(1-10) |
+| Condition 2            | Client: embedding+selfattention,robertalayer(11)+classifier Server:robertalayer(0-10) |
+| Condition 3            | Client: embedding+selfattention,classifier Server:robertalayer(0-11) |
+
+
 
 # 2 Compression Algorithm Analyse
 
