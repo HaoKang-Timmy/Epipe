@@ -8,13 +8,13 @@ A simulation by using CPUs to train client tasks and one GTX 1080 to train serve
 
 ## 1 CIFAR
 
-## 1.1 Settings
+### 1.1 Settings
 
 | Backend     | Epochs | Lr    | Batch Size |
 | ----------- | ------ | ----- | ---------- |
 | MoblienetV2 | 40     | 0.005 | 64         |
 
-## 1.2 Results
+### 1.2 Results
 
 Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithms in CPUs.
 
@@ -48,18 +48,17 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 
 ### 2.2 Results
 
-| Hardware(Client,Server) | Compression method         | Chunk | Sever Client Partition | Time  per Batch | Throughputs | Validation Acc |
-| ----------------------- | -------------------------- | ----- | ---------------------- | --------------- | ----------- | -------------- |
-| CPU(Mac M1)             | None                       | None  | None                   | 53.49s          | 0.60/s      | 78.66          |
-| CPU(CPU at server)      | None                       | None  | None                   | 1.97s           | 32.48/s     | 95.87          |
-| CPU,GPU                 | None                       | 4     | Condition 2            | 1.51s           | 21.19/s     | 78.90          |
-| CPU,GPU                 | Uniform Quantization 8bits | 4     | Condition 2            | 1.54s           | 20.78/s     | 79.68          |
-| CPU,GPU                 | Uniform Quantization 6bits | 4     | Condition 2            | 2.00s           | 16.00/s     | 78.78          |
-| CPU,GPU                 | Fast Quantization 5bits    | 4     | Condition 2            | 1.24s           | 25.80/s     | 74.60          |
-| CPU,GPU                 | None                       | 4     | Condition 3            | 0.90s           | 35.56/s     | 78.50          |
-| CPU,GPU                 | Uniform Quantization 8bits | 4     | Condition 3            | 0.92s           | 34.78/s     | 78.13          |
-| CPU,GPU                 | Uniform Quantization 6bits | 4     | Condition 3            | 0.92s           | 34.78/s     | 78.51          |
-| CPU,GPU                 | Fast Quantization 5bits    | 4     | Condition 3            | 1.24s           | 25.80/s     | 74.60          |
+| Hardware(Client,Server) | Compression method         | Chunk | Sever Client Partition | Bandwidth | Time  per Batch | Throughputs | Validation Acc |
+| ----------------------- | -------------------------- | ----- | ---------------------- | --------- | --------------- | ----------- | -------------- |
+| CPU(Mac M1)             | None                       | None  | None                   | None      | 53.49s          | 0.60/s      | 78.66          |
+| CPU,GPU                 | None                       | 4     | Condition 2            | 31.79MB/s | 1.51s           | 21.19/s     | 78.90          |
+| CPU,GPU                 | Uniform Quantization 8bits | 4     | Condition 2            | 7.91MB/s  | 1.54s           | 20.78/s     | 79.68          |
+| CPU,GPU                 | Uniform Quantization 6bits | 4     | Condition 2            | 5.96MB/s  | 2.00s           | 16.00/s     | 78.78          |
+| CPU,GPU                 | Fast Quantization 5bits    | 4     | Condition 2            | 4.93MB/s  | 1.24s           | 25.80/s     | 74.61          |
+| CPU,GPU                 | None                       | 4     | Condition 3            | 53.34MB/s | 0.90s           | 35.56/s     | 78.50          |
+| CPU,GPU                 | Uniform Quantization 8bits | 4     | Condition 3            | 13.33MB/s | 0.92s           | 34.78/s     | 78.13          |
+| CPU,GPU                 | Uniform Quantization 6bits | 4     | Condition 3            | 10.01MB/s | 0.92s           | 34.78/s     | 78.51          |
+| CPU,GPU                 | Fast Quantization 5bits    | 4     | Condition 3            | 8.37MB/s  | 1.24s           | 25.80/s     | 74.60          |
 
 # 2 Compression Algorithm Analyse
 
