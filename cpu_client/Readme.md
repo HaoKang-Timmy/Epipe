@@ -34,7 +34,7 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 | ------------ | ------ | ---- | ---------- |
 | Roberta-base | 20     | 2e-5 | 32         |
 
-| Sever Client Partition | Explaination                                                 |
+| Sever Client Partition | Explanation                                                  |
 | ---------------------- | ------------------------------------------------------------ |
 | Condition 1            | Client: embedding+robertalayer(0),robertalayer(11)+classifier Server:robertalayer(1-10) |
 | Condition 2            | Client: embedding+selfattention,robertalayer(11)+classifier Server:robertalayer(0-10) |
@@ -48,9 +48,9 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 | ----------------------- | -------------------------- | ----- | ---------------------- | --------- | --------------- | ----------- | -------------- |
 | CPU(Mac M1)             | None                       | None  | None                   | None      | 53.49s          | 0.60/s      | 78.66          |
 | CPU,GPU                 | None                       | 4     | Condition 2            | 31.79MB/s | 1.51s           | 21.19/s     | 78.90          |
-| CPU,GPU                 | Uniform Quantization 8bits | 4     | Condition 2            | 7.91MB/s  | 1.54s           | 20.78/s     | 79.68          |
-| CPU,GPU                 | Uniform Quantization 6bits | 4     | Condition 2            | 5.96MB/s  | 1.54s           | 20.74/s     | 79.78          |
-| CPU,GPU                 | Fast Quantization 6bits    | 4     | Condition 2            | 6.04MB/s  | 2.07            | 15.45/s     | 79.90          |
+| CPU,GPU                 | Uniform Quantization 8bits | 4     | Condition 2            | 7.91MB/s  | 1.54s           | 20.78/s     | 78.68          |
+| CPU,GPU                 | Uniform Quantization 6bits | 4     | Condition 2            | 5.96MB/s  | 1.54s           | 20.74/s     | 78.40          |
+| CPU,GPU                 | Fast Quantization 6bits    | 4     | Condition 2            | 6.04MB/s  | 2.07            | 15.45/s     | 78.90          |
 | CPU,GPU                 | Fast Quantization 5bits    | 4     | Condition 2            | 4.93MB/s  | 2.02s           | 15.84/s     | 74.61          |
 | CPU,GPU                 | None                       | 4     | Condition 3            | 53.34MB/s | 0.90s           | 35.56/s     | 78.50          |
 | CPU,GPU                 | Uniform Quantization 8bits | 4     | Condition 3            | 13.33MB/s | 0.92s           | 34.78/s     | 78.13          |
@@ -65,17 +65,22 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 | ------------ | ------ | ---- | ---------- |
 | Roberta-base | 20     | 2e-5 | 32         |
 
-| Sever Client Partition | Explaination                                                 |
+| Sever Client Partition | Explanation                                                  |
 | ---------------------- | ------------------------------------------------------------ |
 | Condition 1            | Client: embedding+robertalayer(0),robertalayer(11)+classifier Server:robertalayer(1-10) |
 | Condition 2            | Client: embedding+selfattention,robertalayer(11)+classifier Server:robertalayer(0-10) |
 | Condition 3            | Client: embedding+selfattention,classifier Server:robertalayer(0-11) |
 
+### 2.2 Results
 
+| Hardware(Client,Server) | Compression method      | Chunk | Sever Client Partition | Bandwidth | Time  per Batch | Throughputs | Validation Acc |
+| ----------------------- | ----------------------- | ----- | ---------------------- | --------- | --------------- | ----------- | -------------- |
+| CPU,GPU                 | Fast Quantization 6bits | 4     | Condition 3            | 10.43MB/s | 0.99s           | 32.32/s     | 84.76          |
+| CPU,GPU                 | Fast Quantization 6bits | 4     | Condition 3            | 10.27MB/s | 0.89s           | 35.95/s     | 84.66          |
 
-# 2 Compression Algorithm Analyse
+# 3 Compression Algorithm Analyse
 
-## 2.1 CPU
+## 3.1 CPU
 
 You can reproduce the results by executing `./CPUtest.py`
 
@@ -101,7 +106,7 @@ You can reproduce the results by executing `./CPUtest.py`
 
 ![image-20220501132142973](./pic/image-20220501132142973.png)
 
-## 2.2 GPU
+## 3.2 GPU
 
 | Activation Memory(Total/Batchsize) |
 | ---------------------------------- |
