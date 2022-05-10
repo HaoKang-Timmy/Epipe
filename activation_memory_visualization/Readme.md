@@ -1,7 +1,3 @@
----
-typora-copy-images-to: ../pic
----
-
 # Activation Memory Distribution
 
 ## 1. MobileNetV2
