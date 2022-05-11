@@ -5,11 +5,9 @@ from transformers import get_scheduler
 import torchvision.transforms as transforms
 import torchvision
 import torch
-import datasets
 import argparse
 import torch.multiprocessing as mp
 import torch.distributed as dist
-from torch_batch_svd import svd
 from utils import (
     FSQBSVD,
     FSVDBSQ,
@@ -25,7 +23,9 @@ from utils import (
     FastQuantization,
     FSQBQ,
     ChannelwiseQuantization,
+    PowerPCA,
 )
+from powersgd import PowerSGD, Config, optimizer_step
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 parser.add_argument("--log", default="./test.txt", type=str)
@@ -50,6 +50,8 @@ parser.add_argument("--pca2", default=0, type=int)
 parser.add_argument("--root", default="../../data", type=str)
 parser.add_argument("--conv1", default=0, action="store_true")
 parser.add_argument("--conv2", default=0, action="store_true")
+parser.add_argument("--conv1kernel", default=0, type=tuple)
+parser.add_argument("--powersvd", default=0, type=int)
 
 
 def get_lr(optimizer):
@@ -138,11 +140,11 @@ def main_worker(rank, process_num, args):
     layer2 = torch.nn.parallel.DistributedDataParallel(layer2)
     layer3 = torch.nn.parallel.DistributedDataParallel(layer3)
     if args.conv1 != 0:
-        conv2d = torch.nn.Conv2d(32, 32, (2, 2), (2, 2)).to(rank)
-        conv_t = torch.nn.ConvTranspose2d(32, 32, (2, 2), (2, 2)).to(rank)
+        conv2d = torch.nn.Conv2d(32, 16, (3, 3), (3, 3)).to(rank)
+        conv_t = torch.nn.ConvTranspose2d(16, 32, (3, 3), (3, 3)).to(rank)
     if args.conv2 != 0:
-        conv2d2 = torch.nn.Conv2d(1280, 320, (1, 1)).to(rank)
-        conv_t2 = torch.nn.ConvTranspose2d(320, 1280, (1, 1)).to(rank)
+        conv2d2 = torch.nn.Conv2d(1280, 160, (1, 1)).to(rank)
+        conv_t2 = torch.nn.ConvTranspose2d(160, 1280, (1, 1)).to(rank)
     if args.conv1 == 0 and args.conv2 == 0:
         optimizer = torch.optim.SGD(
             [
@@ -200,29 +202,13 @@ def main_worker(rank, process_num, args):
         train_acc1 = 0.0
         time_avg = 0.0
         start = time.time()
+        bool = 0
         for i, (image, label) in enumerate(train_loader):
 
             image = image.to(rank, non_blocking=True)
             label = label.to(rank, non_blocking=True)
 
             outputs = layer1(image)
-            # if args.sortquant == 0:
-            #     if args.prune != 0:
-            #         outputs = topk_layer(outputs)
-            #         # print("prun")
-            #     if args.avgpool != 0:
-            #         outputs = avgpool2(outputs)
-            #         # print("avg")
-            #     if args.quant != 0:
-            #         outputs = Fakequantize.apply(outputs, args.quant)
-            #         # print("quant")
-            #     if args.avgpool != 0:
-            #         outputs = upsample2(outputs)
-            #         # print("avg")
-            #     if args.pca1 != 0:
-            #         outputs = Fakequantize.apply(outputs, args.pca1)
-            # elif args.sortquant != 0:
-            #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
             if args.sortquant != 0:
                 outputs = FastQuantization.apply(outputs, args.quant, args.split)
             elif args.qsq != 0:
@@ -234,27 +220,21 @@ def main_worker(rank, process_num, args):
                 outputs = conv_t(outputs)
             elif args.channelquant != 0:
                 outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
+            elif args.powersvd != 0:
+                if bool == 0:
+
+                    power1 = PowerSGD(
+                        outputs,
+                        config=Config(
+                            rank=20,  # lower rank => more aggressive compression
+                            min_compression_rate=1,  # don't compress gradients with less compression
+                            num_iters_per_step=20,  #   # lower number => more aggressive compression
+                            start_compressing_after_num_steps=0,
+                        ),
+                    )
+                outputs = PowerPCA.apply(outputs, power1)
             outputs = layer2(outputs)
 
-            # if args.sortquant == 0:
-            #     if args.prune != 0:
-            #         outputs = topk_layer(outputs)
-            #         # print("prun")
-            #     if args.avgpool != 0:
-            #         outputs = avgpool2(outputs)
-            #         # print("avg")
-            #     if args.quant != 0:
-            #         outputs = Fakequantize.apply(outputs, args.quant)
-            #         # print("quant")
-            #     if args.avgpool != 0:
-            #         outputs = upsample2(outputs)
-            #         # print("avg")
-            #     if args.pca2 != 0:
-            #         outputs = Fakequantize.apply(outputs, args.pca2)
-            # elif args.sortquant != 0:
-            #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
-            # outputs = outputs.view(64,1280,49)
-            # print(outputs.shape)
             if args.sortquant != 0:
                 outputs = FastQuantization.apply(outputs, args.quant, args.split)
             elif args.qsq != 0:
@@ -264,7 +244,19 @@ def main_worker(rank, process_num, args):
             elif args.conv2 != 0:
                 outputs = conv2d2(outputs)
                 outputs = conv_t2(outputs)
-
+            elif args.powersvd != 0:
+                if bool == 0:
+                    bool = 1
+                    power2 = PowerSGD(
+                        outputs,
+                        config=Config(
+                            rank=20,  # lower rank => more aggressive compression
+                            min_compression_rate=0,  # don't compress gradients with less compression
+                            num_iters_per_step=20,  #   # lower number => more aggressive compression
+                            start_compressing_after_num_steps=0,
+                        ),
+                    )
+                outputs = PowerPCA.apply(outputs, power2)
             # outputs = outputs.view(64,1280,7,7)
             outputs = layer3(outputs)
             # print(outputs)
@@ -333,6 +325,8 @@ def main_worker(rank, process_num, args):
                     outputs = conv_t(outputs)
                 elif args.channelquant != 0:
                     outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
+                elif args.powersvd != 0:
+                    outputs = PowerPCA.apply(outputs, power1)
                 outputs = layer2(outputs)
 
                 # if args.sortquant == 0:
@@ -362,6 +356,8 @@ def main_worker(rank, process_num, args):
                 elif args.conv2 != 0:
                     outputs = conv2d2(outputs)
                     outputs = conv_t2(outputs)
+                elif args.powersvd != 0:
+                    outputs = PowerPCA.apply(outputs, power2)
                 # outputs = outputs.view(64,1280,7,7)
                 outputs = layer3(outputs)
                 loss = criterion(outputs, label)

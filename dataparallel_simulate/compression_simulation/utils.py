@@ -13,6 +13,11 @@ from torch import autograd
 from fast_pytorch_kmeans import KMeans
 import time
 from functions import *
+from powersgd import PowerSGD
+
+
+def PowerPCAFunction(input: torch.tensor, powersgd: PowerSGD):
+    return powersgd._powersgd.aggregate(input)
 
 
 def relative_error(origin, quant):
@@ -715,3 +720,17 @@ class ChannelwiseQuantization(autograd.Function):
         grad_output = trans
 
         return grad_output, None
+
+
+class PowerPCA(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, powerpca):
+        ctx.powerpca = powerpca
+        list_of_output = PowerPCAFunction(input, powerpca)
+        return torch.stack(list_of_output)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        powerpca = ctx.powerpca
+        list_of_output = PowerPCAFunction(grad_output, powerpca)
+        return torch.stack(list_of_output), None

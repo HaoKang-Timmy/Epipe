@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+
+
 class EmbeddingAndAttention(nn.Module):
     def __init__(self, embedding_layer, attention_layer):
         super(EmbeddingAndAttention, self).__init__()
@@ -26,6 +28,8 @@ class CombineLayer(nn.Module):
             output = layer(output, mask)
             output = output[0]
         return output
+
+
 class nlp_sequential(nn.Module):
     def __init__(self, layers: list):
         super(nlp_sequential, self).__init__()

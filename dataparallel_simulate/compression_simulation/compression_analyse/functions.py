@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 import time
+from powersgd import PowerSGD, Config, optimizer_step
 
 
 def q10toint32():
@@ -364,6 +365,5 @@ def FastQuantization(input, bits, split_bits, min_step, downsample_rate=1):
     return min_step, output
 
 
-def ParallelSortQuantization(input, bits, split_bits, min_step):
-    shape_input = input.shape
-    input = input.view(2**split_bits, -1).type(torch.double)
+def PowerPCA(input: torch.tensor, powersgd: PowerSGD):
+    return powersgd._powersgd.aggregate(input)
