@@ -32,5 +32,11 @@
 # python3 dataparallel_test_nlp.py --task cola --quant 8 --log ./cola_q8.txt
 # python3 dataparallel_test_cv.py --conv2 --log ./cifar10_cnquant8_conv.txt --secondlayer
 # python3 dataparallel_test_cv.py --channelquant 10 --conv2 --log ./cifar10_cnquant10_conv.txt
-python3 dataparallel_test_nlp.py --task cola --sortquant --sort 2 --squant 4 --log ./cola_sq42.txt
-python3 dataparallel_test_nlp.py --task cola --quant 6 --log ./cola_q6.txt
+# python3 dataparallel_test_nlp.py --task cola --sortquant --sort 2 --squant 4 --log ./cola_sq42.txt
+# python3 dataparallel_test_nlp.py --task cola --quant 6 --log ./cola_q6.txt
+python3 dataparallel_test_cv.py --powersvd 1 --log cifar10_power1.txt
+python3 dataparallel_test_cv.py --powersvd 20 --log cifar10_power20.txt
+python3 dataparallel_test_cv.py --powersvd 10 --log cifar10_power10.txt
+python3 dataparallel_test_cv.py --powersvd 5 --log cifar10_power5.txt
+python3 dataparallel_test_cv.py --powersvd 3 --log cifar10_power3.txt
+# python3 dataparallel_test_cv.py --powersvd 1 --log cifar10_power1.txt

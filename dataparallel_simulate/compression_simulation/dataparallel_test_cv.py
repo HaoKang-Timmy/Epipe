@@ -191,7 +191,7 @@ def main_worker(rank, process_num, args):
     )
 
     criterion = nn.CrossEntropyLoss().to(rank)
-
+    bool = 0
     # optimizer = torch.optim.AdamW(params=model.parameters(), lr=1e-5)
     for epoch in range(args.epochs):
         layer1.train()
@@ -202,7 +202,7 @@ def main_worker(rank, process_num, args):
         train_acc1 = 0.0
         time_avg = 0.0
         start = time.time()
-        bool = 0
+
         for i, (image, label) in enumerate(train_loader):
 
             image = image.to(rank, non_blocking=True)
@@ -226,7 +226,7 @@ def main_worker(rank, process_num, args):
                     power1 = PowerSGD(
                         outputs,
                         config=Config(
-                            rank=20,  # lower rank => more aggressive compression
+                            rank=args.powersvd,  # lower rank => more aggressive compression
                             min_compression_rate=1,  # don't compress gradients with less compression
                             num_iters_per_step=20,  #   # lower number => more aggressive compression
                             start_compressing_after_num_steps=0,
@@ -250,7 +250,7 @@ def main_worker(rank, process_num, args):
                     power2 = PowerSGD(
                         outputs,
                         config=Config(
-                            rank=20,  # lower rank => more aggressive compression
+                            rank=args.powersvd,  # lower rank => more aggressive compression
                             min_compression_rate=0,  # don't compress gradients with less compression
                             num_iters_per_step=20,  #   # lower number => more aggressive compression
                             start_compressing_after_num_steps=0,
