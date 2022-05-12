@@ -155,7 +155,6 @@ def main_worker(rank, process_num, args):
         linear3 = torch.nn.Linear(768, 224).to(rank)
         linear4 = torch.nn.Linear(224, 768).to(rank)
     # print(args.kmeans)
-    kmeanslayer = KMeansLayer(args.kmeans, rank).to(rank)
     part1 = torch.nn.parallel.DistributedDataParallel(part1)
     part2 = torch.nn.parallel.DistributedDataParallel(part2)
     part3 = torch.nn.parallel.DistributedDataParallel(part3)
@@ -227,10 +226,10 @@ def main_worker(rank, process_num, args):
                 outputs = topk_layer(outputs)
             if args.quant != 0:
                 outputs = Fakequantize.apply(outputs, args.quant)
-            if args.kmeans != 0:
-                outputs = kmeanslayer(outputs)
-                # if rank == 1:
-                # print("first output",outputs)
+            # if args.kmeans != 0:
+            #     outputs = kmeanslayer(outputs)
+            # if rank == 1:
+            # print("first output",outputs)
             if args.pca != 0:
                 outputs = PCAQuantize.apply(outputs, args.pca)
             if args.linear != 0:
@@ -246,10 +245,10 @@ def main_worker(rank, process_num, args):
                 outputs = topk_layer(outputs)
             if args.quant != 0:
                 outputs = Fakequantize.apply(outputs, args.quant)
-            if args.kmeans != 0:
-                outputs = kmeanslayer(outputs)
-                # if rank == 1:
-                #     print("first output",outputs)
+            # if args.kmeans != 0:
+            #     outputs = kmeanslayer(outputs)
+            # if rank == 1:
+            #     print("first output",outputs)
             if args.pca != 0:
                 outputs = PCAQuantize.apply(outputs, args.pca)
             if args.linear != 0:
@@ -313,8 +312,8 @@ def main_worker(rank, process_num, args):
                     outputs = topk_layer(outputs)
                 if args.quant != 0:
                     outputs = Fakequantize.apply(outputs, args.quant)
-                if args.kmeans != 0:
-                    outputs = kmeanslayer(outputs)
+                # if args.kmeans != 0:
+                #     outputs = kmeanslayer(outputs)
                 if args.pca != 0:
                     outputs = PCAQuantize.apply(outputs, args.pca)
                 if args.linear != 0:
@@ -330,8 +329,8 @@ def main_worker(rank, process_num, args):
                     outputs = topk_layer(outputs)
                 if args.quant != 0:
                     outputs = Fakequantize.apply(outputs, args.quant)
-                if args.kmeans != 0:
-                    outputs = kmeanslayer(outputs)
+                # if args.kmeans != 0:
+                #     outputs = kmeanslayer(outputs)
                 if args.pca != 0:
                     outputs = PCAQuantize.apply(outputs, args.pca)
                 if args.linear != 0:

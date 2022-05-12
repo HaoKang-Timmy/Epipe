@@ -764,3 +764,18 @@ class ReshapeSVD(autograd.Function):
         output = torch.matmul(output[..., :, :], V[..., :, :])
         output = output.view(shape)
         return output, None
+
+
+class PowerIter(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, p_buffer, q_buffer, iter):
+        ctx.p_buffer, ctx.q_buffer = p_buffer, q_buffer
+        for i in iter:
+            if i == iter - 1:
+                p_buffer[0][:] = torch.linalg.qr(p_buffer[0]).Q
+            q_buffer[0] = input @ p_buffer[0]
+            if i == iter - 1:
+                q_buffer[0][:] = torch.linalg.qr(q_buffer[0]).Q
+            p_buffer[0] = input.permute((0, 1, 3, 2)) @ q_buffer[0]
+
+        return q_buffer[0] @ p_buffer[0].permute((0, 1, 3, 2))
