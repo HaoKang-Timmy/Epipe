@@ -52,4 +52,9 @@
 # python3 dataparallel_test_cv.py --svd 3 --log cifar10_reshapesvd3.txt
 # python3 dataparallel_test_cv.py --svd 5 --log cifar10_reshapesvd5.txt
 # python3 dataparallel_test_cv.py --svd 4 --log cifar10_reshapesvd4.txt
-python3 dataparallel_test_cv.py --powersvd 3 --log cifar10_power3_modified.txt
+python3 dataparallel_test_cv.py --powersvd 5 --powersvd1 7 --poweriter 3 --log cifar10_powersvd5_7_3.txt
+python3 dataparallel_test_cv.py --powersvd 5 --powersvd1 7 --poweriter 2 --log cifar10_powersvd5_7_2.txt
+python3 dataparallel_test_cv.py --powersvd 7 --powersvd1 7 --poweriter 2 --log cifar10_powersvd7_7_2.txt
+python3 dataparallel_test_cv1.py --powersvd 3 --powersvd1 7 --poweriter 4 --log 1cifar10_powersvd3_7_4.txt
+python3 dataparallel_test_cv1.py --powersvd 3 --powersvd1 7 --poweriter 2 --log 1cifar10_powersvd3_7_2.txt
+python3 dataparallel_test_cv1.py --powersvd 4 --powersvd1 7 --poweriter 2 --log 1cifar10_powersvd4_7_2.txt

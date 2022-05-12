@@ -249,7 +249,7 @@ def main_worker(rank, process_num, args):
                     #         ),
                     #     )
                     # outputs = PowerPCA.apply(outputs, power1)
-                    svd1 = PowerSVDLayer(
+                    svd1 = PowerSVDLayer1(
                         args.powersvd, list(outputs.shape), args.poweriter
                     ).to(rank)
                 outputs = svd1(outputs)
