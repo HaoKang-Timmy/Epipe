@@ -34,9 +34,22 @@
 # python3 dataparallel_test_cv.py --channelquant 10 --conv2 --log ./cifar10_cnquant10_conv.txt
 # python3 dataparallel_test_nlp.py --task cola --sortquant --sort 2 --squant 4 --log ./cola_sq42.txt
 # python3 dataparallel_test_nlp.py --task cola --quant 6 --log ./cola_q6.txt
-python3 dataparallel_test_cv.py --powersvd 1 --log cifar10_power1.txt
-python3 dataparallel_test_cv.py --powersvd 20 --log cifar10_power20.txt
-python3 dataparallel_test_cv.py --powersvd 10 --log cifar10_power10.txt
-python3 dataparallel_test_cv.py --powersvd 5 --log cifar10_power5.txt
-python3 dataparallel_test_cv.py --powersvd 3 --log cifar10_power3.txt
+# python3 dataparallel_test_cv.py --powersvd 7 --poweriter 2 --log cifar10_power7_iter2.txt
+# python3 dataparallel_test_cv.py --powersvd 5 --poweriter 2 --log cifar10_power5_iter2.txt
+# python3 dataparallel_test_cv.py --powersvd 1 --poweriter 2 --log cifar10_power1_iter2.txt
+# python3 dataparallel_test_cv.py --powersvd 1 --poweriter 5 --log cifar10_power1_iter5.txt
+# python3 dataparallel_test_cv.py --powersvd 1 --poweriter 10 --log cifar10_power1_iter10.txt
+# python3 dataparallel_test_cv.py --powersvd 3 --poweriter 2 --log cifar10_power3_iter2.txt
+# python3 dataparallel_test_cv.py --powersvd 10 --poweriter 2 --log cifar10_power10_iter2.txt
+# python3 dataparallel_test_cv.py --powersvd 15 --poweriter 2 --log cifar15_power10_iter2.txt
+# python3 dataparallel_test_cv.py --powersvd 20 --poweriter 2 --log cifar10_power20_iter2.txt
+# python3 dataparallel_test_cv.py --powersvd 3 --log cifar10_power3.txt
+# python3 dataparallel_test_cv.py --powersvd 20 --log cifar10_power20.txt
+# python3 dataparallel_test_cv.py --powersvd 10 --log cifar10_power10.txt
+# python3 dataparallel_test_cv.py --powersvd 5 --log cifar10_power5.txt
+
 # python3 dataparallel_test_cv.py --powersvd 1 --log cifar10_power1.txt
+# python3 dataparallel_test_cv.py --svd 3 --log cifar10_reshapesvd3.txt
+# python3 dataparallel_test_cv.py --svd 5 --log cifar10_reshapesvd5.txt
+# python3 dataparallel_test_cv.py --svd 4 --log cifar10_reshapesvd4.txt
+python3 dataparallel_test_cv.py --powersvd 3 --log cifar10_power3_modified.txt

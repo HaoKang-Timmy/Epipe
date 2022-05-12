@@ -734,3 +734,33 @@ class PowerPCA(autograd.Function):
         powerpca = ctx.powerpca
         list_of_output = PowerPCAFunction(grad_output, powerpca)
         return torch.stack(list_of_output), None
+
+
+class ReshapeSVD(autograd.Function):
+    @staticmethod
+    def forward(ctx, input, q=1):
+        ctx.q = q
+        shape = input.shape
+        input = input.view(int(shape[0]), int(shape[1]), -1)
+        U, S, V = torch.svd_lowrank(input, q=q)
+        V = V.transpose(-1, -2)
+        S = torch.diag_embed(S)
+
+        output = torch.matmul(U[..., :, :], S[..., :, :])
+        output = torch.matmul(output[..., :, :], V[..., :, :])
+        output = output.view(shape)
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        q = ctx.q
+        shape = grad_output.shape
+        grad_output = grad_output.view(int(shape[0]), int(shape[1]), -1)
+        U, S, V = torch.svd_lowrank(grad_output, q=q)
+        V = V.transpose(-1, -2)
+        S = torch.diag_embed(S)
+
+        output = torch.matmul(U[..., :, :], S[..., :, :])
+        output = torch.matmul(output[..., :, :], V[..., :, :])
+        output = output.view(shape)
+        return output, None

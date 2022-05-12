@@ -24,6 +24,7 @@ from utils import (
     FSQBQ,
     ChannelwiseQuantization,
     PowerPCA,
+    ReshapeSVD,
 )
 from powersgd import PowerSGD, Config, optimizer_step
 
@@ -52,6 +53,8 @@ parser.add_argument("--conv1", default=0, action="store_true")
 parser.add_argument("--conv2", default=0, action="store_true")
 parser.add_argument("--conv1kernel", default=0, type=tuple)
 parser.add_argument("--powersvd", default=0, type=int)
+parser.add_argument("--poweriter", default=2, type=int)
+parser.add_argument("--svd", default=0, type=int)
 
 
 def get_lr(optimizer):
@@ -228,11 +231,13 @@ def main_worker(rank, process_num, args):
                         config=Config(
                             rank=args.powersvd,  # lower rank => more aggressive compression
                             min_compression_rate=1,  # don't compress gradients with less compression
-                            num_iters_per_step=20,  #   # lower number => more aggressive compression
+                            num_iters_per_step=args.poweriter,  #   # lower number => more aggressive compression
                             start_compressing_after_num_steps=0,
                         ),
                     )
                 outputs = PowerPCA.apply(outputs, power1)
+            elif args.svd != 0:
+                outputs = ReshapeSVD.apply(outputs, args.svd)
             outputs = layer2(outputs)
 
             if args.sortquant != 0:
@@ -252,11 +257,13 @@ def main_worker(rank, process_num, args):
                         config=Config(
                             rank=args.powersvd,  # lower rank => more aggressive compression
                             min_compression_rate=0,  # don't compress gradients with less compression
-                            num_iters_per_step=20,  #   # lower number => more aggressive compression
+                            num_iters_per_step=args.poweriter,  #   # lower number => more aggressive compression
                             start_compressing_after_num_steps=0,
                         ),
                     )
                 outputs = PowerPCA.apply(outputs, power2)
+            elif args.svd != 0:
+                outputs = ReshapeSVD.apply(outputs, args.svd)
             # outputs = outputs.view(64,1280,7,7)
             outputs = layer3(outputs)
             # print(outputs)
@@ -327,6 +334,8 @@ def main_worker(rank, process_num, args):
                     outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
                 elif args.powersvd != 0:
                     outputs = PowerPCA.apply(outputs, power1)
+                elif args.svd != 0:
+                    outputs = ReshapeSVD.apply(outputs, args.svd)
                 outputs = layer2(outputs)
 
                 # if args.sortquant == 0:
@@ -358,6 +367,8 @@ def main_worker(rank, process_num, args):
                     outputs = conv_t2(outputs)
                 elif args.powersvd != 0:
                     outputs = PowerPCA.apply(outputs, power2)
+                elif args.svd != 0:
+                    outputs = ReshapeSVD.apply(outputs, args.svd)
                 # outputs = outputs.view(64,1280,7,7)
                 outputs = layer3(outputs)
                 loss = criterion(outputs, label)

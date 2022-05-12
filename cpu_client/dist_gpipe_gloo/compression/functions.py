@@ -364,6 +364,13 @@ def FastQuantization(input, bits, split_bits, min_step, downsample_rate=1):
     return min_step, output
 
 
-def ParallelSortQuantization(input, bits, split_bits, min_step):
-    shape_input = input.shape
-    input = input.view(2**split_bits, -1).type(torch.double)
+# 4D input
+def PowerSVD(
+    input: torch.tensor, q_buffer: torch.tensor, p_buffer: torch.tensor, n_iter
+):
+    for i in range(n_iter):
+        p_buffer = input.matmul(q_buffer)
+        p_buffer = torch.linalg.qr(p_buffer).Q
+        q_buffer = input.permute((0, 1, 3, 2))
+        q_buffer = q_buffer.matmul(p_buffer)
+    return p_buffer, q_buffer
