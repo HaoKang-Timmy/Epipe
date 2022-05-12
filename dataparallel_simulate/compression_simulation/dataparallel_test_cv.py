@@ -143,11 +143,15 @@ def main_worker(rank, process_num, args):
     layer2 = torch.nn.parallel.DistributedDataParallel(layer2)
     layer3 = torch.nn.parallel.DistributedDataParallel(layer3)
     if args.conv1 != 0:
-        conv2d = torch.nn.Conv2d(32, 16, (3, 3), (3, 3)).to(rank)
-        conv_t = torch.nn.ConvTranspose2d(16, 32, (3, 3), (3, 3)).to(rank)
+        conv2d = torch.nn.Conv2d(32, 32, (2, 2), (2, 2)).to(rank)
+        conv_t = torch.nn.ConvTranspose2d(32, 32, (2, 2), (2, 2)).to(rank)
+        conv2d1 = torch.nn.Conv2d(32, 32, (2, 2), (2, 2)).to(rank)
+        conv_t1 = torch.nn.ConvTranspose2d(32, 32, (2, 2), (2, 2)).to(rank)
     if args.conv2 != 0:
-        conv2d2 = torch.nn.Conv2d(1280, 160, (1, 1)).to(rank)
-        conv_t2 = torch.nn.ConvTranspose2d(160, 1280, (1, 1)).to(rank)
+        conv2d2 = torch.nn.Conv2d(1280, 320, (1, 1)).to(rank)
+        conv_t2 = torch.nn.ConvTranspose2d(320, 1280, (1, 1)).to(rank)
+        conv2d3 = torch.nn.Conv2d(320, 160, (1, 1)).to(rank)
+        conv_t3 = torch.nn.ConvTranspose2d(160, 320, (1, 1)).to(rank)
     if args.conv1 == 0 and args.conv2 == 0:
         optimizer = torch.optim.SGD(
             [
@@ -179,9 +183,13 @@ def main_worker(rank, process_num, args):
                 {"params": layer2.parameters()},
                 {"params": layer3.parameters()},
                 {"params": conv2d.parameters(), "lr": args.lr},
-                {"params": conv_t.parameters(), "lr": args.lr},
+                {"params": conv2d1.parameters(), "lr": args.lr},
                 {"params": conv2d2.parameters(), "lr": args.lr},
+                {"params": conv2d3.parameters(), "lr": args.lr},
+                {"params": conv_t.parameters(), "lr": args.lr},
+                {"params": conv_t1.parameters(), "lr": args.lr},
                 {"params": conv_t2.parameters(), "lr": args.lr},
+                {"params": conv_t3.parameters(), "lr": args.lr},
             ],
             lr=args.lr,
             momentum=0.9,
@@ -220,6 +228,8 @@ def main_worker(rank, process_num, args):
                 outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
             elif args.conv1 != 0:
                 outputs = conv2d(outputs)
+                outputs = conv2d1(outputs)
+                outputs = conv_t1(outputs)
                 outputs = conv_t(outputs)
             elif args.channelquant != 0:
                 outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
@@ -248,6 +258,8 @@ def main_worker(rank, process_num, args):
                 outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
             elif args.conv2 != 0:
                 outputs = conv2d2(outputs)
+                outputs = conv2d3(outputs)
+                outputs = conv_t3(outputs)
                 outputs = conv_t2(outputs)
             elif args.powersvd != 0:
                 if bool == 0:
@@ -329,6 +341,8 @@ def main_worker(rank, process_num, args):
                     outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
                 elif args.conv1 != 0:
                     outputs = conv2d(outputs)
+                    outputs = conv2d1(outputs)
+                    outputs = conv_t1(outputs)
                     outputs = conv_t(outputs)
                 elif args.channelquant != 0:
                     outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
@@ -338,24 +352,6 @@ def main_worker(rank, process_num, args):
                     outputs = ReshapeSVD.apply(outputs, args.svd)
                 outputs = layer2(outputs)
 
-                # if args.sortquant == 0:
-                #     if args.prune != 0:
-                #         outputs = topk_layer(outputs)
-                #         # print("prun")
-                #     if args.avgpool != 0:
-                #         outputs = avgpool2(outputs)
-                #         # print("avg")
-                #     if args.quant != 0:
-                #         outputs = Fakequantize.apply(outputs, args.quant)
-                #         # print("quant")
-                #     if args.avgpool != 0:
-                #         outputs = upsample2(outputs)
-                #         # print("avg")
-                #     if args.pca2 != 0:
-                #         outputs = Fakequantize.apply(outputs, args.pca2)
-                # elif args.sortquant != 0:
-                #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
-                # outputs = outputs.view(64,1280,49)
                 if args.sortquant != 0:
                     outputs = FastQuantization.apply(outputs, args.quant, args.split)
                 elif args.qsq != 0:
@@ -364,6 +360,8 @@ def main_worker(rank, process_num, args):
                     outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
                 elif args.conv2 != 0:
                     outputs = conv2d2(outputs)
+                    outputs = conv2d3(outputs)
+                    outputs = conv_t3(outputs)
                     outputs = conv_t2(outputs)
                 elif args.powersvd != 0:
                     outputs = PowerPCA.apply(outputs, power2)
