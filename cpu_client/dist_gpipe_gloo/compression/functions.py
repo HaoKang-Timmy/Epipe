@@ -364,13 +364,20 @@ def FastQuantization(input, bits, split_bits, min_step, downsample_rate=1):
     return min_step, output
 
 
-# 4D input
-def PowerSVD(
-    input: torch.tensor, q_buffer: torch.tensor, p_buffer: torch.tensor, n_iter
-):
+# 4D input view 3D
+def PowerSVD(input: torch.tensor, q_buffer: list, p_buffer: list, n_iter):
+    shape = input.shape
+    input = input.view(int(input.shape[0]), int(input.shape[1]), -1)
     for i in range(n_iter):
-        p_buffer = input.matmul(q_buffer)
-        p_buffer = torch.linalg.qr(p_buffer).Q
-        q_buffer = input.permute((0, 1, 3, 2))
-        q_buffer = q_buffer.matmul(p_buffer)
-    return p_buffer, q_buffer
+        if i == iter - 1:
+            p_buffer[0] = torch.linalg.qr(p_buffer[0]).Q
+        q_buffer[0] = input @ p_buffer[0]
+        if i == iter - 1:
+            q_buffer[0] = torch.linalg.qr(q_buffer[0]).Q
+        p_buffer[0] = input.permute((0, 2, 1)) @ q_buffer[0]
+    input = input.view(shape)
+    return p_buffer[0], q_buffer[0]
+
+
+def PowerSVDDecompress(p: torch.tensor, q: torch.tensor, shape):
+    return (q @ p.permute((0, 2, 1))).view(shape)

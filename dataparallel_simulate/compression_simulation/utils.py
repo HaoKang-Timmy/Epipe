@@ -811,7 +811,7 @@ class PowerSVDLayer(nn.Module):
 
 class PowerSVD1(autograd.Function):
     @staticmethod
-    def forward(ctx, input, p_buffer, q_buffer, iter):
+    def forward(ctx, input, p_buffer, q_buffer, iter, grad_p_buffer, grad_q_buffer):
         shape = input.shape
         input = input.view(int(input.shape[0]), int(input.shape[1]), -1)
         for i in range(iter):
@@ -821,9 +821,11 @@ class PowerSVD1(autograd.Function):
             if i == iter - 1:
                 q_buffer[0] = torch.linalg.qr(q_buffer[0]).Q
             p_buffer[0] = input.permute((0, 2, 1)) @ q_buffer[0]
-        ctx.p_buffer, ctx.q_buffer = p_buffer, q_buffer
+        ctx.p_buffer, ctx.q_buffer = grad_p_buffer, grad_q_buffer
         ctx.iter, ctx.shape = iter, shape
-        return (q_buffer[0] @ p_buffer[0].permute((0, 2, 1))).view(shape)
+        result = (q_buffer[0] @ p_buffer[0].permute((0, 2, 1))).view(shape)
+
+        return result
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -839,8 +841,10 @@ class PowerSVD1(autograd.Function):
             if i == iter - 1:
                 q_buffer[0] = torch.linalg.qr(q_buffer[0]).Q
             p_buffer[0] = grad_output.permute((0, 2, 1)) @ q_buffer[0]
+        result = (q_buffer[0] @ p_buffer[0].permute((0, 2, 1))).view(shape)
         return (
-            (q_buffer[0] @ p_buffer[0].permute((0, 2, 1))).view(shape),
+            result,
+            None,
             None,
             None,
             None,
@@ -857,8 +861,21 @@ class PowerSVDLayer1(nn.Module):
         self.q_buffer = torch.nn.Parameter(
             torch.randn((int(shape[0]), int(shape[1]), rank))
         )
+        self.grad_p_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[2] * shape[3]), rank))
+        )
+        self.grad_q_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[1]), rank))
+        )
         # print(self.p_buffer.shape,self.q_buffer.shape)
         self.iter = iter
 
     def forward(self, input):
-        return PowerSVD1.apply(input, [self.p_buffer], [self.q_buffer], self.iter)
+        return PowerSVD1.apply(
+            input,
+            [self.p_buffer],
+            [self.q_buffer],
+            self.iter,
+            [self.grad_p_buffer],
+            [self.grad_q_buffer],
+        )

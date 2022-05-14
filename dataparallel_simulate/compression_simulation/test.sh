@@ -58,3 +58,5 @@ python3 dataparallel_test_cv.py --powersvd 7 --powersvd1 7 --poweriter 2 --log c
 python3 dataparallel_test_cv1.py --powersvd 3 --powersvd1 7 --poweriter 4 --log 1cifar10_powersvd3_7_4.txt
 python3 dataparallel_test_cv1.py --powersvd 3 --powersvd1 7 --poweriter 2 --log 1cifar10_powersvd3_7_2.txt
 python3 dataparallel_test_cv1.py --powersvd 4 --powersvd1 7 --poweriter 2 --log 1cifar10_powersvd4_7_2.txt
+python3 dataparallel_test_cv1.py --powersvd 2 --powersvd1 7 --poweriter 2 --log 1cifar10_powersvd2_7_2.txt
+

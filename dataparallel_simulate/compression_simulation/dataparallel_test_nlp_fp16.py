@@ -21,6 +21,7 @@ from utils import (
     EmbeddingAndAttention,
 )
 from torch.optim import AdamW
+from torch.cuda.amp import GradScaler, autocast
 
 
 class nlp_sequential(nn.Module):
@@ -136,7 +137,6 @@ def main_worker(rank, process_num, args):
     # model
     epochs = args.epochs
     model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
-
     embedding = model.roberta.embeddings
     attention = model.roberta.encoder.layer[0].attention
     medium = model.roberta.encoder.layer[0].intermediate
@@ -149,15 +149,13 @@ def main_worker(rank, process_num, args):
     part1.to(rank)
     part2.to(rank)
     part3.to(rank)
+
     if args.linear != 0:
         linear1 = torch.nn.Linear(768, 224).to(rank)
         linear2 = torch.nn.Linear(224, 768).to(rank)
         linear3 = torch.nn.Linear(768, 224).to(rank)
         linear4 = torch.nn.Linear(224, 768).to(rank)
-    # print(args.kmeans)
-    part1 = torch.nn.parallel.DistributedDataParallel(part1)
-    part2 = torch.nn.parallel.DistributedDataParallel(part2)
-    part3 = torch.nn.parallel.DistributedDataParallel(part3)
+
     if args.linear == 0:
         optimizer = AdamW(
             [
@@ -180,6 +178,10 @@ def main_worker(rank, process_num, args):
             ],
             lr=args.lr,
         )
+
+    part1 = torch.nn.parallel.DistributedDataParallel(part1)
+    part2 = torch.nn.parallel.DistributedDataParallel(part2)
+    part3 = torch.nn.parallel.DistributedDataParallel(part3)
     lr_scheduler = get_scheduler(
         name="polynomial",
         optimizer=optimizer,
@@ -190,6 +192,7 @@ def main_worker(rank, process_num, args):
     print(len(val_dataloader))
     criterion = nn.CrossEntropyLoss().to(rank)
     topk_layer = TopkLayer(args.prun).to(rank)
+    scaler = GradScaler()
     for epoch in range(epochs):
         part1.train()
         part2.train()
@@ -199,9 +202,10 @@ def main_worker(rank, process_num, args):
         time_avg = 0.0
         train_sampler.set_epoch(epoch)
         for i, batch in enumerate(train_dataloader):
+            optimizer.zero_grad()
+
             start = time.time()
             batch = {k: v.to(rank) for k, v in batch.items()}
-            optimizer.zero_grad()
             batch["attention_mask"] = (
                 torch.reshape(
                     batch["attention_mask"],
@@ -213,59 +217,62 @@ def main_worker(rank, process_num, args):
                     ],
                 )
                 .to(rank)
-                .type(torch.float32)
+                .type(torch.float16)
             )
-            batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
-            outputs = part1(batch["input_ids"], batch["attention_mask"])
+            batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
 
-            # print(outputs)
-            # loss = outputs.loss
-            # print(outputs.shape)
+            with autocast():
+                outputs = part1(batch["input_ids"], batch["attention_mask"])
 
-            if args.prun != 0:
-                outputs = topk_layer(outputs)
-            if args.quant != 0:
-                outputs = Fakequantize.apply(outputs, args.quant)
-            # if args.kmeans != 0:
-            #     outputs = kmeanslayer(outputs)
-            # if rank == 1:
-            # print("first output",outputs)
-            if args.pca != 0:
-                outputs = PCAQuantize.apply(outputs, args.pca)
-            if args.linear != 0:
-                outputs = linear1(outputs)
-                outputs = linear2(outputs)
-            if args.sortquant != 0:
-                outputs = SortQuantization.apply(
-                    outputs, args.quant, args.prun, args.sort
-                )
-            outputs = part2(outputs, batch["attention_mask"])
+                # loss = outputs.loss
+                # print(outputs.shape)
 
-            if args.prun != 0:
-                outputs = topk_layer(outputs)
-            if args.quant != 0:
-                outputs = Fakequantize.apply(outputs, args.quant)
-            # if args.kmeans != 0:
-            #     outputs = kmeanslayer(outputs)
-            # if rank == 1:
-            #     print("first output",outputs)
-            if args.pca != 0:
-                outputs = PCAQuantize.apply(outputs, args.pca)
-            if args.linear != 0:
-                outputs = linear3(outputs)
-                outputs = linear4(outputs)
-            if args.sortquant != 0:
-                outputs = SortQuantization.apply(
-                    outputs, args.quant, args.prun, args.sort
-                )
+                if args.prun != 0:
+                    outputs = topk_layer(outputs)
+                if args.quant != 0:
+                    outputs = Fakequantize.apply(outputs, args.quant)
+                # if args.kmeans != 0:
+                #     outputs = kmeanslayer(outputs)
+                # if rank == 1:
+                # print("first output",outputs)
+                if args.pca != 0:
+                    outputs = PCAQuantize.apply(outputs, args.pca)
+                if args.linear != 0:
+                    outputs = linear1(outputs)
+                    outputs = linear2(outputs)
+                if args.sortquant != 0:
+                    outputs = SortQuantization.apply(
+                        outputs, args.quant, args.prun, args.sort
+                    )
+                outputs = part2(outputs, batch["attention_mask"])
+                print(outputs.dtype)
+                if args.prun != 0:
+                    outputs = topk_layer(outputs)
+                if args.quant != 0:
+                    outputs = Fakequantize.apply(outputs, args.quant)
+                # if args.kmeans != 0:
+                #     outputs = kmeanslayer(outputs)
+                # if rank == 1:
+                #     print("first output",outputs)
+                if args.pca != 0:
+                    outputs = PCAQuantize.apply(outputs, args.pca)
+                if args.linear != 0:
+                    outputs = linear3(outputs)
+                    outputs = linear4(outputs)
+                if args.sortquant != 0:
+                    outputs = SortQuantization.apply(
+                        outputs, args.quant, args.prun, args.sort
+                    )
 
-            outputs = part3(outputs)
-            logits = outputs
-            loss = criterion(logits, batch["labels"])
-            pred = torch.argmax(logits, dim=1)
-            acc = metric_acc.compute(predictions=pred, references=batch["labels"])
-            loss.backward()
-            optimizer.step()
+                outputs = part3(outputs)
+                logits = outputs
+                # batch["labels"] = batch["labels"].type(torch.float16)
+                loss = criterion(logits, batch["labels"])
+                pred = torch.argmax(logits, dim=1)
+                acc = metric_acc.compute(predictions=pred, references=batch["labels"])
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
             lr_scheduler.step()
             train_loss += loss.item()
             train_acc1 += acc["accuracy"]
@@ -300,7 +307,7 @@ def main_worker(rank, process_num, args):
                         ],
                     )
                     .to(rank)
-                    .type(torch.float32)
+                    .type(torch.float16)
                 )
                 batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
                 outputs = part1(batch["input_ids"], batch["attention_mask"])
@@ -343,6 +350,7 @@ def main_worker(rank, process_num, args):
                 outputs = part3(outputs)
                 logits = outputs
                 loss = criterion(logits, batch["labels"])
+
                 pred = torch.argmax(logits, dim=1)
                 acc = metric_acc.compute(predictions=pred, references=batch["labels"])
                 metric_mat.add_batch(predictions=pred, references=batch["labels"])
