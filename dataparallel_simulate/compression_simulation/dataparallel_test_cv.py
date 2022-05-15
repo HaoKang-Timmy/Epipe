@@ -146,15 +146,12 @@ def main_worker(rank, process_num, args):
     layer2 = torch.nn.parallel.DistributedDataParallel(layer2)
     layer3 = torch.nn.parallel.DistributedDataParallel(layer3)
     if args.conv1 != 0:
-        conv2d = torch.nn.Conv2d(32, 32, (2, 2), (2, 2)).to(rank)
-        conv_t = torch.nn.ConvTranspose2d(32, 32, (2, 2), (2, 2)).to(rank)
-        conv2d1 = torch.nn.Conv2d(32, 32, (2, 2), (2, 2)).to(rank)
-        conv_t1 = torch.nn.ConvTranspose2d(32, 32, (2, 2), (2, 2)).to(rank)
+        conv2d = torch.nn.Conv2d(32, 32, (4, 4), (4, 4)).to(rank)
+        conv_t = torch.nn.ConvTranspose2d(32, 32, (4, 4), (4, 4)).to(rank)
     if args.conv2 != 0:
-        conv2d2 = torch.nn.Conv2d(1280, 320, (1, 1)).to(rank)
-        conv_t2 = torch.nn.ConvTranspose2d(320, 1280, (1, 1)).to(rank)
-        conv2d3 = torch.nn.Conv2d(320, 160, (1, 1)).to(rank)
-        conv_t3 = torch.nn.ConvTranspose2d(160, 320, (1, 1)).to(rank)
+        conv2d1 = torch.nn.Conv2d(1280, 320, (1, 1)).to(rank)
+
+        conv_t1 = torch.nn.ConvTranspose2d(320, 1280, (1, 1)).to(rank)
     if args.conv1 == 0 and args.conv2 == 0:
         optimizer = torch.optim.SGD(
             [
@@ -165,20 +162,20 @@ def main_worker(rank, process_num, args):
             lr=args.lr,
             momentum=0.9,
         )
-    elif args.conv2 != 0 and args.conv1 == 0:
-        optimizer = torch.optim.SGD(
-            [
-                {"params": layer1.parameters()},
-                {"params": layer2.parameters()},
-                {"params": layer3.parameters()},
-                # {"params": conv2d.parameters(), "lr": args.lr},
-                # {"params": conv_t.parameters(), "lr": args.lr},
-                {"params": conv2d2.parameters(), "lr": args.lr},
-                {"params": conv_t2.parameters(), "lr": args.lr},
-            ],
-            lr=args.lr,
-            momentum=0.9,
-        )
+    # elif args.conv2 != 0 and args.conv1 == 0:
+    #     optimizer = torch.optim.SGD(
+    #         [
+    #             {"params": layer1.parameters()},
+    #             {"params": layer2.parameters()},
+    #             {"params": layer3.parameters()},
+    #             # {"params": conv2d.parameters(), "lr": args.lr},
+    #             # {"params": conv_t.parameters(), "lr": args.lr},
+    #             {"params": conv2d2.parameters(), "lr": args.lr},
+    #             {"params": conv_t2.parameters(), "lr": args.lr},
+    #         ],
+    #         lr=args.lr,
+    #         momentum=0.9,
+    #     )
     else:
         optimizer = torch.optim.SGD(
             [
@@ -186,13 +183,13 @@ def main_worker(rank, process_num, args):
                 {"params": layer2.parameters()},
                 {"params": layer3.parameters()},
                 {"params": conv2d.parameters(), "lr": args.lr},
+                # {"params": conv2d1.parameters(), "lr": args.lr},
                 {"params": conv2d1.parameters(), "lr": args.lr},
-                {"params": conv2d2.parameters(), "lr": args.lr},
-                {"params": conv2d3.parameters(), "lr": args.lr},
+                # {"params": conv2d3.parameters(), "lr": args.lr},
                 {"params": conv_t.parameters(), "lr": args.lr},
                 {"params": conv_t1.parameters(), "lr": args.lr},
-                {"params": conv_t2.parameters(), "lr": args.lr},
-                {"params": conv_t3.parameters(), "lr": args.lr},
+                # {"params": conv_t2.parameters(), "lr": args.lr},
+                # {"params": conv_t3.parameters(), "lr": args.lr},
             ],
             lr=args.lr,
             momentum=0.9,
@@ -231,8 +228,8 @@ def main_worker(rank, process_num, args):
                 outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
             elif args.conv1 != 0:
                 outputs = conv2d(outputs)
-                outputs = conv2d1(outputs)
-                outputs = conv_t1(outputs)
+                # outputs = conv2d1(outputs)
+                # outputs = conv_t1(outputs)
                 outputs = conv_t(outputs)
             elif args.channelquant != 0:
                 outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
@@ -264,10 +261,10 @@ def main_worker(rank, process_num, args):
             elif args.svdq != 0:
                 outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
             elif args.conv2 != 0:
-                outputs = conv2d2(outputs)
-                outputs = conv2d3(outputs)
-                outputs = conv_t3(outputs)
-                outputs = conv_t2(outputs)
+                outputs = conv2d1(outputs)
+                # outputs = conv2d3(outputs)
+                # outputs = conv_t3(outputs)
+                outputs = conv_t1(outputs)
             elif args.powersvd1 != 0:
                 if bool == 0:
                     bool = 1
@@ -342,8 +339,8 @@ def main_worker(rank, process_num, args):
                     outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
                 elif args.conv1 != 0:
                     outputs = conv2d(outputs)
-                    outputs = conv2d1(outputs)
-                    outputs = conv_t1(outputs)
+                    # outputs = conv2d1(outputs)
+                    # outputs = conv_t1(outputs)
                     outputs = conv_t(outputs)
                 elif args.channelquant != 0:
                     outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
@@ -362,10 +359,10 @@ def main_worker(rank, process_num, args):
                 elif args.svdq != 0:
                     outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
                 elif args.conv2 != 0:
-                    outputs = conv2d2(outputs)
-                    outputs = conv2d3(outputs)
-                    outputs = conv_t3(outputs)
-                    outputs = conv_t2(outputs)
+                    outputs = conv2d1(outputs)
+                    # outputs = conv2d3(outputs)
+                    # outputs = conv_t3(outputs)
+                    outputs = conv_t1(outputs)
                 elif args.powersvd != 0:
                     # outputs = PowerPCA.apply(outputs, power2)
                     outputs = svd2(outputs)

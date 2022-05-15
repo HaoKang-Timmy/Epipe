@@ -123,25 +123,15 @@ def main_worker(rank, process_num, args):
     feature = model.features[0].children()
     conv = next(feature)
     bn = next(feature)
-    if args.secondlayer == 0:
-        layer1 = nn.Sequential(*[conv, bn])
-        layer2 = nn.Sequential(*[nn.ReLU6(inplace=False), model.features[1:]])
-        layer3 = nn.Sequential(*[Reshape1(), model.classifier])
-    else:
-        layer1 = nn.Sequential(*[model.features[0:1]])
-        layer2 = nn.Sequential(*[model.features[1:]])
-        layer3 = nn.Sequential(*[Reshape1(), model.classifier])
-    # quant_layer1 = QuantizationLayer(args.quant)
-    # dequant_layer1 = DequantizationLayer(args.quant)
-    # quant_layer2 = QuantizationLayer(args.quant)
-    # dequant_layer2 = DequantizationLayer(args.quant)
+
+    layer1 = nn.Sequential(*[conv, bn])
+    layer2 = nn.Sequential(*[nn.ReLU6(inplace=False), model.features[1:]])
+    layer3 = nn.Sequential(*[Reshape1(), model.classifier])
+
     layer1 = layer1.to(rank)
     layer2 = layer2.to(rank)
     layer3 = layer3.to(rank)
-    # quant_layer1 = quant_layer1.to(rank)
-    # dequant_layer1 = dequant_layer1.to(rank)
-    # quant_layer2 =quant_layer2.to(rank)
-    # dequant_layer2 = dequant_layer2.to(rank)
+
     layer1 = torch.nn.parallel.DistributedDataParallel(layer1)
     layer2 = torch.nn.parallel.DistributedDataParallel(layer2)
     layer3 = torch.nn.parallel.DistributedDataParallel(layer3)
@@ -238,23 +228,13 @@ def main_worker(rank, process_num, args):
                 outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
             elif args.powersvd != 0:
                 if bool == 0:
-
-                    #     power1 = PowerSGD(
-                    #         outputs,
-                    #         config=Config(
-                    #             rank=args.powersvd,  # lower rank => more aggressive compression
-                    #             min_compression_rate=1,  # don't compress gradients with less compression
-                    #             num_iters_per_step=args.poweriter,  #   # lower number => more aggressive compression
-                    #             start_compressing_after_num_steps=0,
-                    #         ),
-                    #     )
-                    # outputs = PowerPCA.apply(outputs, power1)
                     svd1 = PowerSVDLayer1(
                         args.powersvd, list(outputs.shape), args.poweriter
                     ).to(rank)
                 outputs = svd1(outputs)
             elif args.svd != 0:
                 outputs = ReshapeSVD.apply(outputs, args.svd)
+
             outputs = layer2(outputs)
 
             if args.sortquant != 0:
@@ -315,25 +295,7 @@ def main_worker(rank, process_num, args):
                 label = label.to(rank, non_blocking=True)
 
                 outputs = layer1(image)
-                # if args.sortquant == 0:
-                #     if args.prune != 0:
-                #         outputs = topk_layer(outputs)
-                #         # print("prun")
-                #     if args.avgpool != 0:
-                #         outputs = avgpool2(outputs)
-                #         # print("avg")
-                #     if args.quant != 0:
-                #         outputs = Fakequantize.apply(outputs, args.quant)
-                #         # print("quant")
-                #     if args.avgpool != 0:
-                #         outputs = upsample2(outputs)
-                #         # print("avg")
-                #     if args.pca1 != 0:
-                #         outputs = Fakequantize.apply(outputs, args.pca1)
-                # elif args.sortquant != 0:
-                #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
-                # # outputs,min,step = quant_layer1(outputs)
-                # outputs = dequant_layer1(outputs,min,step,quant_layer1.backward_min,quant_layer1.backward_step)
+
                 if args.sortquant != 0:
                     outputs = FastQuantization.apply(outputs, args.quant, args.split)
                 elif args.qsq != 0:
@@ -348,8 +310,6 @@ def main_worker(rank, process_num, args):
                 elif args.channelquant != 0:
                     outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
                 elif args.powersvd != 0:
-                    # outputs = PowerPCA.apply(outputs, power1)
-                    # layer = PowerSVDLayer(args.powersvd, list(outputs.shape),args.poweriter)
                     outputs = svd1(outputs)
                 elif args.svd != 0:
                     outputs = ReshapeSVD.apply(outputs, args.svd)
@@ -366,7 +326,7 @@ def main_worker(rank, process_num, args):
                     outputs = conv2d3(outputs)
                     outputs = conv_t3(outputs)
                     outputs = conv_t2(outputs)
-                elif args.powersvd != 0:
+                elif args.powersvd1 != 0:
                     # outputs = PowerPCA.apply(outputs, power2)
                     outputs = svd2(outputs)
                 elif args.svd != 0:

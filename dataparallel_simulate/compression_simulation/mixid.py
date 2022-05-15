@@ -9,36 +9,19 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 import argparse
 import os
-from utils import (
-    Fakequantize,
-    TopkLayer,
-    SortQuantization,
-    KMeansLayer,
-    PCAQuantize,
-    combine_classifier,
-    combine_embeding,
-    CombineLayer,
-    EmbeddingAndAttention,
-)
 from torch.optim import AdamW
 from torch.cuda.amp import GradScaler, autocast
 
 
 parser = argparse.ArgumentParser(description="PyTorch nlp Training")
 
-parser.add_argument("--log", default="./my_gpipe", type=str)
+parser.add_argument("--log", default="./test.txt", type=str)
 parser.add_argument("--dataset", default="rte", type=str)
 parser.add_argument("--lr", default=2e-5, type=float)
 parser.add_argument("--epochs", default=20, type=int)
 parser.add_argument("--task", default="rte", type=str)
-parser.add_argument("--quant", default=0, type=int)
-parser.add_argument("--prun", default=0.0, type=float)
-parser.add_argument("--kmeans", default=0, type=int)
 parser.add_argument("--batches", default=8, type=int)
-parser.add_argument("--sort", default=0, type=int)
-parser.add_argument("--pca", default=0, type=int)
-parser.add_argument("--linear", default=0, action="store_true")
-parser.add_argument("--sortquant", default=0, action="store_true")
+parser.add_argument("--workers", default=4, type=int)
 task_to_keys = {
     "cola": ("sentence", None),
     "mnli": ("premise", "hypothesis"),
@@ -55,7 +38,7 @@ task_to_keys = {
 
 def main():
     args = parser.parse_args()
-    mp.spawn(main_worker, nprocs=4, args=(4, args))
+    mp.spawn(main_worker, nprocs=args.workers, args=(args.workers, args))
 
 
 def main_worker(rank, process_num, args):
