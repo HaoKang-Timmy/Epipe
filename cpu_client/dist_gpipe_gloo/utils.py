@@ -1,11 +1,3 @@
-"""
-Author: your name
-Date: 2022-04-09 01:27:35
-LastEditTime: 2022-04-12 19:43:03
-LastEditors: Please set LastEditors
-Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-FilePath: /research/gpipe_test/dist_gpipe_gloo/utils.py
-"""
 import torchvision.transforms as transforms
 import torchvision
 import os
@@ -92,8 +84,12 @@ def SendTensorCPU(input, settings, train_settings, chunk, edge=False):
             settings["rank"],
             settings["group_list"][chunk],
         )
-    elif train_settings["convinsert"] != 0:
-        output = train_settings["convlayer"](output)
+    # elif train_settings["convinsert"] != 0:
+    #     output = train_settings["convlayer"](output)
+    elif train_settings["poweriter1"] != 0:
+        output = train_settings["poweriter1_layer"](
+            input, settings["group_list"][chunk]
+        )
     else:
         # print("client send",settings["send_rank"],settings["rank"])
         output = FSBRFunctionClient.apply(
@@ -146,6 +142,10 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
                 settings["rank"],
                 settings["group_list"][chunk],
             )
+        elif train_settings["poweriter2"] != 0:
+            output = train_settings["poweriter2_layer"](
+                input, settings["group_list"][chunk]
+            )
         else:
             output = FSBRFunction.apply(
                 input,
@@ -196,6 +196,10 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
                 settings["rank"],
                 settings["group_list"][chunk],
             )
+        elif train_settings["poweriter1"] != 0:
+            output = train_settings["poweriter1_layer"](
+                input, settings["group_list"][chunk]
+            )
         else:
             # print("server recv",settings["recv_rank"],settings["rank"])
             output = FRBSFunction.apply(
@@ -245,6 +249,10 @@ def RecvTensorCPU(input, settings, train_settings, chunk, edge=False):
             settings["recv_rank"],
             settings["rank"],
             settings["group_list"][chunk],
+        )
+    elif train_settings["poweriter2"] != 0:
+        output = train_settings["poweriter2_layer"](
+            input, settings["group_list"][chunk]
         )
     else:
         output = FRBSFunctionClient.apply(
@@ -318,7 +326,9 @@ def make_dictions(
     client_train_settings["mix"] = args.mix
     client_train_settings["pca1"] = args.pca1
     client_train_settings["pca2"] = args.pca2
-    client_settings["tight"] = args.tight
+    client_train_settings["poweriter1"] = args.poweriter1
+    client_train_settings["poweriter2"] = args.poweriter2
+
     for server_num in range(len(devices) - 1):
         train_settings = {}
         server_settings = {}
@@ -349,10 +359,11 @@ def make_dictions(
         train_settings["quant"] = args.quant
         train_settings["pca1"] = args.pca1
         train_settings["pca2"] = args.pca2
+        train_settings["poweriter1"] = args.poweriter1
+        train_settings["poweriter2"] = args.poweriter2
         train_settings["mix"] = args.mix
         train_settings["len_trainloader"] = len(train_loader)
         train_settings["len_valloader"] = len(val_loader)
         server_settings_list.append(server_settings)
         server_train_settings_list.append(train_settings)
         server_settings["bandwidth"] = args.bandwidth
-        server_settings["tight"] = args.tight

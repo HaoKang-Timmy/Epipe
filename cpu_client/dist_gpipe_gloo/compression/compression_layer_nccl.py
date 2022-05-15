@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 import time
-from functions import *
+from .functions import *
 
 
 def create_sparse(input: torch.tensor, bit_saving=True):
@@ -858,11 +858,11 @@ class PowerSVDSendClient(autograd.Function):
     ):
         ctx.grad_p_buffer, ctx.grad_q_buffer = grad_p_buffer, grad_q_buffer
         ctx.recv_rank, ctx.pg, ctx.device = send_rank, pg, device
-        p, q = PowerSVD(input, q_buffer, p_buffer, n_iter)
-        p = p.to(device)
-        q = q.to(device)
-        dist.isend(p, send_rank, group=pg)
-        dist.isend(q, send_rank, group=pg)
+        PowerSVD(input, q_buffer, p_buffer, n_iter)
+        p_buffer[0] = p_buffer[0].to(device)
+        q_buffer[0] = q_buffer[0].to(device)
+        dist.isend(p_buffer[0], send_rank, group=pg)
+        dist.isend(q_buffer[0], send_rank, group=pg)
         return input
 
     @staticmethod
@@ -905,6 +905,7 @@ class PowerSVDRecvClient(autograd.Function):
         q_buffer[0] = q_buffer[0].to(device)
         dist.recv(p_buffer[0], recv_rank, group=pg)
         dist.recv(q_buffer[0], recv_rank, group=pg)
+        # print("forward client recv",p_buffer[0].shape,q_buffer[0].shape,pg)
         p_buffer[0] = p_buffer[0].to("cpu")
         q_buffer[0] = q_buffer[0].to("cpu")
         input = PowerSVDDecompress(p_buffer[0], q_buffer[0], input.shape)
@@ -920,11 +921,11 @@ class PowerSVDRecvClient(autograd.Function):
             ctx.send_rank,
             ctx.pg,
         )
-        p, q = PowerSVD(grad_backward, q_buffer, p_buffer, n_iter)
-        p = p.to(device)
-        q = q.to(device)
-        dist.isend(p, send_rank, group=pg)
-        dist.isend(q, send_rank, group=pg)
+        PowerSVD(grad_backward, q_buffer, p_buffer, n_iter)
+        p_buffer[0] = p_buffer[0].to(device)
+        q_buffer[0] = q_buffer[0].to(device)
+        dist.isend(p_buffer[0], send_rank, group=pg)
+        dist.isend(q_buffer[0], send_rank, group=pg)
         return grad_backward, None, None, None, None, None, None, None, None
 
 
@@ -949,7 +950,7 @@ class PowerSVDClientSendLayer(nn.Module):
         self.pg = pg
         self.device = device
 
-    def forward(self, input):
+    def forward(self, input, pg=None):
         return PowerSVDSendClient.apply(
             input,
             [self.p_buffer],
@@ -959,7 +960,7 @@ class PowerSVDClientSendLayer(nn.Module):
             [self.grad_q_buffer],
             self.device,
             self.send_rank,
-            self.pg,
+            pg,
         )
 
 
@@ -984,7 +985,7 @@ class PowerSVDClientRecvLayer(nn.Module):
         self.pg = pg
         self.device = device
 
-    def forward(self, input):
+    def forward(self, input, pg=None):
         return PowerSVDRecvClient.apply(
             input,
             [self.p_buffer],
@@ -994,7 +995,7 @@ class PowerSVDClientRecvLayer(nn.Module):
             [self.grad_q_buffer],
             self.device,
             self.send_rank,
-            self.pg,
+            pg,
         )
 
 
@@ -1013,8 +1014,10 @@ class PowerSVDRecvServer(autograd.Function):
     ):
         ctx.p_buffer, ctx.q_buffer = grad_p_buffer, grad_q_buffer
         ctx.n_iter, ctx.send_rank, ctx.pg = n_iter, recv_rank, pg
+        # print("forward server recv",p_buffer[0].shape,q_buffer[0].shape,pg)
         dist.recv(p_buffer[0], recv_rank, group=pg)
         dist.recv(q_buffer[0], recv_rank, group=pg)
+
         input = PowerSVDDecompress(p_buffer[0], q_buffer[0], input.shape)
         return input
 
@@ -1022,9 +1025,10 @@ class PowerSVDRecvServer(autograd.Function):
     def backward(ctx, grad_output):
         p_buffer, q_buffer = ctx.p_buffer, ctx.q_buffer
         n_iter, send_rank, pg = ctx.n_iter, ctx.send_rank, ctx.pg
-        p, q = PowerSVD(grad_output, q_buffer, p_buffer, n_iter)
-        dist.isend(p, send_rank, group=pg)
-        dist.isend(q, send_rank, group=pg)
+        PowerSVD(grad_output, q_buffer, p_buffer, n_iter)
+        # print("forward server send",pg)
+        dist.isend(p_buffer[0], send_rank, group=pg)
+        dist.isend(q_buffer[0], send_rank, group=pg)
         return grad_output, None, None, None, None, None, None, None
 
 
@@ -1043,9 +1047,10 @@ class PowerSVDSendServer(autograd.Function):
     ):
         ctx.grad_p_buffer, ctx.grad_q_buffer = grad_p_buffer, grad_q_buffer
         ctx.recv_rank, ctx.pg = send_rank, pg
-        p, q = PowerSVD(input, q_buffer, p_buffer, n_iter)
-        dist.isend(p, send_rank, group=pg)
-        dist.isend(q, send_rank, group=pg)
+        PowerSVD(input, q_buffer, p_buffer, n_iter)
+        # print("forward server send",p.shape,q.shape,pg)
+        dist.isend(p_buffer[0], send_rank, group=pg)
+        dist.isend(q_buffer[0], send_rank, group=pg)
         return input
 
     @staticmethod
@@ -1078,7 +1083,7 @@ class PowerSVDServerSendLayer(nn.Module):
         self.send_rank = send_rank
         self.pg = pg
 
-    def forward(self, input):
+    def forward(self, input, pg=None):
         return PowerSVDSendServer.apply(
             input,
             [self.p_buffer],
@@ -1087,7 +1092,7 @@ class PowerSVDServerSendLayer(nn.Module):
             [self.grad_p_buffer],
             [self.grad_q_buffer],
             self.send_rank,
-            self.pg,
+            pg,
         )
 
 
@@ -1111,7 +1116,7 @@ class PowerSVDServerRecvLayer(nn.Module):
         self.recv_rank = recv_rank
         self.pg = pg
 
-    def forward(self, input):
+    def forward(self, input, pg=None):
         return PowerSVDRecvServer.apply(
             input,
             [self.p_buffer],
@@ -1120,5 +1125,5 @@ class PowerSVDServerRecvLayer(nn.Module):
             [self.grad_p_buffer],
             [self.grad_q_buffer],
             self.recv_rank,
-            self.pg,
+            pg,
         )

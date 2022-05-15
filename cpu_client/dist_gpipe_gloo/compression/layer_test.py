@@ -27,7 +27,79 @@ def error(input, label):
     # print(label.shape)
     # print(input)
     # print(label)
-    return torch.abs(difference).mean(), torch.abs(difference).max()
+    return torch.abs(difference).mean()
+
+
+class PowerSVD1(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, p_buffer, q_buffer, iter, grad_p_buffer, grad_q_buffer):
+        shape = input.shape
+        input = input.view(int(input.shape[0]), int(input.shape[1]), -1)
+        for i in range(iter):
+            if i == iter - 1:
+                p_buffer[0] = torch.linalg.qr(p_buffer[0]).Q
+            q_buffer[0] = input @ p_buffer[0]
+            if i == iter - 1:
+                q_buffer[0] = torch.linalg.qr(q_buffer[0]).Q
+            p_buffer[0] = input.permute((0, 2, 1)) @ q_buffer[0]
+        ctx.p_buffer, ctx.q_buffer = grad_p_buffer, grad_q_buffer
+        ctx.iter, ctx.shape = iter, shape
+        result = (q_buffer[0] @ p_buffer[0].permute((0, 2, 1))).view(shape)
+
+        return result
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        iter, shape = ctx.iter, ctx.shape
+        grad_output = grad_output.view(
+            int(grad_output.shape[0]), int(grad_output.shape[1]), -1
+        )
+        p_buffer, q_buffer = ctx.p_buffer, ctx.q_buffer
+        for i in range(iter):
+            if i == iter - 1:
+                p_buffer[0] = torch.linalg.qr(p_buffer[0]).Q
+            q_buffer[0] = grad_output @ p_buffer[0]
+            if i == iter - 1:
+                q_buffer[0] = torch.linalg.qr(q_buffer[0]).Q
+            p_buffer[0] = grad_output.permute((0, 2, 1)) @ q_buffer[0]
+        result = (q_buffer[0] @ p_buffer[0].permute((0, 2, 1))).view(shape)
+        return (
+            result,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
+
+class PowerSVDLayer1(nn.Module):
+    def __init__(self, rank, shape, iter) -> None:
+        super(PowerSVDLayer1, self).__init__()
+        self.p_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[2] * shape[3]), rank))
+        )
+        self.q_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[1]), rank))
+        )
+        self.grad_p_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[2] * shape[3]), rank))
+        )
+        self.grad_q_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[1]), rank))
+        )
+        # print(self.p_buffer.shape,self.q_buffer.shape)
+        self.iter = iter
+
+    def forward(self, input):
+        return PowerSVD1.apply(
+            input,
+            [self.p_buffer],
+            [self.q_buffer],
+            self.iter,
+            [self.grad_p_buffer],
+            [self.grad_q_buffer],
+        )
 
 
 def main_worker(rank, world_size, args):
@@ -43,25 +115,14 @@ def main_worker(rank, world_size, args):
         for i in range(1):
             s = torch.cuda.Stream(device=0)
             with torch.cuda.stream(s):
+
                 input = torch.rand([64, 32, 112, 112]).requires_grad_()
-                recv = torch.rand([64, 32, 112, 112])
-                # recv = torch.zeros([64, 32, 112, 112]).to(0)
-                # input = torch.rand([10,10])
-                # send[0,0] = 1e-9
-                # send[3,5] = 2e-9
-                # print(input)
-                # torch.cuda.synchronize()
-                # start = time.time()
-                layer1 = PowerSVDClientRecvLayer(1, input.shape, 2, 0, 1)
+                layer1 = PowerSVDClientRecvLayer(3, input.shape, 2, 0, 1)
                 output = layer1(input)
-                output.backward(recv)
-                # torch.cuda.synchronize()
-                # end = time.time()
-                # output = output.to(0)
-                # dist.recv(recv, 1)
-                # print("recv origin", recv[0])
-                # print("recv dequant", output[0])
-                # print(error(recv, output))
+                output = output.to(0)
+                dist.send(output, 1)
+                # output.backward(recv)
+
     elif rank == 1:
         s = torch.cuda.Stream(device=1)
         with torch.cuda.stream(s):
@@ -69,9 +130,14 @@ def main_worker(rank, world_size, args):
             for i in range(1):
                 input = torch.rand([64, 32, 112, 112]).requires_grad_().to(1)
                 some = input.clone().detach()
-                layer2 = PowerSVDServerSendLayer(1, input.shape, 2, 0).to(1)
+                layer2 = PowerSVDServerSendLayer(3, input.shape, 2, 0).to(1)
                 output = layer2(input)
-                output.backward(some)
+                dist.recv(some, 0)
+                layer3 = PowerSVDLayer1(3, input.shape, 2).to(1)
+                output = layer3(input)
+                print(error(some, input))
+                print(error(output, input))
+                # output.backward(some)
     print("finish")
 
 

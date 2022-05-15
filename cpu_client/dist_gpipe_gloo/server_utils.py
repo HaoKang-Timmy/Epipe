@@ -2,7 +2,13 @@ import enum
 import time
 import torch
 import torch.distributed as dist
-from .compression import TopkLayer, QSendLayerGPU, QRecvLayerGPU
+from .compression import (
+    TopkLayer,
+    QSendLayerGPU,
+    QRecvLayerGPU,
+    PowerSVDServerSendLayer,
+    PowerSVDServerRecvLayer,
+)
 from torch.optim import AdamW, SGD
 from transformers import get_scheduler
 import torch.nn as nn
@@ -42,7 +48,20 @@ def init_models_server(train_settings, server_settings):
             num_training_steps=train_settings["epochs"]
             * train_settings["len_trainloader"],
         )
-
+    if train_settings["poweriter2"] != 0:
+        train_settings["poweriter2_layer"] = PowerSVDServerSendLayer(
+            train_settings["poweriter2"],
+            server_settings["send_size"],
+            2,
+            server_settings["send_rank"],
+        ).to(server_settings["device"])
+    if train_settings["poweriter1"] != 0:
+        train_settings["poweriter1_layer"] = PowerSVDServerRecvLayer(
+            train_settings["poweriter1"],
+            server_settings["recv_size"],
+            2,
+            server_settings["recv_rank"],
+        ).to(server_settings["device"])
     return optimizer, warmup_scheduler, group_list
 
 

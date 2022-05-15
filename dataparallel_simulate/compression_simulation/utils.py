@@ -879,3 +879,32 @@ class PowerSVDLayer1(nn.Module):
             [self.grad_p_buffer],
             [self.grad_q_buffer],
         )
+
+
+class PowerSVDLayerNLP(nn.Module):
+    def __init__(self, rank, shape, iter) -> None:
+        super(PowerSVDLayerNLP, self).__init__()
+        self.p_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[2]), rank))
+        )
+        self.q_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[1]), rank))
+        )
+        self.grad_p_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[2]), rank))
+        )
+        self.grad_q_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[1]), rank))
+        )
+        # print(self.p_buffer.shape,self.q_buffer.shape)
+        self.iter = iter
+
+    def forward(self, input):
+        return PowerSVD1.apply(
+            input,
+            [self.p_buffer],
+            [self.q_buffer],
+            self.iter,
+            [self.grad_p_buffer],
+            [self.grad_q_buffer],
+        )

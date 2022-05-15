@@ -30,18 +30,27 @@ parser.add_argument("--mix", default=0, action="store_true")
 parser.add_argument("--bandwidth", default=0, action="store_true")
 parser.add_argument("--pca1", default=0, type=int)
 parser.add_argument("--pca2", default=0, type=int)
+parser.add_argument("--poweriter1", default=0, type=int)
+parser.add_argument("--poweriter2", default=0, type=int)
 
 
 def main():
     args = parser.parse_args()
     model = mobilenet_v2(pretrained=True)
     model.classifier[-1] = nn.Linear(1280, 10)
+    conv1 = nn.Conv2d(32, 20, (3, 3), (3, 3))
+    t_conv1 = nn.ConvTranspose2d(20, 32, (3, 3), (3, 3))
+    conv2 = nn.Conv2d(1280, 320, (1, 1))
+    t_conv2 = nn.ConvTranspose2d(320, 1280, (1, 1))
+    feature = model.features[0].children()
+    conv = next(feature)
+    bn = next(feature)
     devices = args.devices
-    layer1 = [model.features[0:1]]
-    layer2 = [model.features[1:]]
+    layer1 = [conv, bn, conv1]
+    layer2 = [t_conv1, nn.ReLU6(inplace=False), model.features[1:], conv2]
     # layer3 = [model.features[3:7]]
     # layer4 = [model.features[7:]]
-    layer5 = [Reshape1(), model.classifier]
+    layer5 = [t_conv2, Reshape1(), model.classifier]
 
     layer1 = nn.Sequential(*layer1)
     layer2 = nn.Sequential(*layer2)
@@ -104,12 +113,12 @@ def main():
     partition = [[layer1, layer5], [layer2]]
     tensor_size = [
         [
-            (int(args.batches / args.chunks), 32, 112, 112),
-            (int(args.batches / args.chunks), 1280, 7, 7),
+            (int(args.batches / args.chunks), 20, 37, 37),
+            (int(args.batches / args.chunks), 320, 7, 7),
         ],
         [
-            (int(args.batches / args.chunks), 1280, 7, 7),
-            (int(args.batches / args.chunks), 32, 112, 112),
+            (int(args.batches / args.chunks), 320, 7, 7),
+            (int(args.batches / args.chunks), 20, 37, 37),
         ],
     ]
     print(tensor_size)

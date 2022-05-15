@@ -376,7 +376,6 @@ def PowerSVD(input: torch.tensor, q_buffer: list, p_buffer: list, n_iter):
             q_buffer[0] = torch.linalg.qr(q_buffer[0]).Q
         p_buffer[0] = input.permute((0, 2, 1)) @ q_buffer[0]
     input = input.view(shape)
-    return p_buffer[0], q_buffer[0]
 
 
 def PowerSVDDecompress(p: torch.tensor, q: torch.tensor, shape):

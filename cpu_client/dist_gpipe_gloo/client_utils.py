@@ -3,7 +3,13 @@ import time
 from tokenize import group
 import torch
 import torch.distributed as dist
-from .compression import TopkLayer, QSendLayerGPU, QRecvLayerGPU
+from .compression import (
+    TopkLayer,
+    QSendLayerGPU,
+    QRecvLayerGPU,
+    PowerSVDClientRecvLayer,
+    PowerSVDClientSendLayer,
+)
 from torch.optim import AdamW, SGD
 from transformers import get_scheduler
 import torch.nn as nn
@@ -50,6 +56,22 @@ def init_models_client(train_settings, client_settings):
             * len(train_settings["train_loader"]),
         )
     criterion = nn.CrossEntropyLoss()
+    if train_settings["poweriter1"] != 0:
+        train_settings["poweriter1_layer"] = PowerSVDClientSendLayer(
+            train_settings["poweriter1"],
+            client_settings["send_size"],
+            2,
+            client_settings["device"],
+            client_settings["send_rank"],
+        )
+    if train_settings["poweriter2"] != 0:
+        train_settings["poweriter2_layer"] = PowerSVDClientRecvLayer(
+            train_settings["poweriter2"],
+            client_settings["recv_size"],
+            2,
+            client_settings["device"],
+            client_settings["recv_rank"],
+        )
     return (optimizer, warmup_scheduler, criterion, group_list)
 
 
@@ -68,6 +90,7 @@ def client_trainer(
     batch_time = 0.0
     bandwidth = torch.tensor([0.0])
     bandwidth_avg = 0.0
+
     if train_settings["tasktype"] == "cv":
         start = time.time()
         for batch_iter, (images, targets) in enumerate(train_settings["train_loader"]):
