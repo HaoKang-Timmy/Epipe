@@ -1,162 +1,98 @@
-import torch
 from functions import *
-import time
-import torch.nn as nn
-from torchvision.models import mobilenet_v2
-import matplotlib.pyplot as plt
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
-import argparse
-
-parser = argparse.ArgumentParser(description="CPU test for nlp and cv")
-parser.add_argument("--tasktype", default="cv", type=str)
-parser.add_argument("--layer", default="first", type=str)
-args = parser.parse_args()
+import torch
 
 
-class Reshape1(nn.Module):
-    def __init__(self):
-        super(Reshape1, self).__init__()
-        pass
-
-    def forward(self, x):
-        out = F.relu(x)
-        out = F.avg_pool2d(out, 4)
-        out = out.view(out.size(0), -1)
-        return out
+def error(input, label):
+    difference = torch.abs(input) - torch.abs(label)
+    # print(input.shape)
+    # print(label.shape)
+    # print(input)
+    # print(label)
+    return torch.abs(difference).mean()
 
 
-class nlp_sequential(nn.Module):
-    def __init__(self, layers: list):
-        super(nlp_sequential, self).__init__()
-        self.layers = layers[0]
+class PowerSVD1(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, p_buffer, q_buffer, iter, grad_p_buffer, grad_q_buffer):
+        shape = input.shape
+        input = input.view(int(input.shape[0]), int(input.shape[1]), -1)
+        for i in range(iter):
+            if i == iter - 1:
+                p_buffer[0] = torch.linalg.qr(p_buffer[0]).Q
+            q_buffer[0] = input @ p_buffer[0]
+            if i == iter - 1:
+                q_buffer[0] = torch.linalg.qr(q_buffer[0]).Q
+            p_buffer[0] = input.permute((0, 2, 1)) @ q_buffer[0]
+        ctx.p_buffer, ctx.q_buffer = grad_p_buffer, grad_q_buffer
+        ctx.iter, ctx.shape = iter, shape
+        result = (q_buffer[0] @ p_buffer[0].permute((0, 2, 1))).view(shape)
 
-    def forward(self, output: torch.tensor, mask: torch.tensor):
-        for i, layer in enumerate(self.layers):
-            output = layer(output, mask)
-            output = output[0]
-        return output
+        return result
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        iter, shape = ctx.iter, ctx.shape
+        grad_output = grad_output.view(
+            int(grad_output.shape[0]), int(grad_output.shape[1]), -1
+        )
+        p_buffer, q_buffer = ctx.p_buffer, ctx.q_buffer
+        for i in range(iter):
+            if i == iter - 1:
+                p_buffer[0] = torch.linalg.qr(p_buffer[0]).Q
+            q_buffer[0] = grad_output @ p_buffer[0]
+            if i == iter - 1:
+                q_buffer[0] = torch.linalg.qr(q_buffer[0]).Q
+            p_buffer[0] = grad_output.permute((0, 2, 1)) @ q_buffer[0]
+
+        result = (q_buffer[0] @ p_buffer[0].permute((0, 2, 1))).view(shape)
+        return (
+            result,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
 
 
-class combine_embeding(nn.Module):
-    def __init__(self, layers: list, embed_layer):
-        super(combine_embeding, self).__init__()
-        self.layers = layers[0]
-        self.embed_layer = embed_layer[0]
+class PowerSVDLayer1(nn.Module):
+    def __init__(self, rank, shape, iter) -> None:
+        super(PowerSVDLayer1, self).__init__()
+        self.p_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[2] * shape[3]), rank))
+        )
+        self.q_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[1]), rank))
+        )
+        self.grad_p_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[2] * shape[3]), rank))
+        )
+        self.grad_q_buffer = torch.nn.Parameter(
+            torch.randn((int(shape[0]), int(shape[1]), rank))
+        )
+        # print(self.p_buffer.shape,self.q_buffer.shape)
+        self.iter = iter
 
-    def forward(self, input: torch.tensor, mask: torch.tensor):
-        output = self.embed_layer(input)
-
-        output = self.layers(output, mask)
-        output = output
-        return output
-
-
-class combine_classifier(nn.Module):
-    def __init__(self, layers: list, classifier):
-        super(combine_classifier, self).__init__()
-        self.layers = layers[0]
-        self.classifier = classifier[0]
-
-    def forward(self, output: torch.tensor, mask: torch.tensor):
-        # for i, layer in enumerate(self.layers):
-        output = self.layers(output, mask)
-        output = output
-        output = self.classifier(output)
-        return output
+    def forward(self, input):
+        return PowerSVD1.apply(
+            input,
+            [self.p_buffer],
+            [self.q_buffer],
+            self.iter,
+            [self.grad_p_buffer],
+            [self.grad_q_buffer],
+        )
 
 
-split_bits = 2
-if args.tasktype == "cv":
-    if args.layer == "last":
-        model = mobilenet_v2(pretrained=True)
-        model1 = [Reshape1(), model.classifier]
-        model1 = nn.Sequential(*model1)
-    else:
-        model = mobilenet_v2(pretrained=True)
-        model1 = [model.classifier[0:1]]
-        model1 = nn.Sequential(*model1)
-else:
-    model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
-    if args.layer == "first":
-        part1 = [model.roberta.embeddings]
-        part2 = nlp_sequential([model.roberta.encoder.layer[0:1]])
-        model1 = combine_embeding([part2], part1)
-    else:
-        part1 = nlp_sequential([model.roberta.encoder.layer[-1:]])
-        part2 = model.classifier
-        model1 = combine_classifier([part1], [part2])
-min_step = torch.rand([2**split_bits, 2])
-firstlayer_time = []
-sq_time = []
-sdq_time = []
-pca_time = []
-de_pca_time = []
-i_list = []
-for i in range(32):
-    i = i + 1
-    print(i)
-    i_list.append(i)
-    if args.tasktype == "nlp":
-        if args.layer == "first":
-            input = torch.rand([i, 128, 768]).requires_grad_()
-            some = torch.rand([i, 128, 768])
-            mask = torch.rand([i, 1, 1, 128])
-            model_input = torch.randint(0, 10000, (i, 128)).type(torch.long)
-        else:
-            mask = torch.rand([i, 1, 1, 128])
-            input = torch.rand([i, 128, 768]).requires_grad_()
-            some = torch.rand([i, 128, 768])
-            model_input = input
-        start = time.time()
-        output = model1(model_input, mask)
-        end = time.time() - start
-    else:
-        if args.layer == "first":
-            input = torch.rand([i, 32, 112, 112]).requires_grad_()
-            some = torch.rand([i, 32, 112, 112])
-        else:
-            input = torch.rand([i, 1280, 7, 7]).requires_grad_()
-            some = torch.rand([i, 1280, 7, 7])
-        start = time.time()
-        output = model1(input)
-        end = time.time() - start
-    firstlayer_time.append(end)
-    with torch.no_grad():
-
-        # # start = time.time()
-        # min_step,output = SortQuantization(input,6,2,min_step)
-        # # print(time.time() - start)
-        # min_step1 = torch.rand([2**split_bits, 2])
-        start = time.time()
-        # print(input)
-        new_min_step, new_output = FastQuantization(input, 6, 2, min_step)
-
-        end = time.time() - start
-        sq_time.append(end)
-        some = some.view(-1)
-        new_output = new_output.view(-1)
-        start = time.time()
-        dequant = FastDeQuantization(new_output, 6, 2, new_min_step, some)
-        end = time.time() - start
-        sdq_time.append(end)
-        start = time.time()
-        U, S, V = torch.svd_lowrank(input, q=2)
-        end = time.time() - start
-        pca_time.append(end)
-        start = time.time()
-        V = V.transpose(-1, -2)
-        S = torch.diag_embed(S)
-        pca = torch.matmul(U[..., :, :], S[..., :, :])
-        new = torch.matmul(pca[..., :, :], V[..., :, :])
-        end = time.time() - start
-        de_pca_time.append(end)
-l1 = plt.plot(i_list, sq_time, label="sortquant", marker="o")
-l2 = plt.plot(i_list, sdq_time, label="sortdequant", marker="o")
-l3 = plt.plot(i_list, pca_time, label="pcar2", marker="o")
-l4 = plt.plot(i_list, de_pca_time, label="pca decode", marker="o")
-l5 = plt.plot(i_list, de_pca_time, label="first layer", marker="o")
-plt.title("CIFAR Last Layer")
-plt.xlabel("batch size")
-plt.ylabel("execution time")
-plt.legend()
-plt.savefig("./cifar_last.jpg")
+rank = 3
+input = torch.rand([64, 32, 112, 112])
+p = [torch.rand([64, 112 * 112, rank])]
+q = [torch.rand([64, 32, rank])]
+p, q = PowerSVD(input, q, p, 2)
+# print(p.shape,q.shape)
+output = PowerSVDDecompress(p, q, input.shape)
+print(error(output, input))
+layer = PowerSVDLayer1(rank, input.shape, 2)
+input = torch.rand([64, 32, 112, 112])
+output = layer(input)
+print(error(output, input))

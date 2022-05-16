@@ -59,15 +59,19 @@
 # python3 dataparallel_test_cv1.py --powersvd 3 --powersvd1 7 --powersvd 2 --log 1cifar10_powersvd3_7_2.txt
 # python3 dataparallel_test_cv1.py --powersvd 4 --powersvd1 7 --powersvd 2 --log 1cifar10_powersvd4_7_2.txt
 # python3 dataparallel_test_cv1.py --powersvd 2 --powersvd1 7 --powersvd 2 --log 1cifar10_powersvd2_7_2.txt
-python3 dataparallel_test_nlp_fp16.py --log ./rte_fp32_powersvd1.txt --powersvd 1 --powersvd 1
-python3 dataparallel_test_nlp_fp16.py --log ./rte_fp32_powersvd1.txt --powersvd 1 --powersvd 1
-python3 dataparallel_test_nlp_fp16.py --log ./cola_fp32_powersvd1.txt --powersvd 1 --powersvd 1 --task cola
-python3 dataparallel_test_nlp_fp16.py --log ./cola_fp32_powersvd1.txt --powersvd 1 --powersvd 1 --task cola
-python3 dataparallel_test_nlp_fp16.py --log ./rte_fp32_powersvd2.txt --powersvd 2 --powersvd 2
-python3 dataparallel_test_nlp_fp16.py --log ./rte_fp32_powersvd2.txt --powersvd 2 --powersvd 2
-python3 dataparallel_test_nlp_fp16.py --log ./cola_fp32_powersvd2.txt --powersvd 2 --powersvd 2 --task cola
-python3 dataparallel_test_nlp_fp16.py --log ./cola_fp32_powersvd2.txt --powersvd 2 --powersvd 2 --task cola
-python3 dataparallel_test_nlp_fp16.py --log ./rte_fp16.txt --fp16
-python3 dataparallel_test_nlp_fp16.py --log ./rte_fp16.txt --fp16
-python3 dataparallel_test_nlp_fp16.py --task cola --log ./cola_fp16.txt --fp16
-python3 dataparallel_test_nlp_fp16.py --task cola --log ./cola_fp16.txt --fp16
+# python3 dataparallel_test_nlp_fp16.py --log ./rte_fp32_powersvd1.txt --powersvd 1 --powersvd 1
+# python3 dataparallel_test_nlp_fp16.py --log ./rte_fp32_powersvd1.txt --powersvd 1 --powersvd 1
+# python3 dataparallel_test_nlp_fp16.py --log ./cola_fp32_powersvd1.txt --powersvd 1 --powersvd 1 --task cola
+# python3 dataparallel_test_nlp_fp16.py --log ./cola_fp32_powersvd1.txt --powersvd 1 --powersvd 1 --task cola
+# python3 dataparallel_test_nlp_fp16.py --log ./rte_fp32_powersvd2.txt --powersvd 2 --powersvd 2
+# python3 dataparallel_test_nlp_fp16.py --log ./rte_fp32_powersvd2.txt --powersvd 2 --powersvd 2
+# python3 dataparallel_test_nlp_fp16.py --log ./cola_fp32_powersvd2.txt --powersvd 2 --powersvd 2 --task cola
+# python3 dataparallel_test_nlp_fp16.py --log ./cola_fp32_powersvd2.txt --powersvd 2 --powersvd 2 --task cola
+# python3 dataparallel_test_nlp_fp16.py --log ./rte_fp16.txt --fp16
+# python3 dataparallel_test_nlp_fp16.py --log ./rte_fp16.txt --fp16
+# python3 dataparallel_test_nlp_fp16.py --task cola --log ./cola_fp16.txt --fp16
+# python3 dataparallel_test_nlp_fp16.py --task cola --log ./cola_fp16.txt --fp16
+python3 dataparallel_test_nlp_fp16.py --log ./cola_fp32_powersvd32.txt --powersvd 32 --powersvd 32 --task cola
+python3 dataparallel_test_nlp_fp16.py --log ./cola_fp32_powersvd32.txt --powersvd 32 --powersvd 32 --task cola
+python3 dataparallel_test_nlp_fp16.py --log ./cola_fp32_powersvd16.txt --powersvd 16 --powersvd 16 --task cola
+python3 dataparallel_test_nlp_fp16.py --log ./cola_fp32_powersvd16.txt --powersvd 16 --powersvd 16 --task cola

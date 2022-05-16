@@ -2,27 +2,16 @@ from functions import *
 import torch
 import time
 
-input = torch.zeros([8, 32, 112, 112])
-# input[0,0] = 0.0
-# print(input)
-recever = torch.rand([8, 32, 112, 112])
-min_step = torch.zeros([2**2, 4])
-other = input.view(-1)
-start = time.time()
-min_step, output = FastQuantizationCPU(input, 6, 2, min_step)
-end = time.time()
-print(end - start)
-# print(input)
-start = time.time()
-recever = FastDequantizationCPU(output, 6, 2, min_step, recever)
-# print(recever)
-end = time.time()
-print(end - start)
-start = time.time()
-input = torch.rand([8, 1280, 7, 7])
-some = torch.svd_lowrank(input, q=2)
-end = time.time()
-print(end - start)
+
+def error(input, label):
+    difference = torch.abs(input) - torch.abs(label)
+    return torch.abs(difference).mean()
 
 
-# print(recever)
+rank = 3
+input = torch.rand([64, 32, 112, 112])
+p_buffer = [torch.rand([64, 112 * 112, rank])]
+q_buffer = [torch.rand([64, 32, rank])]
+p, q = PowerSVD(input, q_buffer, p_buffer, 2)
+output = PowerSVDDecompress(p, q, input.shape)
+print(error(input, output))
