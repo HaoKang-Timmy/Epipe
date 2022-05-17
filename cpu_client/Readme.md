@@ -1,3 +1,7 @@
+---
+typora-copy-images-to: ../pic
+---
+
 # CPU Training
 
 A simulation by using CPUs to train client tasks and one GTX 1080 to train server tasks
@@ -25,10 +29,23 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 | Cpu,Gpu                 | None                       | 8     | First two layer, last two layer | 566.56MB/s | 0.40s           | 160.01/s    | 95.86          |
 | Cpu,Gpu                 | Fast Quantization 8bits    | 8     | First two layer, last two layer | 141.64MB/s | 1.01s           | 63.37/s     | 95.84          |
 | Cpu,Gpu                 | Uniform Quantization 8bits | 8     | First two layer, last two layer | 142.11MB/s | 0.43s           | 148.84/s    | 95.84          |
+| CPu,Gpu                 | Power iteration3d          | 8     | First layer, last layer         | 70.04MB/s  | 0.36s           | 177.78/s    | 95.43          |
+| CPu,Gpu                 | Power iteration3d          | 8     | First layer, last layer         | 51.57MB/s  | 0.35s           | 182.86/s    | 94.75          |
+| CPu,Gpu                 | Conv Insert                | 8     | First layer, last layer         | 68.70MB/s  | 0.37s           | 172.97/s    | 96.01          |
+| CPu,Gpu                 | Conv Insert                | 8     | First layer, last layer         | 48.02MB/s  | 0.36s           | 177.91/s    | 95.85          |
+| Cpu,Gpu                 | Conv Insert(2 sets)        | 8     | First layer, last layer         | 25.81MB/s  | 0.41s           | 156.10/s    | 95.70          |
+
+![image-20220517174627881](../pic/image-20220517174627881.png)
 
 ## 2 RTE
 
-### 2.1 Settings
+CPU can not finetune in fp16 since layernormalization does not allow 16bits training.
+
+Also, full 16bits training cause nan loss when using adam optimizer, and performs badly at RTE dataset.
+
+Mix amplification training may be a good method.
+
+### 2.1 Settings.
 
 | Backend      | Epochs | Lr   | Batch Size |
 | ------------ | ------ | ---- | ---------- |
@@ -57,6 +74,8 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 | CPU,GPU                 | Uniform Quantization 6bits | 4     | Condition 3            | 10.01MB/s | 0.92s           | 34.78/s     | 78.51          |
 | CPU,GPU                 | Fast Quantization 5bits    | 4     | Condition 3            | 8.37MB/s  | 1.24s           | 25.80/s     | 74.60          |
 
+
+
 ## 2 Cola
 
 ### 2.1 Settings
@@ -75,50 +94,7 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 
 | Hardware(Client,Server) | Compression method      | Chunk | Sever Client Partition | Bandwidth | Time  per Batch | Throughputs | Validation Acc |
 | ----------------------- | ----------------------- | ----- | ---------------------- | --------- | --------------- | ----------- | -------------- |
+| CPU,GPU                 |                         |       |                        |           |                 |             |                |
 | CPU,GPU                 | Fast Quantization 6bits | 4     | Condition 3            | 10.43MB/s | 0.99s           | 32.32/s     | 84.76          |
 | CPU,GPU                 | Fast Quantization 6bits | 4     | Condition 3            | 10.27MB/s | 0.89s           | 35.95/s     | 84.66          |
-
-# 3 Compression Algorithm Analyse
-
-## 3.1 CPU
-
-You can reproduce the results by executing `./CPUtest.py`
-
-### Settings
-
-| Activation Memory(Total/Batchsize) |
-| ---------------------------------- |
-| [32,112,112],[1280,7,7]            |
-
-![image-20220501111122132](./pic/image-20220501111122132.png)
-
-![image-20220501132419588](./pic/image-20220501132419588.png)
-
-
-
-### Settings
-
-| Activation Memory(Total/Batchsize) |
-| ---------------------------------- |
-| [128,768]                          |
-
-![image-20220501132118695](./pic/image-20220501132118695.png)
-
-![image-20220501132142973](./pic/image-20220501132142973.png)
-
-## 3.2 GPU
-
-| Activation Memory(Total/Batchsize) |
-| ---------------------------------- |
-| [32,112,112]                       |
-
-![image-20220421173843653](./pic/test_gpu.jpg)
-
-### Settings
-
-| Activation Memory(Total/Batchsize) |
-| ---------------------------------- |
-| [128,768]                          |
-
-![image-20220425174146944](./pic/image-20220425174146944.png)
 
