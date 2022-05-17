@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 import time
-from functions import *
+from .functions import *
 
 
 def create_sparse(input: torch.tensor, bit_saving=True):

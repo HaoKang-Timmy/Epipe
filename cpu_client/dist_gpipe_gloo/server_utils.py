@@ -36,9 +36,17 @@ def init_models_server(train_settings, server_settings):
             num_training_steps=train_settings["epochs"],
         )
     elif train_settings["tasktype"] == "nlp":
-        optimizer = AdamW(
-            param_list, lr=train_settings["lr"], weight_decay=train_settings["wd"]
-        )
+        if train_settings["fp16"] == 0:
+            optimizer = AdamW(
+                param_list, lr=train_settings["lr"], weight_decay=train_settings["wd"]
+            )
+        else:
+            optimizer = AdamW(
+                param_list,
+                lr=train_settings["lr"],
+                weight_decay=train_settings["wd"],
+                eps=1e-4,
+            )
         warmup_scheduler = get_scheduler(
             name="polynomial",
             optimizer=optimizer,
@@ -132,16 +140,16 @@ def server_trainer(
         timecount = torch.tensor([0.0])
         for batch_iter in range(train_settings["len_trainloader"]):
             batches = []
-            attention_mask = (
-                torch.zeros(
-                    server_settings["recv_size"][0] * server_settings["chunks"],
-                    1,
-                    1,
-                    server_settings["recv_size"][1],
-                )
-                .type(torch.float32)
-                .to(server_settings["rank"])
-            )
+            attention_mask = torch.zeros(
+                server_settings["recv_size"][0] * server_settings["chunks"],
+                1,
+                1,
+                server_settings["recv_size"][1],
+            ).to(server_settings["rank"])
+            if train_settings["fp16"] != 0:
+                attention_mask = attention_mask.type(torch.float16)
+            else:
+                attention_mask = attention_mask.type(torch.float32)
             dist.recv(attention_mask, 0)
             # print("server rev mask",server_settings["rank"])
             attention_mask = attention_mask.chunk(server_settings["chunks"])
@@ -212,16 +220,16 @@ def server_validation(train_settings, server_settings):
         with torch.no_grad():
             for batch_iter in range(train_settings["len_valloader"]):
                 # print("server",server_settings["rank"],batch_iter)
-                attention_mask = (
-                    torch.zeros(
-                        server_settings["recv_size"][0] * server_settings["chunks"],
-                        1,
-                        1,
-                        server_settings["recv_size"][1],
-                    )
-                    .type(torch.float32)
-                    .to(server_settings["rank"])
-                )
+                attention_mask = torch.zeros(
+                    server_settings["recv_size"][0] * server_settings["chunks"],
+                    1,
+                    1,
+                    server_settings["recv_size"][1],
+                ).to(server_settings["rank"])
+                if train_settings["fp16"] != 0:
+                    attention_mask = attention_mask.type(torch.float16)
+                else:
+                    attention_mask = attention_mask.type(torch.float32)
                 dist.recv(attention_mask, 0)
                 # print("server rev mask")
                 attention_mask = attention_mask.chunk(server_settings["chunks"])

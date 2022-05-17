@@ -43,9 +43,17 @@ def init_models_client(train_settings, client_settings):
             num_training_steps=train_settings["epochs"],
         )
     elif train_settings["tasktype"] == "nlp":
-        optimizer = AdamW(
-            param_list, lr=train_settings["lr"], weight_decay=train_settings["wd"]
-        )
+        if train_settings["fp16"] == 0:
+            optimizer = AdamW(
+                param_list, lr=train_settings["lr"], weight_decay=train_settings["wd"]
+            )
+        else:
+            optimizer = AdamW(
+                param_list,
+                lr=train_settings["lr"],
+                weight_decay=train_settings["wd"],
+                eps=1e-4,
+            )
         warmup_scheduler = get_scheduler(
             name="linear",
             optimizer=optimizer,
@@ -210,20 +218,22 @@ def client_trainer(
             # }
             acc1 = 0.0
             losses = 0.0
-            batch["attention_mask"] = (
-                torch.reshape(
-                    batch["attention_mask"],
-                    [
-                        int(batch["attention_mask"].shape[0]),
-                        1,
-                        1,
-                        int(batch["attention_mask"].shape[-1]),
-                    ],
-                )
-                # .to(client_settings["rank"])
-                .type(torch.float32)
+            batch["attention_mask"] = torch.reshape(
+                batch["attention_mask"],
+                [
+                    int(batch["attention_mask"].shape[0]),
+                    1,
+                    1,
+                    int(batch["attention_mask"].shape[-1]),
+                ],
             )
-            batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
+
+            if train_settings["fp16"] != 0:
+                batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
+                batch["attention_mask"] = batch["attention_mask"].type(torch.float16)
+            else:
+                batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e8
+                batch["attention_mask"] = batch["attention_mask"].type(torch.float32)
             attention_mask = batch["attention_mask"].to(client_settings["rank"])
             for rank in client_settings["devices"]:
                 if rank != client_settings["rank"]:
@@ -397,8 +407,17 @@ def client_validation(train_settings, client_settings, criterion):
                         1,
                         int(batch["attention_mask"].shape[-1]),
                     ],
-                ).type(torch.float32)
-                batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
+                )
+                if train_settings["fp16"] != 0:
+                    batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
+                    batch["attention_mask"] = batch["attention_mask"].type(
+                        torch.float16
+                    )
+                else:
+                    batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e8
+                    batch["attention_mask"] = batch["attention_mask"].type(
+                        torch.float32
+                    )
                 # dist.isend(batch["attention_mask"],1)
                 # # dist.isend(batch["attention_mask"],2)
                 # # dist.isend(batch["attention_mask"],3)

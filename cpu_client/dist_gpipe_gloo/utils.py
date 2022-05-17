@@ -312,6 +312,7 @@ def make_dictions(
     client_settings["recv_size"] = tensor_size[0][1]
     client_settings["send_size"] = tensor_size[0][0]
     client_settings["bandwidth"] = args.bandwidth
+    client_settings["tight"] = args.tight
     client_train_settings["tasktype"] = args.tasktype
     client_train_settings["models"] = model_list[client_settings["rank"]]
     client_train_settings["epochs"] = args.epochs
@@ -328,7 +329,7 @@ def make_dictions(
     client_train_settings["pca2"] = args.pca2
     client_train_settings["poweriter1"] = args.poweriter1
     client_train_settings["poweriter2"] = args.poweriter2
-
+    client_train_settings["fp16"] = args.fp16
     for server_num in range(len(devices) - 1):
         train_settings = {}
         server_settings = {}
@@ -364,6 +365,7 @@ def make_dictions(
         train_settings["mix"] = args.mix
         train_settings["len_trainloader"] = len(train_loader)
         train_settings["len_valloader"] = len(val_loader)
+        train_settings["fp16"] = args.fp16
         server_settings_list.append(server_settings)
         server_train_settings_list.append(train_settings)
         server_settings["bandwidth"] = args.bandwidth
