@@ -4,4 +4,6 @@
 /log
 /code(noapi)
 /dist_gpipe
+*.pth
+*.pty
 #test
