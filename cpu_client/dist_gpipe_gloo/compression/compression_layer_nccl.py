@@ -74,11 +74,7 @@ class QSendGPU(autograd.Function):
     @staticmethod
     def forward(ctx, input, bits, send_rank, rank, pg=None):
         ctx.bits, ctx.recv_rank, ctx.rank, ctx.pg = (bits, send_rank, rank, pg)
-        (
-            output,
-            min,
-            step,
-        ) = QuantizationGPU(input, bits)
+        (output, min, step,) = QuantizationGPU(input, bits)
         # print("quant send",output)
         ctx.min, ctx.step = min, step
         ctx.input = output
@@ -305,7 +301,7 @@ class FastQuantClient(autograd.Function):
         )
         ctx.device = device
         shape = input.shape
-        min_step = torch.zeros([2**split_bits, 2])
+        min_step = torch.zeros([2 ** split_bits, 2])
         # min_step, output = SortQuantization(input, bits, split_bits, min_step)
         min_step, output = FastQuantization(input, bits, split_bits, min_step)
         min_step = min_step.to(device)
@@ -333,7 +329,7 @@ class FastQuantClient(autograd.Function):
             recv = grad_output.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2**split_bits, 2])
+        min_step = torch.zeros([2 ** split_bits, 2])
         min_step = min_step.to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
@@ -357,7 +353,7 @@ class FastQuantizationServer(autograd.Function):
             pg,
         )
         shape = input.shape
-        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
+        min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
         min_step, output = SortQuantization(input, bits, split_bits, min_step)
         # print("quant min step",min_step)
         dist.isend(min_step, send_rank, group=pg)
@@ -382,7 +378,7 @@ class FastQuantizationServer(autograd.Function):
             recv = grad_output.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
+        min_step = torch.zeros([2 ** split_bits, 2]).to(grad_output.get_device())
         dist.recv(min_step, recv_rank, group=pg)
         dist.recv(recv, recv_rank, group=pg)
         # should view to int16 since we represent int16 with int8
@@ -415,7 +411,7 @@ class FastDequantizationServer(autograd.Function):
             recv = recv.view(torch.int8)
         #     print(recv.shape)
         # print("dequant recv",recv.shape)
-        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
+        min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
         # recv = torch.rand([64,32,112,112]).to(input.get_device())
         # TODO change the recving method
 
@@ -441,7 +437,7 @@ class FastDequantizationServer(autograd.Function):
         shape = grad_output.shape
         # print(grad_output)
 
-        min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
+        min_step = torch.zeros([2 ** split_bits, 2]).to(grad_output.get_device())
         min_step, output = SortQuantization(grad_output, bits, split_bits, min_step)
 
         dist.isend(min_step, send_rank, group=pg)
@@ -471,7 +467,7 @@ class FastDequantClient(autograd.Function):
             recv = input.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2**split_bits, 2])
+        min_step = torch.zeros([2 ** split_bits, 2])
         min_step = min_step.to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
@@ -494,7 +490,7 @@ class FastDequantClient(autograd.Function):
         )
         device = ctx.device
         shape = grad_output.shape
-        min_step = torch.zeros([2**split_bits, 2])
+        min_step = torch.zeros([2 ** split_bits, 2])
         # min_step, output = SortQuantization(grad_output, bits, split_bits, min_step)
         min_step, output = FastQuantization(grad_output, bits, split_bits, min_step)
         min_step = min_step.to(device)
@@ -705,7 +701,7 @@ class CompressionClientSend(autograd.Function):
         else:
             recv = grad_output.type(torch.int16)
         recv = recv.view(torch.int8)
-        min_step = torch.zeros([2**split_bits, 2]).to(device)
+        min_step = torch.zeros([2 ** split_bits, 2]).to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
         dist.recv(recv, recv_rank, group=pg)
@@ -737,7 +733,7 @@ class CompressionClientRecv(autograd.Function):
             recv = input.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2**split_bits, 2])
+        min_step = torch.zeros([2 ** split_bits, 2])
         min_step = min_step.to(device)
         recv = recv.to(device)
         dist.recv(min_step, recv_rank, group=pg)
@@ -766,7 +762,7 @@ class CompressRecvGPU(autograd.Function):
     def forward(ctx, input, q, recv_rank, bits, split_bits, pg=None):
         ctx.bits, ctx.split_bits, ctx.pg = bits, split_bits, pg
         ctx.send_rank = recv_rank
-        ctx.min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
+        ctx.min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
         shape = list(input.shape)
         v_shape = shape
         v_shape[-2] = shape[-1]
@@ -815,7 +811,7 @@ class CompressSendGPU(autograd.Function):
     def forward(ctx, input, q, send_rank, bits, split_bits, pg=None):
         ctx.q, ctx.recv_rank, ctx.pg = q, send_rank, pg
         shape = input.shape
-        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
+        min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
         min_step, output = SortQuantization(input, bits, split_bits, min_step)
         dist.isend(min_step, send_rank, group=pg)
         dist.isend(output, send_rank, group=pg)
@@ -858,14 +854,12 @@ class PowerSVDSendClient(autograd.Function):
     ):
         ctx.grad_p_buffer, ctx.grad_q_buffer = grad_p_buffer, grad_q_buffer
         ctx.recv_rank, ctx.pg, ctx.device = send_rank, pg, device
-        p, q = PowerSVD(input, q_buffer, p_buffer, n_iter)
+        PowerSVD(input, q_buffer, p_buffer, n_iter)
 
-        p_buffer[0] = p
-        q_buffer[0] = q
-        p = p.to(device)
-        q = q.to(device)
-        dist.isend(p, send_rank, group=pg)
-        dist.isend(q, send_rank, group=pg)
+        p_buffer[0] = p_buffer[0].to(device)
+        q_buffer[0] = q_buffer[0].to(device)
+        dist.isend(p_buffer[0], send_rank, group=pg)
+        dist.isend(q_buffer[0], send_rank, group=pg)
         return input
 
     @staticmethod
@@ -924,31 +918,33 @@ class PowerSVDRecvClient(autograd.Function):
             ctx.send_rank,
             ctx.pg,
         )
-        p, q = PowerSVD(grad_backward, q_buffer, p_buffer, n_iter)
-        p_buffer[0] = p
-        q_buffer[0] = q
-        p = p.to(device)
-        q = q.to(device)
-        dist.isend(p, send_rank, group=pg)
-        dist.isend(q, send_rank, group=pg)
+        PowerSVD(grad_backward, q_buffer, p_buffer, n_iter)
+        p_buffer[0] = p_buffer[0].to(device)
+        q_buffer[0] = q_buffer[0].to(device)
+        dist.isend(p_buffer[0], send_rank, group=pg)
+        dist.isend(q_buffer[0], send_rank, group=pg)
         return grad_backward, None, None, None, None, None, None, None, None
 
 
 class PowerSVDClientSendLayer(nn.Module):
     def __init__(self, rank, shape, iter, device, send_rank, pg=None) -> None:
         super(PowerSVDClientSendLayer, self).__init__()
-        self.p_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
-        )
-        self.q_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[1]), rank))
-        )
-        self.grad_p_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
-        )
-        self.grad_q_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[1]), rank))
-        )
+        self.p_buffer = [
+            torch.nn.Parameter(
+                torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
+            )
+        ]
+        self.q_buffer = [
+            torch.nn.Parameter(torch.rand((int(shape[0]), int(shape[1]), rank)))
+        ]
+        self.grad_p_buffer = [
+            torch.nn.Parameter(
+                torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
+            )
+        ]
+        self.grad_q_buffer = [
+            torch.nn.Parameter(torch.rand((int(shape[0]), int(shape[1]), rank)))
+        ]
         # print(self.p_buffer.shape,self.q_buffer.shape)
         self.iter = iter
         self.send_rank = send_rank
@@ -958,11 +954,11 @@ class PowerSVDClientSendLayer(nn.Module):
     def forward(self, input, pg=None):
         return PowerSVDSendClient.apply(
             input,
-            [self.p_buffer],
-            [self.q_buffer],
+            self.p_buffer,
+            self.q_buffer,
             self.iter,
-            [self.grad_p_buffer],
-            [self.grad_q_buffer],
+            self.grad_p_buffer,
+            self.grad_q_buffer,
             self.device,
             self.send_rank,
             pg,
@@ -972,18 +968,22 @@ class PowerSVDClientSendLayer(nn.Module):
 class PowerSVDClientRecvLayer(nn.Module):
     def __init__(self, rank, shape, iter, device, send_rank, pg=None) -> None:
         super(PowerSVDClientRecvLayer, self).__init__()
-        self.p_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
-        )
-        self.q_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[1]), rank))
-        )
-        self.grad_p_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
-        )
-        self.grad_q_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[1]), rank))
-        )
+        self.p_buffer = [
+            torch.nn.Parameter(
+                torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
+            )
+        ]
+        self.q_buffer = [
+            torch.nn.Parameter(torch.rand((int(shape[0]), int(shape[1]), rank)))
+        ]
+        self.grad_p_buffer = [
+            torch.nn.Parameter(
+                torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
+            )
+        ]
+        self.grad_q_buffer = [
+            torch.nn.Parameter(torch.rand((int(shape[0]), int(shape[1]), rank)))
+        ]
         # print(self.p_buffer.shape,self.q_buffer.shape)
         self.iter = iter
         self.send_rank = send_rank
@@ -993,11 +993,11 @@ class PowerSVDClientRecvLayer(nn.Module):
     def forward(self, input, pg=None):
         return PowerSVDRecvClient.apply(
             input,
-            [self.p_buffer],
-            [self.q_buffer],
+            self.p_buffer,
+            self.q_buffer,
             self.iter,
-            [self.grad_p_buffer],
-            [self.grad_q_buffer],
+            self.grad_p_buffer,
+            self.grad_q_buffer,
             self.device,
             self.send_rank,
             pg,
@@ -1030,10 +1030,9 @@ class PowerSVDRecvServer(autograd.Function):
     def backward(ctx, grad_output):
         p_buffer, q_buffer = ctx.p_buffer, ctx.q_buffer
         n_iter, send_rank, pg = ctx.n_iter, ctx.send_rank, ctx.pg
-        p, q = PowerSVD(grad_output, q_buffer, p_buffer, n_iter)
-        # print("forward server send",pg)
-        dist.isend(p, send_rank, group=pg)
-        dist.isend(q, send_rank, group=pg)
+        PowerSVD(grad_output, q_buffer, p_buffer, n_iter)
+        dist.isend(p_buffer[0], send_rank, group=pg)
+        dist.isend(q_buffer[0], send_rank, group=pg)
         return grad_output, None, None, None, None, None, None, None
 
 
@@ -1052,11 +1051,9 @@ class PowerSVDSendServer(autograd.Function):
     ):
         ctx.grad_p_buffer, ctx.grad_q_buffer = grad_p_buffer, grad_q_buffer
         ctx.recv_rank, ctx.pg = send_rank, pg
-        p, q = PowerSVD(input, q_buffer, p_buffer, n_iter)
-        p_buffer[0] = p
-        q_buffer[0] = q
-        dist.isend(p, send_rank, group=pg)
-        dist.isend(q, send_rank, group=pg)
+        PowerSVD(input, q_buffer, p_buffer, n_iter)
+        dist.isend(p_buffer[0], send_rank, group=pg)
+        dist.isend(q_buffer[0], send_rank, group=pg)
         return input
 
     @staticmethod
@@ -1072,18 +1069,22 @@ class PowerSVDSendServer(autograd.Function):
 class PowerSVDServerSendLayer(nn.Module):
     def __init__(self, rank, shape, iter, send_rank, pg=None) -> None:
         super(PowerSVDServerSendLayer, self).__init__()
-        self.p_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
-        )
-        self.q_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[1]), rank))
-        )
-        self.grad_p_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
-        )
-        self.grad_q_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[1]), rank))
-        )
+        self.p_buffer = [
+            torch.nn.Parameter(
+                torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
+            )
+        ]
+        self.q_buffer = [
+            torch.nn.Parameter(torch.rand((int(shape[0]), int(shape[1]), rank)))
+        ]
+        self.grad_p_buffer = [
+            torch.nn.Parameter(
+                torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
+            )
+        ]
+        self.grad_q_buffer = [
+            torch.nn.Parameter(torch.rand((int(shape[0]), int(shape[1]), rank)))
+        ]
         # print(self.p_buffer.shape,self.q_buffer.shape)
         self.iter = iter
         self.send_rank = send_rank
@@ -1092,11 +1093,11 @@ class PowerSVDServerSendLayer(nn.Module):
     def forward(self, input, pg=None):
         return PowerSVDSendServer.apply(
             input,
-            [self.p_buffer],
-            [self.q_buffer],
+            self.p_buffer,
+            self.q_buffer,
             self.iter,
-            [self.grad_p_buffer],
-            [self.grad_q_buffer],
+            self.grad_p_buffer,
+            self.grad_q_buffer,
             self.send_rank,
             pg,
         )
@@ -1105,18 +1106,22 @@ class PowerSVDServerSendLayer(nn.Module):
 class PowerSVDServerRecvLayer(nn.Module):
     def __init__(self, rank, shape, iter, recv_rank, pg=None) -> None:
         super(PowerSVDServerRecvLayer, self).__init__()
-        self.p_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
-        )
-        self.q_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[1]), rank))
-        )
-        self.grad_p_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
-        )
-        self.grad_q_buffer = torch.nn.Parameter(
-            torch.rand((int(shape[0]), int(shape[1]), rank))
-        )
+        self.p_buffer = [
+            torch.nn.Parameter(
+                torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
+            )
+        ]
+        self.q_buffer = [
+            torch.nn.Parameter(torch.rand((int(shape[0]), int(shape[1]), rank)))
+        ]
+        self.grad_p_buffer = [
+            torch.nn.Parameter(
+                torch.rand((int(shape[0]), int(shape[2] * shape[3]), rank))
+            )
+        ]
+        self.grad_q_buffer = [
+            torch.nn.Parameter(torch.rand((int(shape[0]), int(shape[1]), rank)))
+        ]
         # print(self.p_buffer.shape,self.q_buffer.shape)
         self.iter = iter
         self.recv_rank = recv_rank
@@ -1125,11 +1130,11 @@ class PowerSVDServerRecvLayer(nn.Module):
     def forward(self, input, pg=None):
         return PowerSVDRecvServer.apply(
             input,
-            [self.p_buffer],
-            [self.q_buffer],
+            self.p_buffer,
+            self.q_buffer,
             self.iter,
-            [self.grad_p_buffer],
-            [self.grad_q_buffer],
+            self.grad_p_buffer,
+            self.grad_q_buffer,
             self.recv_rank,
             pg,
         )

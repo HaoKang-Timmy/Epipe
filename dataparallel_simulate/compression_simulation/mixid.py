@@ -109,10 +109,7 @@ def main_worker(rank, process_num, args):
     epochs = args.epochs
     model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
     model = model.to(rank)
-    optimizer = AdamW(
-        [{"params": model.parameters()}],
-        lr=args.lr,
-    )
+    optimizer = AdamW([{"params": model.parameters()}], lr=args.lr,)
     model = torch.nn.parallel.DistributedDataParallel(model)
     lr_scheduler = get_scheduler(
         name="polynomial",

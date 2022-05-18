@@ -89,15 +89,15 @@ def SortQuantization(input, bits, split_bits, min_step):
     input = input.view(-1)
     src, index = torch.sort(input, dim=0)
     # print(src)
-    index = torch.tensor_split(index, 2**split_bits)
-    src = torch.tensor_split(src, 2**split_bits)
+    index = torch.tensor_split(index, 2 ** split_bits)
+    src = torch.tensor_split(src, 2 ** split_bits)
     if bits + split_bits <= 8:
         output = input.type(torch.int8)
     else:
         output = input.type(torch.int16)
     output = output.view(-1)
 
-    for i in range(2**split_bits):
+    for i in range(2 ** split_bits):
 
         if bits + split_bits == 8 or bits + split_bits == 16:
 
@@ -141,10 +141,10 @@ def SortDeQuantization(recv, bits, split_bits, min_step, grad_output):
 
     src, index = torch.sort(recv, dim=0)
 
-    index = torch.tensor_split(index, 2**split_bits)
-    src = torch.tensor_split(src, 2**split_bits)
+    index = torch.tensor_split(index, 2 ** split_bits)
+    src = torch.tensor_split(src, 2 ** split_bits)
 
-    for i in range(2**split_bits):
+    for i in range(2 ** split_bits):
         # torch.cuda.synchronize()
         # start = time.time()
         temp_src = src[i].type(torch.float32)
@@ -241,7 +241,7 @@ def FastDequantization(recv: torch.tensor, bits, split_bits, min_step, grad_outp
     if bits + split_bits > 8 and bits + split_bits <= 16:
         recv = recv.view(dtype=torch.int16)
     recv = recv.type(torch.long)
-    for i in range(2**split_bits):
+    for i in range(2 ** split_bits):
         if bits + split_bits == 8 or bits + split_bits == 16:
             upperbound = -pow(2, bits + split_bits - 1) + pow(2, bits) * (i + 1)
             lowerbound = -pow(2, bits + split_bits - 1) + pow(2, bits) * i
@@ -291,15 +291,15 @@ def FastQuantization(input, bits, split_bits, min_step):
         output = input.type(torch.int8)
     else:
         output = input.type(torch.int16)
-    for i in range(2**split_bits):
+    for i in range(2 ** split_bits):
 
-        if i == 2**split_bits - 1:
+        if i == 2 ** split_bits - 1:
             kthvalue = input.max()
         else:
             input = input.view(batch, -1)
             kthvalue, indice = torch.kthvalue(
                 input[0],
-                int(shape * (i + 1) / (2**split_bits) / batch),
+                int(shape * (i + 1) / (2 ** split_bits) / batch),
                 keepdim=False,
             )
 
@@ -357,4 +357,4 @@ def FastQuantization(input, bits, split_bits, min_step):
 
 def ParallelSortQuantization(input, bits, split_bits, min_step):
     shape_input = input.shape
-    input = input.view(2**split_bits, -1).type(torch.double)
+    input = input.view(2 ** split_bits, -1).type(torch.double)

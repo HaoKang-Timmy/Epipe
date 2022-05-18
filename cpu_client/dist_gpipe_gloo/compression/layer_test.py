@@ -3,6 +3,10 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 import time
 
+from gpipe_test.cpu_client.dist_gpipe_gloo.compression.compression_layer_nccl import (
+    PowerSVDClientSendLayer,
+)
+
 
 def PowerSVD(input: torch.tensor, q_buffer: list, p_buffer: list, n_iter):
     shape = input.shape
@@ -27,22 +31,15 @@ def main_worker(rank, world_size, args):
     print("process begin", rank)
 
     if rank == 0:
-        input = torch.rand([2, 4, 4]).to(0)
-        p_buffer = [torch.rand([2, 4, 3]).to(0)]
-        q_buffer = [torch.rand([2, 4, 3]).to(0)]
-        # Q, R = torch.linalg.qr(q_buffer)
-        PowerSVD(input, q_buffer, p_buffer, 2)
-        print("send p ", p_buffer[0])
-        print("send q ", q_buffer[0])
-        dist.send(p_buffer[0], 1)
-        dist.send(q_buffer[0], 1)
+        input = torch.rand([1, 3, 112, 112])
+        layer = PowerSVDClientSendLayer(3,)
     elif rank == 1:
         p_buffer = torch.rand([2, 4, 3]).to(1)
         q_buffer = torch.rand([2, 4, 3]).to(1)
         dist.recv(p_buffer, 0)
         dist.recv(q_buffer, 0)
-        print("recv p", p_buffer)
-        print("recv q", q_buffer)
+        # print("recv p", p_buffer,p_buffer.shape)
+        print("recv q", q_buffer, q_buffer.shape)
 
 
 def main():
