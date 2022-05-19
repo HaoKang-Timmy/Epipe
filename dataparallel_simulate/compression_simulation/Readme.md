@@ -121,9 +121,20 @@ Only compress the first layer
 
 ## 6 Convolution Insertion Implementation
 
+MobileNetV2 with CIFAR10
+
+| Method                        | Separate Strategy         | Compression Ratio(after/before) | Acc   |
+| ----------------------------- | ------------------------- | ------------------------------- | ----- |
+| Convolution insertion         | firsrt layer, last layers | 0.097                           | 96.01 |
+| Convolution insertion         | firsrt layer, last layers | 0.070                           | 95.85 |
+| Convolution insertion (2sets) | firsrt layer, last layers | 0.038                           | 95.75 |
+
+ResNet18 with CIFAR10
+
 | Method                | Separate Strategy         | Compression Ratio(after/before) | Acc   |
 | --------------------- | ------------------------- | ------------------------------- | ----- |
-| Convolution insertion | firsrt layer, last layers | 0.25                            | 95.42 |
+| None                  | Sota                      | 1                               | 96.40 |
+| Convolution insertion | firsrt layer, last layers | 0.065                           | 95.79 |
 
 ## 7 Different Separation Strategy
 
@@ -140,3 +151,47 @@ Compress Algorithm: Uniform Quantization
 | First Layer without Relu, Last Two layers | 0.313(10bits)                   | 95.82 |
 | First Layer, Last Two layers              | 0.313(10bits)                   | 86.72 |
 
+## 8 Poweriteration
+
+MobilenetV2 with CIFAR10
+
+Since the activation memory of CV model is 4D, I squeeze it into 3D.  
+
+| Method             | Compression Rate | Separate Strategy                      | Throughput | Acc    |
+| ------------------ | ---------------- | -------------------------------------- | ---------- | ------ |
+| Power iteration 3D | 0.100            | first layers and last layers           | 581.81/s   | 95.50% |
+| Power iteration 3D | 0.073            | first three layers and last two layers | 577.46/s   | 94.75% |
+
+Roberta-base with Cola
+
+| Method             | Compression Rate | Separate Strategy            | Correlation | Acc  |
+| ------------------ | ---------------- | ---------------------------- | ----------- | ---- |
+| Power iteration 3D | 0.290            | first layers and last layers | 0.653       | 85.6 |
+| Power iteration 3D | 0.145            | first layers and last layers | 0.639       | 84.9 |
+
+Roberta-base with RTE
+
+| Method             | Compression Rate | Separate Strategy            | Acc  |
+| ------------------ | ---------------- | ---------------------------- | ---- |
+| Power iteration 3D | 0.290            | first layers and last layers | 77.2 |
+| Power iteration 3D | 0.145            | first layers and last layers | 57.6 |
+
+## 9 Half precision training and Mixed precision training
+
+### NLP
+
+Roberta-base with RTE
+
+| Method | Acc    |
+| ------ | ------ |
+| Fp16   | 77.21  |
+| Mixed  |        |
+| Fp32   | 79.125 |
+
+Roberta-base with Cola
+
+| Method | Acc  | Matthew correlation |
+| ------ | ---- | ------------------- |
+| Fp16   | 85.1 | 0.641               |
+| Mixed  |      |                     |
+| Fp32   | 85.2 | 0.648               |
