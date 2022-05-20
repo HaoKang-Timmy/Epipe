@@ -173,6 +173,7 @@ Roberta-base with RTE
 
 | Method             | Compression Rate | Separate Strategy            | Acc  |
 | ------------------ | ---------------- | ---------------------------- | ---- |
+| Power iteration 3D | 0.4375           | first layers and last layers | 79.0 |
 | Power iteration 3D | 0.290            | first layers and last layers | 77.2 |
 | Power iteration 3D | 0.145            | first layers and last layers | 57.6 |
 
@@ -182,16 +183,16 @@ Roberta-base with RTE
 
 Roberta-base with RTE
 
-| Method | Acc    |
-| ------ | ------ |
-| Fp16   | 77.21  |
-| Mixed  |        |
-| Fp32   | 79.125 |
+| Method | Acc   |
+| ------ | ----- |
+| Fp16   | 77.21 |
+| Mixed  | 78.9  |
+| Fp32   | 79.1  |
 
 Roberta-base with Cola
 
 | Method | Acc  | Matthew correlation |
 | ------ | ---- | ------------------- |
-| Fp16   | 85.1 | 0.641               |
-| Mixed  |      |                     |
+| Fp16   | 84.9 | 0.635               |
+| Mixed  | 85.0 | 0.641               |
 | Fp32   | 85.2 | 0.648               |

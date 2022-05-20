@@ -30,7 +30,7 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 | Cpu,Gpu                 | Fast Quantization 8bits    | 8     | First two layer, last two layer | 141.64MB/s | 1.01s           | 63.37/s     | 95.84          |
 | Cpu,Gpu                 | Uniform Quantization 8bits | 8     | First two layer, last two layer | 142.11MB/s | 0.43s           | 148.84/s    | 95.84          |
 | CPu,Gpu                 | Power iteration3d          | 8     | First layer, last layer         | 70.04MB/s  | 0.36s           | 177.78/s    | 95.43          |
-| CPu,Gpu                 | Power iteration3d          | 8     | First layer, last layer         | 51.57MB/s  | 0.35s           | 182.86/s    | 94.75          |
+| CPu,Gpu                 | Power iteration3d          | 8     | First layer, last layer         | 51.57MB/s  | 0.39s           | 164.10/s    | 94.75          |
 | CPu,Gpu                 | Conv Insert                | 8     | First layer, last layer         | 68.70MB/s  | 0.37s           | 172.97/s    | 96.01          |
 | CPu,Gpu                 | Conv Insert                | 8     | First layer, last layer         | 48.02MB/s  | 0.36s           | 177.91/s    | 95.85          |
 | Cpu,Gpu                 | Conv Insert(2 sets)        | 8     | First layer, last layer         | 25.81MB/s  | 0.41s           | 156.10/s    | 95.70          |
@@ -94,7 +94,6 @@ Mix amplification training may be a good method.
 
 | Hardware(Client,Server) | Compression method      | Chunk | Sever Client Partition | Bandwidth | Time  per Batch | Throughputs | Validation Acc |
 | ----------------------- | ----------------------- | ----- | ---------------------- | --------- | --------------- | ----------- | -------------- |
-| CPU,GPU                 |                         |       |                        |           |                 |             |                |
 | CPU,GPU                 | Fast Quantization 6bits | 4     | Condition 3            | 10.43MB/s | 0.99s           | 32.32/s     | 84.76          |
 | CPU,GPU                 | Fast Quantization 6bits | 4     | Condition 3            | 10.27MB/s | 0.89s           | 35.95/s     | 84.66          |
 
