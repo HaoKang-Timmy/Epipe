@@ -3,22 +3,12 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 import time
 
-from gpipe_test.cpu_client.dist_gpipe_gloo.compression.compression_layer_nccl import (
-    PowerSVDClientSendLayer,
-)
+from compression_layer_nccl import PowerSVDClientSendLayer, PowerSVDServerRecvLayer
 
 
-def PowerSVD(input: torch.tensor, q_buffer: list, p_buffer: list, n_iter):
-    shape = input.shape
-    input = input.view(int(input.shape[0]), int(input.shape[1]), -1)
-    for i in range(n_iter):
-        if i == n_iter - 1:
-            p_buffer[0] = torch.linalg.qr(p_buffer[0]).Q
-        q_buffer[0] = input @ p_buffer[0]
-        if i == n_iter - 1:
-            q_buffer[0] = torch.linalg.qr(q_buffer[0]).Q
-        p_buffer[0] = input.permute((0, 2, 1)) @ q_buffer[0]
-    input = input.view(shape)
+def error(input, label):
+    difference = torch.abs(input) - torch.abs(label)
+    return torch.abs(difference).mean()
 
 
 def main_worker(rank, world_size, args):
@@ -32,14 +22,17 @@ def main_worker(rank, world_size, args):
 
     if rank == 0:
         input = torch.rand([1, 3, 112, 112])
-        layer = PowerSVDClientSendLayer(3,)
+        layer = PowerSVDClientSendLayer(3, input.shape, 2, 0, 1)
+        output = layer(input)
+        output = output.to(0)
+        dist.send(output, 1)
     elif rank == 1:
-        p_buffer = torch.rand([2, 4, 3]).to(1)
-        q_buffer = torch.rand([2, 4, 3]).to(1)
-        dist.recv(p_buffer, 0)
-        dist.recv(q_buffer, 0)
-        # print("recv p", p_buffer,p_buffer.shape)
-        print("recv q", q_buffer, q_buffer.shape)
+        input = torch.rand([1, 3, 112, 112]).to(1)
+        recv = torch.rand([1, 3, 112, 112]).to(1)
+        layer = PowerSVDServerRecvLayer(3, input.shape, 2, 0).to(1)
+        output = layer(input)
+        dist.recv(recv, 0)
+        print(error(output, recv))
 
 
 def main():

@@ -5,8 +5,8 @@ import time
 input = torch.rand([64, 32, 112, 112])
 # copy1 = input.clone()
 input_gpu = torch.rand([64, 32, 112, 112]).to(0)
-min_step = torch.rand([2 ** 2, 2])
-min_step_gpu = torch.rand([2 ** 2, 2]).to(0)
+min_step = torch.rand([2**2, 2])
+min_step_gpu = torch.rand([2**2, 2]).to(0)
 start_cpu = time.time()
 min_step, output = FastQuantization(input, 6, 2, min_step)
 cpu_end = time.time() - start_cpu

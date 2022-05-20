@@ -12,15 +12,15 @@ def FastQuantizationCPU(input, bits, split_bits, min_step):
         output = input.type(torch.int8)
     else:
         output = input.type(torch.int16)
-    for i in range(2 ** split_bits):
+    for i in range(2**split_bits):
 
-        if i == 2 ** split_bits - 1:
+        if i == 2**split_bits - 1:
             kthvalue = input.max()
         else:
             input = input.view(batch, -1)
             kthvalue, indice = torch.kthvalue(
                 input[0],
-                int(shape * (i + 1) / (2 ** split_bits) / batch),
+                int(shape * (i + 1) / (2**split_bits) / batch),
                 keepdim=False,
             )
 
@@ -81,7 +81,7 @@ def FastDequantizationCPU(recv: torch.tensor, bits, split_bits, min_step, grad_o
     if bits + split_bits > 8 and bits + split_bits <= 16:
         recv = recv.view(dtype=torch.int16)
     recv = recv.type(torch.long)
-    for i in range(2 ** split_bits):
+    for i in range(2**split_bits):
         if bits + split_bits == 8 or bits + split_bits == 16:
             upperbound = -pow(2, bits + split_bits - 1) + pow(2, bits) * (i + 1)
             lowerbound = -pow(2, bits + split_bits - 1) + pow(2, bits) * i

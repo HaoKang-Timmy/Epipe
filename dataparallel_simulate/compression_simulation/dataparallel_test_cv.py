@@ -131,17 +131,11 @@ def main_worker(rank, process_num, args):
         layer1 = nn.Sequential(*[model.features[0:1]])
         layer2 = nn.Sequential(*[model.features[1:]])
         layer3 = nn.Sequential(*[Reshape1(), model.classifier])
-    # quant_layer1 = QuantizationLayer(args.quant)
-    # dequant_layer1 = DequantizationLayer(args.quant)
-    # quant_layer2 = QuantizationLayer(args.quant)
-    # dequant_layer2 = DequantizationLayer(args.quant)
+
     layer1 = layer1.to(rank)
     layer2 = layer2.to(rank)
     layer3 = layer3.to(rank)
-    # quant_layer1 = quant_layer1.to(rank)
-    # dequant_layer1 = dequant_layer1.to(rank)
-    # quant_layer2 =quant_layer2.to(rank)
-    # dequant_layer2 = dequant_layer2.to(rank)
+
     layer1 = torch.nn.parallel.DistributedDataParallel(layer1)
     layer2 = torch.nn.parallel.DistributedDataParallel(layer2)
     layer3 = torch.nn.parallel.DistributedDataParallel(layer3)
@@ -162,20 +156,7 @@ def main_worker(rank, process_num, args):
             lr=args.lr,
             momentum=0.9,
         )
-    # elif args.conv2 != 0 and args.conv1 == 0:
-    #     optimizer = torch.optim.SGD(
-    #         [
-    #             {"params": layer1.parameters()},
-    #             {"params": layer2.parameters()},
-    #             {"params": layer3.parameters()},
-    #             # {"params": conv2d.parameters(), "lr": args.lr},
-    #             # {"params": conv_t.parameters(), "lr": args.lr},
-    #             {"params": conv2d2.parameters(), "lr": args.lr},
-    #             {"params": conv_t2.parameters(), "lr": args.lr},
-    #         ],
-    #         lr=args.lr,
-    #         momentum=0.9,
-    #     )
+
     else:
         optimizer = torch.optim.SGD(
             [
@@ -235,18 +216,8 @@ def main_worker(rank, process_num, args):
                 outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
             elif args.powersvd != 0:
                 if bool == 0:
-
-                    #     power1 = PowerSGD(
-                    #         outputs,
-                    #         config=Config(
-                    #             rank=args.powersvd,  # lower rank => more aggressive compression
-                    #             min_compression_rate=1,  # don't compress gradients with less compression
-                    #             num_iters_per_step=args.poweriter,  #   # lower number => more aggressive compression
-                    #             start_compressing_after_num_steps=0,
-                    #         ),
-                    #     )
-                    # outputs = PowerPCA.apply(outputs, power1)
-                    svd1 = PowerSVDLayer(
+                    # poweriter 3D is better than 4D
+                    svd1 = PowerSVDLayer1(
                         args.powersvd, list(outputs.shape), args.poweriter
                     ).to(rank)
                 outputs = svd1(outputs)
@@ -262,8 +233,6 @@ def main_worker(rank, process_num, args):
                 outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
             elif args.conv2 != 0:
                 outputs = conv2d1(outputs)
-                # outputs = conv2d3(outputs)
-                # outputs = conv_t3(outputs)
                 outputs = conv_t1(outputs)
             elif args.powersvd1 != 0:
                 if bool == 0:
@@ -274,7 +243,6 @@ def main_worker(rank, process_num, args):
                 outputs = svd2(outputs)
             elif args.svd != 0:
                 outputs = ReshapeSVD.apply(outputs, args.svd)
-            # outputs = outputs.view(64,1280,7,7)
             outputs = layer3(outputs)
             # print(outputs)
             # while(1):

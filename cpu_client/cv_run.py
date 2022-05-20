@@ -11,7 +11,7 @@ parser.add_argument("--chunks", default=8, type=int)
 parser.add_argument("--log", default="./test.txt", type=str)
 parser.add_argument("--train-method", default="finetune", type=str)
 # parser.add_argument("--warmup", default=0, action="store_true")
-parser.add_argument("--lr", default=0.005, type=float)
+parser.add_argument("--lr", default=0.01, type=float)
 parser.add_argument("--wd", default=0.0, type=float)
 parser.add_argument("--epochs", default=40, type=int)
 parser.add_argument("--batches", default=64, type=int)
@@ -28,6 +28,8 @@ parser.add_argument("--split", default=0, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
 parser.add_argument("--mix", default=0, action="store_true")
 parser.add_argument("--bandwidth", default=0, action="store_true")
+parser.add_argument("--tight", default=0, action="store_true")
+parser.add_argument("--fp16", default=0, action="store_true")
 parser.add_argument("--pca1", default=0, type=int)
 parser.add_argument("--pca2", default=0, type=int)
 parser.add_argument("--poweriter1", default=0, type=int)
@@ -38,25 +40,17 @@ def main():
     args = parser.parse_args()
     model = mobilenet_v2(pretrained=True)
     model.classifier[-1] = nn.Linear(1280, 10)
-    conv1 = nn.Conv2d(32, 20, (3, 3), (3, 3))
-    t_conv1 = nn.ConvTranspose2d(20, 32, (3, 3), (3, 3))
-    conv2 = nn.Conv2d(1280, 320, (1, 1))
-    t_conv2 = nn.ConvTranspose2d(320, 1280, (1, 1))
     feature = model.features[0].children()
     conv = next(feature)
     bn = next(feature)
     devices = args.devices
-    layer1 = [conv, bn, conv1]
-    layer2 = [t_conv1, nn.ReLU6(inplace=False), model.features[1:], conv2]
-    # layer3 = [model.features[3:7]]
-    # layer4 = [model.features[7:]]
-    layer5 = [t_conv2, Reshape1(), model.classifier]
+    layer1 = [conv, bn]
+    layer2 = [nn.ReLU6(inplace=False), model.features[1:]]
+    layer3 = [Reshape1(), model.classifier]
 
     layer1 = nn.Sequential(*layer1)
     layer2 = nn.Sequential(*layer2)
-    # layer3 = nn.Sequential(*layer3)
-    # layer4 = nn.Sequential(*layer4)
-    layer5 = nn.Sequential(*layer5)
+    layer3 = nn.Sequential(*layer3)
     input = torch.rand([1, 3, 224, 224])
     output = layer1(input)
     print(output.shape)
@@ -66,7 +60,7 @@ def main():
     # print(output.shape)
     # output = layer4(output)
     # print(output.shape)
-    output = layer5(output)
+    output = layer3(output)
     print(output.shape)
     transform_train = transforms.Compose(
         [
@@ -110,15 +104,15 @@ def main():
         drop_last=True,
         pin_memory=True,
     )
-    partition = [[layer1, layer5], [layer2]]
+    partition = [[layer1, layer3], [layer2]]
     tensor_size = [
         [
-            (int(args.batches / args.chunks), 20, 37, 37),
-            (int(args.batches / args.chunks), 320, 7, 7),
+            (int(args.batches / args.chunks), 32, 112, 112),
+            (int(args.batches / args.chunks), 1280, 7, 7),
         ],
         [
-            (int(args.batches / args.chunks), 320, 7, 7),
-            (int(args.batches / args.chunks), 20, 37, 37),
+            (int(args.batches / args.chunks), 1280, 7, 7),
+            (int(args.batches / args.chunks), 32, 112, 112),
         ],
     ]
     print(tensor_size)

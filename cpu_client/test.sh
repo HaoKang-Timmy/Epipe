@@ -45,6 +45,10 @@
 # python3 nlp_run.py --task cola --quant 8 --log ./cola_q8_tight.txt --tight
 # python3 nlp_run.py --pca1 56 --pca2 56 --log rte_pca56_tight.txt --tight
 # python3 nlp_run.py --pca1 56 --pca2 56 --log rte_pca56.txt
-python3 nlp_run.py --sortquant  --quant 3 --split 2 --task cola --log cola_fq32_tight.txt --tight
-python3 nlp_run.py --task cola --quant 5 --log cola_q5_tight.txt --tight
+# python3 nlp_run.py --sortquant  --quant 3 --split 2 --task cola --log cola_fq32_tight.txt --tight
+# python3 nlp_run.py --task cola --quant 5 --log cola_q5_tight.txt --tight
+python3 cv_run.py --poweriter1 4 --poweriter2 4 --log cifar10_poweriter4.txt
+python3 cv_run.py --poweriter1 3 --poweriter2 3 --log cifar10_poweriter3.txt
+# python3 cv_run.py --poweriter1 2 --poweriter2 2 --log cifar10_poweriter2.txt
+
 
