@@ -223,7 +223,7 @@ def client_trainer(
                 ],
             )
 
-            if train_settings["fp16"] != 0:
+            if train_settings["fp16"] != 0 or train_settings["mixed"] != 0:
                 batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
                 batch["attention_mask"] = batch["attention_mask"].type(torch.float16)
             else:
@@ -500,6 +500,8 @@ def client(train_settings, client_settings):
         )
         client_settings["group_list"] = group_list
         print("client", group_list)
+        if train_settings["mixed"] != 0:
+            train_settings['scalar'] = torch.cuda.amp.GradScaler()
         for epoch in range(train_settings["epochs"]):
             print("client:", epoch)
             (

@@ -330,6 +330,7 @@ def make_dictions(
     client_train_settings["poweriter1"] = args.poweriter1
     client_train_settings["poweriter2"] = args.poweriter2
     client_train_settings["fp16"] = args.fp16
+    client_train_settings["mixed"] = args.mixed
     for server_num in range(len(devices) - 1):
         train_settings = {}
         server_settings = {}
@@ -366,6 +367,8 @@ def make_dictions(
         train_settings["len_trainloader"] = len(train_loader)
         train_settings["len_valloader"] = len(val_loader)
         train_settings["fp16"] = args.fp16
+        train_settings["mixed"] = args.mixed
+        server_settings["bandwidth"] = args.bandwidth
         server_settings_list.append(server_settings)
         server_train_settings_list.append(train_settings)
-        server_settings["bandwidth"] = args.bandwidth
+        
