@@ -50,6 +50,7 @@ parser.add_argument("--pca1", default=0, type=int)
 parser.add_argument("--mix", default=0, action="store_true")
 parser.add_argument("--pca2", default=0, type=int)
 parser.add_argument("--fp16", default=0, action="store_true")
+parser.add_argument("--mixed", default=0, action="store_true")
 parser.add_argument("--poweriter1", default=0, type=int)
 parser.add_argument("--poweriter2", default=0, type=int)
 task_to_keys = {

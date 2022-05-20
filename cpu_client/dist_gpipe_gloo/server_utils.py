@@ -62,6 +62,7 @@ def init_models_server(train_settings, server_settings):
             server_settings["send_size"],
             3,
             server_settings["send_rank"],
+            server_settings["device"],
         ).to(server_settings["device"])
     if train_settings["poweriter1"] != 0:
         train_settings["poweriter1_layer"] = PowerSVDServerRecvLayer(
@@ -69,6 +70,7 @@ def init_models_server(train_settings, server_settings):
             server_settings["recv_size"],
             3,
             server_settings["recv_rank"],
+            server_settings["device"],
         ).to(server_settings["device"])
     return optimizer, warmup_scheduler, group_list
 

@@ -3,7 +3,12 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 import time
 
-from compression_layer_nccl import PowerSVDClientSendLayer, PowerSVDServerRecvLayer
+from compression_layer_nccl import (
+    PowerSVDClientSendLayer,
+    PowerSVDServerRecvLayer,
+    PowerSVDClientRecvLayer,
+    PowerSVDServerSendLayer,
+)
 
 
 def error(input, label):
@@ -21,15 +26,15 @@ def main_worker(rank, world_size, args):
     print("process begin", rank)
 
     if rank == 0:
-        input = torch.rand([1, 3, 112, 112])
-        layer = PowerSVDClientSendLayer(3, input.shape, 2, 0, 1)
+        input = torch.rand([64, 32, 112, 112])
+        layer = PowerSVDClientRecvLayer(3, input.shape, 2, 0, 1)
         output = layer(input)
         output = output.to(0)
         dist.send(output, 1)
     elif rank == 1:
-        input = torch.rand([1, 3, 112, 112]).to(1)
-        recv = torch.rand([1, 3, 112, 112]).to(1)
-        layer = PowerSVDServerRecvLayer(3, input.shape, 2, 0).to(1)
+        input = torch.rand([64, 32, 112, 112]).to(1)
+        recv = torch.rand([64, 32, 112, 112]).to(1)
+        layer = PowerSVDServerSendLayer(3, input.shape, 2, 0, 1).to(1)
         output = layer(input)
         dist.recv(recv, 0)
         print(error(output, recv))
