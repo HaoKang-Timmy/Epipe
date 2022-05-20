@@ -32,7 +32,7 @@ with torch.no_grad():
     input = model(input)
     fastdequant = input.clone().detach()
     stdequant = input.clone().detach()
-    min_step = torch.rand([2 ** args.split, 2])
+    min_step = torch.rand([2**args.split, 2])
     min_step, fastquant = FastQuantization(input, args.fquant, args.split, min_step)
     fastdequant = FastDequantization(
         fastquant, args.fquant, args.split, min_step, fastdequant

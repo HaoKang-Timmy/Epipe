@@ -123,7 +123,8 @@ def main():
         shuffle=False,
     )
     model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
-
+    if args.fp16 != 0:
+        model = model.half()
     devices = args.devices
 
     if args.tight != 0:

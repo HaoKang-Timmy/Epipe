@@ -69,10 +69,10 @@ class SortQuantization(autograd.Function):
         # quantization src1
         # print(src.shape)
         src, index = torch.sort(input, dim=0)
-        index = torch.tensor_split(index, 2 ** split_bits)
-        src = torch.tensor_split(src, 2 ** split_bits)
+        index = torch.tensor_split(index, 2**split_bits)
+        src = torch.tensor_split(src, 2**split_bits)
         # print(src1[1])
-        for i in range(2 ** split_bits):
+        for i in range(2**split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
@@ -107,9 +107,9 @@ class SortQuantization(autograd.Function):
         shape = grad_backward.shape
         grad_backward = grad_backward.view(-1)
         src, index = torch.sort(grad_backward, dim=0)
-        index = torch.tensor_split(index, 2 ** split_bits)
-        src = torch.tensor_split(src, 2 ** split_bits)
-        for i in range(2 ** split_bits):
+        index = torch.tensor_split(index, 2**split_bits)
+        src = torch.tensor_split(src, 2**split_bits)
+        for i in range(2**split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)

@@ -60,21 +60,24 @@ def init_models_server(train_settings, server_settings):
         train_settings["poweriter2_layer"] = PowerSVDServerSendLayer(
             train_settings["poweriter2"],
             server_settings["send_size"],
-            2,
+            3,
             server_settings["send_rank"],
         ).to(server_settings["device"])
     if train_settings["poweriter1"] != 0:
         train_settings["poweriter1_layer"] = PowerSVDServerRecvLayer(
             train_settings["poweriter1"],
             server_settings["recv_size"],
-            2,
+            3,
             server_settings["recv_rank"],
         ).to(server_settings["device"])
     return optimizer, warmup_scheduler, group_list
 
 
 def server_trainer(
-    train_settings, server_settings, optimizer, warmup_scheduler,
+    train_settings,
+    server_settings,
+    optimizer,
+    warmup_scheduler,
 ):
     if train_settings["tasktype"] == "cv":
         timerecv_avg = 0.0
@@ -276,7 +279,10 @@ def server(train_settings, server_settings):
         # print("server",group_list)
         for epoch in range(train_settings["epochs"]):
             server_trainer(
-                train_settings, server_settings, optimizer, warmup_scheduler,
+                train_settings,
+                server_settings,
+                optimizer,
+                warmup_scheduler,
             )
             if train_settings["tasktype"] == "cv":
                 warmup_scheduler.step()
