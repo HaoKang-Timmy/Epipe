@@ -64,10 +64,7 @@ def create_dataloader(args):
 
         def encode(examples):
             return tokenizer(
-                examples["text"],
-                truncation=True,
-                padding="max_length",
-                max_length=128,
+                examples["text"], truncation=True, padding="max_length", max_length=128,
             )
 
         train_dataset = train_dataset.map(encode, batched=True)
