@@ -10,6 +10,6 @@ import torch.distributed as dist
 import torch.nn as nn
 from torch.optim import AdamW
 
-model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
-for param in model.parameters():
-    param.require_grad = False
+linear = torch.nn.Linear(768, 100)
+torch.save(linear.state_dict(), "./save_linear")
+linear.load_state_dict(torch.load("./save_linear"))

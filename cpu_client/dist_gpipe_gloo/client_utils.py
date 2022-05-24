@@ -84,11 +84,7 @@ def init_models_client(train_settings, client_settings):
 
 
 def client_trainer(
-    train_settings,
-    client_settings,
-    optimizer,
-    warmup_scheduler,
-    criterion,
+    train_settings, client_settings, optimizer, warmup_scheduler, criterion,
 ):
     acc1_avg = 0.0
     losses_avg = 0.0
@@ -142,11 +138,7 @@ def client_trainer(
                         # print("client, pre_recv",chunk)
                         # input = input.view([client_settings["recv_size"][0],client_settings["recv_size"][1],49])
                         input = RecvTensorCPU(
-                            input,
-                            client_settings,
-                            train_settings,
-                            chunk,
-                            True,
+                            input, client_settings, train_settings, chunk, True,
                         )
                         # input.view(client_settings["recv_size"])
                         # print("client, recv",chunk)
@@ -262,11 +254,7 @@ def client_trainer(
                         )
 
                         input = RecvTensorCPU(
-                            input,
-                            client_settings,
-                            train_settings,
-                            chunk,
-                            True,
+                            input, client_settings, train_settings, chunk, True,
                         )
 
                         # input = input.type(torch.long)
@@ -501,7 +489,7 @@ def client(train_settings, client_settings):
         client_settings["group_list"] = group_list
         print("client", group_list)
         if train_settings["mixed"] != 0:
-            train_settings['scalar'] = torch.cuda.amp.GradScaler()
+            train_settings["scalar"] = torch.cuda.amp.GradScaler()
         for epoch in range(train_settings["epochs"]):
             print("client:", epoch)
             (
@@ -511,18 +499,12 @@ def client(train_settings, client_settings):
                 train_loss,
                 bandwidth_avg,
             ) = client_trainer(
-                train_settings,
-                client_settings,
-                optimizer,
-                warmup_scheduler,
-                criterion,
+                train_settings, client_settings, optimizer, warmup_scheduler, criterion,
             )
             if train_settings["tasktype"] == "cv":
                 warmup_scheduler.step()
             val_acc, val_metric, val_loss = client_validation(
-                train_settings,
-                client_settings,
-                criterion,
+                train_settings, client_settings, criterion,
             )
             print(
                 "epoch",

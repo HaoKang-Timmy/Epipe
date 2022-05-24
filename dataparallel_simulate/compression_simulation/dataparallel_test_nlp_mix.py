@@ -251,10 +251,6 @@ def main_worker(rank, process_num, args):
                         outputs = topk_layer(outputs)
                     if args.quant != 0:
                         outputs = Fakequantize.apply(outputs, args.quant)
-                    # if args.kmeans != 0:
-                    #     outputs = kmeanslayer(outputs)
-                    # if rank == 1:
-                    # print("first output",outputs)
                     if args.pca != 0:
                         outputs = PCAQuantize.apply(outputs, args.pca)
                     if args.linear != 0:

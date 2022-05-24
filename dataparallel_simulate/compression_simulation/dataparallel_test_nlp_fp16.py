@@ -2,13 +2,14 @@ import torch.nn as nn
 import time
 import torch
 from datasets import load_dataset
-from transformers import get_scheduler
+from transformers import ModelCard, get_scheduler
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from datasets import load_metric
 import torch.multiprocessing as mp
 import torch.distributed as dist
 import argparse
 import os
+from models.models import *
 from utils import (
     Fakequantize,
     TopkLayer,
@@ -25,21 +26,9 @@ from torch.optim import AdamW
 from torch.cuda.amp import GradScaler, autocast
 
 
-class nlp_sequential(nn.Module):
-    def __init__(self, layers: list):
-        super(nlp_sequential, self).__init__()
-        self.layers = layers[0]
-
-    def forward(self, output: torch.tensor, mask: torch.tensor):
-        for i, layer in enumerate(self.layers):
-            output = layer(output, mask)
-            output = output[0]
-        return output
-
-
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 
-parser.add_argument("--log", default="./my_gpipe", type=str)
+parser.add_argument("--log", default="./test.txt", type=str)
 parser.add_argument("--dataset", default="rte", type=str)
 parser.add_argument("--lr", default=2e-5, type=float)
 parser.add_argument("--epochs", default=20, type=int)
@@ -53,9 +42,11 @@ parser.add_argument("--pca", default=0, type=int)
 parser.add_argument("--linear", default=0, action="store_true")
 parser.add_argument("--sortquant", default=0, action="store_true")
 parser.add_argument("--fp16", default=0, action="store_true")
+parser.add_argument("--eye", default=0, action="store_true")
 parser.add_argument("--powersvd", default=0, type=int)
 parser.add_argument("--powersvd1", default=0, type=int)
 parser.add_argument("--poweriter", default=2, type=int)
+parser.add_argument("--channelsize", default=100, type=int)
 task_to_keys = {
     "cola": ("sentence", None),
     "mnli": ("premise", "hypothesis"),
@@ -141,81 +132,24 @@ def main_worker(rank, process_num, args):
     metric_acc = load_metric("accuracy")
     # model
     epochs = args.epochs
-    model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
-    if args.fp16 != 0:
-        model = model.half()
-    embedding = model.roberta.embeddings
-    attention = model.roberta.encoder.layer[0].attention
-    medium = model.roberta.encoder.layer[0].intermediate
-    output_layer = model.roberta.encoder.layer[0].output
-    roberta_layers = model.roberta.encoder.layer[1:]
+    model = RobertabaseLinear2(None, args.channelsize, args.eye)
+    # model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
+    model = model.to(rank)
+    optimizer = AdamW(model.parameters(), lr=args.lr)
 
-    part1 = EmbeddingAndAttention([embedding], [attention])
-    part2 = CombineLayer([medium], [output_layer], [roberta_layers])
-    part3 = model.classifier
-    part1.to(rank)
-    part2.to(rank)
-    part3.to(rank)
-
-    if args.linear != 0:
-        linear1 = torch.nn.Linear(768, 224).to(rank)
-        linear2 = torch.nn.Linear(224, 768).to(rank)
-        linear3 = torch.nn.Linear(768, 224).to(rank)
-        linear4 = torch.nn.Linear(224, 768).to(rank)
-
-    if args.linear == 0:
-        if args.fp16 != 0:
-            optimizer = AdamW(
-                [
-                    {"params": part1.parameters()},
-                    {"params": part2.parameters()},
-                    {"params": part3.parameters()},
-                ],
-                lr=args.lr,
-                eps=1e-4,
-            )
-        else:
-            optimizer = AdamW(
-                [
-                    {"params": part1.parameters()},
-                    {"params": part2.parameters()},
-                    {"params": part3.parameters()},
-                ],
-                lr=args.lr,
-            )
-    else:
-        optimizer = AdamW(
-            [
-                {"params": part1.parameters()},
-                {"params": part2.parameters()},
-                {"params": part3.parameters()},
-                {"params": linear1.parameters(), "lr": args.lr},
-                {"params": linear2.parameters(), "lr": args.lr},
-                {"params": linear3.parameters(), "lr": args.lr},
-                {"params": linear4.parameters(), "lr": args.lr},
-            ],
-            lr=args.lr,
-        )
-
-    part1 = torch.nn.parallel.DistributedDataParallel(part1)
-    part2 = torch.nn.parallel.DistributedDataParallel(part2)
-    part3 = torch.nn.parallel.DistributedDataParallel(part3)
+    model = torch.nn.parallel.DistributedDataParallel(model)
     lr_scheduler = get_scheduler(
         name="polynomial",
         optimizer=optimizer,
-        num_warmup_steps=500,
+        num_warmup_steps=200,
         num_training_steps=epochs * len(train_dataloader),
     )
     print(len(train_dataloader))
     print(len(val_dataloader))
     criterion = nn.CrossEntropyLoss().to(rank)
-    topk_layer = TopkLayer(args.prun).to(rank)
 
-    bool = 0.0
     for epoch in range(epochs):
-        part1.train()
-        part2.train()
-        part3.train()
+        model = model.train()
         train_loss = 0.0
         train_acc1 = 0.0
         time_avg = 0.0
@@ -225,82 +159,23 @@ def main_worker(rank, process_num, args):
 
             start = time.time()
             batch = {k: v.to(rank) for k, v in batch.items()}
-            batch["attention_mask"] = torch.reshape(
-                batch["attention_mask"],
-                [
-                    int(batch["attention_mask"].shape[0]),
-                    1,
-                    1,
-                    int(batch["attention_mask"].shape[-1]),
-                ],
-            ).to(rank)
-            batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e4
-            if args.fp16 != 0:
-                batch["attention_mask"] = batch["attention_mask"].type(torch.float16)
-            # with autocast():
-            outputs = part1(batch["input_ids"], batch["attention_mask"])
+            # batch["attention_mask"] = torch.reshape(
+            #     batch["attention_mask"],
+            #     [
+            #         int(batch["attention_mask"].shape[0]),
+            #         1,
+            #         1,
+            #         int(batch["attention_mask"].shape[-1]),
+            #     ],
+            # ).to(rank)
+            # batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
 
-            # loss = outputs.loss
-            # print(outputs.shape)
-
-            if args.prun != 0:
-                outputs = topk_layer(outputs)
-            if args.quant != 0:
-                outputs = Fakequantize.apply(outputs, args.quant)
-            # if args.kmeans != 0:
-            #     outputs = kmeanslayer(outputs)
-            # if rank == 1:
-            # print("first output",outputs)
-            if args.pca != 0:
-                outputs = PCAQuantize.apply(outputs, args.pca)
-            if args.linear != 0:
-                outputs = linear1(outputs)
-                outputs = linear2(outputs)
-            if args.sortquant != 0:
-                outputs = SortQuantization.apply(
-                    outputs, args.quant, args.prun, args.sort
-                )
-            if args.powersvd != 0:
-                if bool == 0:
-                    svd1 = PowerSVDLayerNLP(
-                        args.powersvd, list(outputs.shape), args.poweriter
-                    ).to(rank)
-                outputs = svd1(outputs)
-            outputs = part2(outputs, batch["attention_mask"])
-            # print(outputs.dtype)
-            if args.prun != 0:
-                outputs = topk_layer(outputs)
-            if args.quant != 0:
-                outputs = Fakequantize.apply(outputs, args.quant)
-            # if args.kmeans != 0:
-            #     outputs = kmeanslayer(outputs)
-            # if rank == 1:
-            #     print("first output",outputs)
-            if args.pca != 0:
-                outputs = PCAQuantize.apply(outputs, args.pca)
-            if args.linear != 0:
-                outputs = linear3(outputs)
-                outputs = linear4(outputs)
-            if args.sortquant != 0:
-                outputs = SortQuantization.apply(
-                    outputs, args.quant, args.prun, args.sort
-                )
-            if args.powersvd1 != 0:
-                if bool == 0:
-                    bool = 1
-                    svd2 = PowerSVDLayerNLP(
-                        args.powersvd1, list(outputs.shape), args.poweriter
-                    ).to(rank)
-                outputs = svd2(outputs)
-            outputs = part3(outputs)
+            # outputs = model(batch["input_ids"], batch["attention_mask"])
+            outputs = model(batch["input_ids"], batch["attention_mask"])
             logits = outputs
-            # batch["labels"] = batch["labels"].type(torch.float16)
             loss = criterion(logits, batch["labels"])
             pred = torch.argmax(logits, dim=1)
             acc = metric_acc.compute(predictions=pred, references=batch["labels"])
-            # scaler.scale(loss).backward()
-            # scaler.step(optimizer)
-            # scaler.update()
             loss.backward()
             optimizer.step()
             lr_scheduler.step()
@@ -319,78 +194,14 @@ def main_worker(rank, process_num, args):
         val_matt = 0.0
         val_acc1 = 0.0
 
-        part1.eval()
-        part2.eval()
-        part3.eval()
+        model.eval()
         metric_mat = load_metric("glue", args.task)
         with torch.no_grad():
             for i, batch in enumerate(val_dataloader):
                 batch = {k: v.to(rank) for k, v in batch.items()}
-                batch["attention_mask"] = torch.reshape(
-                    batch["attention_mask"],
-                    [
-                        int(batch["attention_mask"].shape[0]),
-                        1,
-                        1,
-                        int(batch["attention_mask"].shape[-1]),
-                    ],
-                ).to(rank)
-                batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
-                if args.fp16 != 0:
-                    batch["attention_mask"] = batch["attention_mask"].type(
-                        torch.float16
-                    )
-                outputs = part1(batch["input_ids"], batch["attention_mask"])
 
-                # print(outputs)
-                # loss = outputs.loss
+                outputs = model(batch["input_ids"], batch["attention_mask"])
 
-                if args.prun != 0:
-                    outputs = topk_layer(outputs)
-                if args.quant != 0:
-                    outputs = Fakequantize.apply(outputs, args.quant)
-                # if args.kmeans != 0:
-                #     outputs = kmeanslayer(outputs)
-                if args.pca != 0:
-                    outputs = PCAQuantize.apply(outputs, args.pca)
-                if args.linear != 0:
-                    outputs = linear1(outputs)
-                    outputs = linear2(outputs)
-                if args.sortquant != 0:
-                    outputs = SortQuantization.apply(
-                        outputs, args.quant, args.prun, args.sort
-                    )
-                if args.powersvd != 0:
-                    if bool == 0:
-                        svd1 = PowerSVDLayerNLP(
-                            args.powersvd, list(outputs.shape), args.poweriter
-                        ).to(rank)
-                    outputs = svd1(outputs)
-                outputs = part2(outputs, batch["attention_mask"])
-
-                if args.prun != 0:
-                    outputs = topk_layer(outputs)
-                if args.quant != 0:
-                    outputs = Fakequantize.apply(outputs, args.quant)
-                # if args.kmeans != 0:
-                #     outputs = kmeanslayer(outputs)
-                if args.pca != 0:
-                    outputs = PCAQuantize.apply(outputs, args.pca)
-                if args.linear != 0:
-                    outputs = linear3(outputs)
-                    outputs = linear4(outputs)
-                if args.sortquant != 0:
-                    outputs = SortQuantization.apply(
-                        outputs, args.quant, args.prun, args.sort
-                    )
-                if args.powersvd1 != 0:
-                    if bool == 0:
-                        bool = 1
-                        svd2 = PowerSVDLayerNLP(
-                            args.powersvd1, list(outputs.shape), args.poweriter
-                        ).to(rank)
-                    outputs = svd2(outputs)
-                outputs = part3(outputs)
                 logits = outputs
                 loss = criterion(logits, batch["labels"])
 

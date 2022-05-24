@@ -32,10 +32,7 @@ from .compression.compression_layer_nccl import (
     TopkPruning,
     PCARecvClient,
     PCASendClient,
-    CompressionClientRecv,
     CompressionClientSend,
-    CompressRecvGPU,
-    CompressSendGPU,
     QrecvClient,
     QSendClient,
 )
@@ -371,4 +368,3 @@ def make_dictions(
         server_settings["bandwidth"] = args.bandwidth
         server_settings_list.append(server_settings)
         server_train_settings_list.append(train_settings)
-        

@@ -32,8 +32,10 @@ parser.add_argument("--dataset", default="rte", type=str)
 parser.add_argument("--lr", default=2e-5, type=float)
 parser.add_argument("--epochs", default=20, type=int)
 parser.add_argument("--task", default="rte", type=str)
+parser.add_argument("--pretrain", default="rte", type=str)
+parser.add_argument("--path", default="./", type=str)
 parser.add_argument("--batches", default=8, type=int)
-parser.add_argument("--rank", default=150, type=int)
+parser.add_argument("--rank", default=100, type=int)
 
 task_to_keys = {
     "cola": ("sentence", None),
@@ -167,18 +169,29 @@ def main_worker(rank, process_num, args):
     linear2 = torch.nn.Linear(args.rank, 768)
     linear3 = torch.nn.Linear(768, args.rank)
     linear4 = torch.nn.Linear(args.rank, 768)
-    # print(args.kmeans)
     linear1.load_state_dict(
-        torch.load(str(args.rank) + "_linear1.pty", map_location="cpu")
+        torch.load(
+            args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear1.pth",
+            map_location="cpu",
+        )
     )
     linear2.load_state_dict(
-        torch.load(str(args.rank) + "_linear2.pty", map_location="cpu")
+        torch.load(
+            args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear2.pth",
+            map_location="cpu",
+        )
     )
     linear3.load_state_dict(
-        torch.load(str(args.rank) + "_linear3.pty", map_location="cpu")
+        torch.load(
+            args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear3.pth",
+            map_location="cpu",
+        )
     )
     linear4.load_state_dict(
-        torch.load(str(args.rank) + "_linear4.pty", map_location="cpu")
+        torch.load(
+            args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear4.pth",
+            map_location="cpu",
+        )
     )
     linear1 = linear1.to(rank)
     linear2 = linear2.to(rank)
@@ -187,7 +200,10 @@ def main_worker(rank, process_num, args):
     part1 = torch.nn.parallel.DistributedDataParallel(part1)
     part2 = torch.nn.parallel.DistributedDataParallel(part2)
     part3 = torch.nn.parallel.DistributedDataParallel(part3)
-
+    linear1 = torch.nn.parallel.DistributedDataParallel(linear1)
+    linear2 = torch.nn.parallel.DistributedDataParallel(linear2)
+    linear3 = torch.nn.parallel.DistributedDataParallel(linear3)
+    linear4 = torch.nn.parallel.DistributedDataParallel(linear4)
     optimizer = AdamW(
         [
             {"params": part1.parameters()},
@@ -203,7 +219,7 @@ def main_worker(rank, process_num, args):
     lr_scheduler = get_scheduler(
         name="polynomial",
         optimizer=optimizer,
-        num_warmup_steps=500,
+        num_warmup_steps=200,
         num_training_steps=epochs * len(train_dataloader),
     )
     print(len(train_dataloader))
