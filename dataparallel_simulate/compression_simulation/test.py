@@ -7,7 +7,10 @@ tokenizer = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
 
 def encode(examples):
     return tokenizer(
-        examples["text"], truncation=True, padding="max_length", max_length=128,
+        examples["text"],
+        truncation=True,
+        padding="max_length",
+        max_length=128,
     )
 
 

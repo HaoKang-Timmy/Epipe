@@ -164,7 +164,7 @@ def main_worker(rank, process_num, args):
     part1.to(rank)
     part2.to(rank)
     part3.to(rank)
-
+    print(args.rank)
     linear1 = torch.nn.Linear(768, args.rank)
     linear2 = torch.nn.Linear(args.rank, 768)
     linear3 = torch.nn.Linear(768, args.rank)

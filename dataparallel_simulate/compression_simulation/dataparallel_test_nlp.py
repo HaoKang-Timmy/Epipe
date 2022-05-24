@@ -21,6 +21,8 @@ from utils import (
     EmbeddingAndAttention,
 )
 from torch.optim import AdamW
+from dataloader.dataloader import create_dataloader
+from models.models import Robertawithcompress
 
 
 class nlp_sequential(nn.Module):
@@ -44,24 +46,13 @@ parser.add_argument("--epochs", default=20, type=int)
 parser.add_argument("--task", default="rte", type=str)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prun", default=0.0, type=float)
-parser.add_argument("--kmeans", default=0, type=int)
-parser.add_argument("--batches", default=8, type=int)
+parser.add_argument("--batches", default=32, type=int)
 parser.add_argument("--sort", default=0, type=int)
 parser.add_argument("--pca", default=0, type=int)
-parser.add_argument("--linear", default=0, action="store_true")
+parser.add_argument("--linear", default=0, type=int)
+parser.add_argument("--worker", default=4, type=int)
+parser.add_argument("--loader", default=12, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
-task_to_keys = {
-    "cola": ("sentence", None),
-    "mnli": ("premise", "hypothesis"),
-    "mnli-mm": ("premise", "hypothesis"),
-    "mrpc": ("sentence1", "sentence2"),
-    "qnli": ("question", "sentence"),
-    "qqp": ("question1", "question2"),
-    "rte": ("sentence1", "sentence2"),
-    "sst2": ("sentence", None),
-    "stsb": ("sentence1", "sentence2"),
-    "wnli": ("sentence1", "sentence2"),
-}
 
 
 def main():
@@ -76,124 +67,34 @@ def main_worker(rank, process_num, args):
     # dataset dataloaer
 
     os.environ["TOKENIZERS_PARALLELISM"] = "true"
-    train_dataset = load_dataset("glue", args.task, split="train")
-    val_dataset = load_dataset("glue", args.task, split="validation")
-    sentence1_key, sentence2_key = task_to_keys[args.task]
-    tokenizer = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
-    # sentence1_key, sentence2_key = task_to_keys["cola"]
-    def encode(examples):
-        if sentence2_key is not None:
-            return tokenizer(
-                examples[sentence1_key],
-                examples[sentence2_key],
-                truncation=True,
-                padding="max_length",
-                max_length=128,
-            )
-        return tokenizer(
-            examples[sentence1_key],
-            truncation=True,
-            padding="max_length",
-            max_length=128,
-        )
-
-    train_dataset = train_dataset.map(encode, batched=True)
-    val_dataset = val_dataset.map(encode, batched=True)
-    val_dataset = val_dataset.map(
-        lambda examples: {"labels": examples["label"]}, batched=True
-    )
-    train_dataset = train_dataset.map(
-        lambda examples: {"labels": examples["label"]}, batched=True
-    )
-    train_dataset.set_format(
-        type="torch", columns=["input_ids", "labels", "attention_mask"]
-    )
-    val_dataset.set_format(
-        type="torch", columns=["input_ids", "labels", "attention_mask"]
-    )
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=8,
-        num_workers=12,
-        pin_memory=True,
-        drop_last=True,
-        shuffle=False,
-        sampler=train_sampler,
-    )
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_size=8,
-        num_workers=12,
-        pin_memory=True,
-        drop_last=True,
-        shuffle=False,
-    )
-
+    train_dataloader, val_dataloader, train_sampler = create_dataloader(args)
     # metric
     metric_mat = load_metric("glue", args.task)
     metric_acc = load_metric("accuracy")
     # model
     epochs = args.epochs
-    model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
 
-    embedding = model.roberta.embeddings
-    attention = model.roberta.encoder.layer[0].attention
-    medium = model.roberta.encoder.layer[0].intermediate
-    output_layer = model.roberta.encoder.layer[0].output
-    roberta_layers = model.roberta.encoder.layer[1:]
+    model = Robertawithcompress(args, rank)
+    model = model.to(rank)
 
-    part1 = EmbeddingAndAttention([embedding], [attention])
-    part2 = CombineLayer([medium], [output_layer], [roberta_layers])
-    part3 = model.classifier
-    part1.to(rank)
-    part2.to(rank)
-    part3.to(rank)
-    if args.linear != 0:
-        linear1 = torch.nn.Linear(768, 224).to(rank)
-        linear2 = torch.nn.Linear(224, 768).to(rank)
-        linear3 = torch.nn.Linear(768, 224).to(rank)
-        linear4 = torch.nn.Linear(224, 768).to(rank)
-    # print(args.kmeans)
-    part1 = torch.nn.parallel.DistributedDataParallel(part1)
-    part2 = torch.nn.parallel.DistributedDataParallel(part2)
-    part3 = torch.nn.parallel.DistributedDataParallel(part3)
-    if args.linear == 0:
-        optimizer = AdamW(
-            [
-                {"params": part1.parameters()},
-                {"params": part2.parameters()},
-                {"params": part3.parameters()},
-            ],
-            lr=args.lr,
-        )
-    else:
-        optimizer = AdamW(
-            [
-                {"params": part1.parameters()},
-                {"params": part2.parameters()},
-                {"params": part3.parameters()},
-                {"params": linear1.parameters(), "lr": args.lr},
-                {"params": linear2.parameters(), "lr": args.lr},
-                {"params": linear3.parameters(), "lr": args.lr},
-                {"params": linear4.parameters(), "lr": args.lr},
-            ],
-            lr=args.lr,
-        )
+    model = torch.nn.parallel.DistributedDataParallel(model)
+
+    optimizer = AdamW(
+        model.parameters(),
+        lr=args.lr,
+    )
+
     lr_scheduler = get_scheduler(
         name="polynomial",
         optimizer=optimizer,
-        num_warmup_steps=500,
+        num_warmup_steps=200,
         num_training_steps=epochs * len(train_dataloader),
     )
     print(len(train_dataloader))
     print(len(val_dataloader))
     criterion = nn.CrossEntropyLoss().to(rank)
-    topk_layer = TopkLayer(args.prun).to(rank)
     for epoch in range(epochs):
-        part1.train()
-        part2.train()
-        part3.train()
+        model.train()
         train_loss = 0.0
         train_acc1 = 0.0
         time_avg = 0.0
@@ -202,64 +103,8 @@ def main_worker(rank, process_num, args):
             start = time.time()
             batch = {k: v.to(rank) for k, v in batch.items()}
             optimizer.zero_grad()
-            batch["attention_mask"] = (
-                torch.reshape(
-                    batch["attention_mask"],
-                    [
-                        int(batch["attention_mask"].shape[0]),
-                        1,
-                        1,
-                        int(batch["attention_mask"].shape[-1]),
-                    ],
-                )
-                .to(rank)
-                .type(torch.float32)
-            )
-            batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
-            outputs = part1(batch["input_ids"], batch["attention_mask"])
 
-            # print(outputs)
-            # loss = outputs.loss
-            # print(outputs.shape)
-
-            if args.prun != 0:
-                outputs = topk_layer(outputs)
-            if args.quant != 0:
-                outputs = Fakequantize.apply(outputs, args.quant)
-            # if args.kmeans != 0:
-            #     outputs = kmeanslayer(outputs)
-            # if rank == 1:
-            # print("first output",outputs)
-            if args.pca != 0:
-                outputs = PCAQuantize.apply(outputs, args.pca)
-            if args.linear != 0:
-                outputs = linear1(outputs)
-                outputs = linear2(outputs)
-            if args.sortquant != 0:
-                outputs = SortQuantization.apply(
-                    outputs, args.quant, args.prun, args.sort
-                )
-            outputs = part2(outputs, batch["attention_mask"])
-
-            if args.prun != 0:
-                outputs = topk_layer(outputs)
-            if args.quant != 0:
-                outputs = Fakequantize.apply(outputs, args.quant)
-            # if args.kmeans != 0:
-            #     outputs = kmeanslayer(outputs)
-            # if rank == 1:
-            #     print("first output",outputs)
-            if args.pca != 0:
-                outputs = PCAQuantize.apply(outputs, args.pca)
-            if args.linear != 0:
-                outputs = linear3(outputs)
-                outputs = linear4(outputs)
-            if args.sortquant != 0:
-                outputs = SortQuantization.apply(
-                    outputs, args.quant, args.prun, args.sort
-                )
-
-            outputs = part3(outputs)
+            outputs = model(batch["input_ids"], batch["attention_mask"])
             logits = outputs
             loss = criterion(logits, batch["labels"])
             pred = torch.argmax(logits, dim=1)
@@ -282,65 +127,13 @@ def main_worker(rank, process_num, args):
         val_matt = 0.0
         val_acc1 = 0.0
 
-        part1.eval()
-        part2.eval()
-        part3.eval()
+        model.eval()
         metric_mat = load_metric("glue", args.task)
         with torch.no_grad():
             for i, batch in enumerate(val_dataloader):
                 batch = {k: v.to(rank) for k, v in batch.items()}
-                batch["attention_mask"] = (
-                    torch.reshape(
-                        batch["attention_mask"],
-                        [
-                            int(batch["attention_mask"].shape[0]),
-                            1,
-                            1,
-                            int(batch["attention_mask"].shape[-1]),
-                        ],
-                    )
-                    .to(rank)
-                    .type(torch.float32)
-                )
-                batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
-                outputs = part1(batch["input_ids"], batch["attention_mask"])
 
-                # print(outputs)
-                # loss = outputs.loss
-
-                if args.prun != 0:
-                    outputs = topk_layer(outputs)
-                if args.quant != 0:
-                    outputs = Fakequantize.apply(outputs, args.quant)
-                # if args.kmeans != 0:
-                #     outputs = kmeanslayer(outputs)
-                if args.pca != 0:
-                    outputs = PCAQuantize.apply(outputs, args.pca)
-                if args.linear != 0:
-                    outputs = linear1(outputs)
-                    outputs = linear2(outputs)
-                if args.sortquant != 0:
-                    outputs = SortQuantization.apply(
-                        outputs, args.quant, args.prun, args.sort
-                    )
-                outputs = part2(outputs, batch["attention_mask"])
-
-                if args.prun != 0:
-                    outputs = topk_layer(outputs)
-                if args.quant != 0:
-                    outputs = Fakequantize.apply(outputs, args.quant)
-                # if args.kmeans != 0:
-                #     outputs = kmeanslayer(outputs)
-                if args.pca != 0:
-                    outputs = PCAQuantize.apply(outputs, args.pca)
-                if args.linear != 0:
-                    outputs = linear3(outputs)
-                    outputs = linear4(outputs)
-                if args.sortquant != 0:
-                    outputs = SortQuantization.apply(
-                        outputs, args.quant, args.prun, args.sort
-                    )
-                outputs = part3(outputs)
+                outputs = model(batch["input_ids"], batch["attention_mask"])
                 logits = outputs
                 loss = criterion(logits, batch["labels"])
                 pred = torch.argmax(logits, dim=1)

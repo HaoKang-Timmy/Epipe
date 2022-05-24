@@ -18,6 +18,7 @@ task_to_keys = {
 
 def create_dataloader(args):
     tokenizer = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
+    args.batches = int(args.batches / args.worker)
     if args.task != "wiki":
         train_dataset = load_dataset("glue", args.task, split="train")
         val_dataset = load_dataset("glue", args.task, split="validation")
@@ -76,8 +77,8 @@ def create_dataloader(args):
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=8,
-        num_workers=12,
+        batch_size=args.batches,
+        num_workers=args.loader,
         pin_memory=True,
         drop_last=True,
         shuffle=False,
@@ -85,8 +86,8 @@ def create_dataloader(args):
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=8,
-        num_workers=12,
+        batch_size=args.batches,
+        num_workers=args.loader,
         pin_memory=True,
         drop_last=True,
         shuffle=False,
