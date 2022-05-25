@@ -4,6 +4,18 @@ from datasets import load_dataset
 from transformers import AutoTokenizer
 
 
+class NLPSequential(nn.Module):
+    def __init__(self, layers: list):
+        super(NLPSequential, self).__init__()
+        self.layers = layers[0]
+
+    def forward(self, output: torch.tensor, mask: torch.tensor):
+        for i, layer in enumerate(self.layers):
+            output = layer(output, mask)
+            output = output[0]
+        return output
+
+
 class EmbeddingAndAttention(nn.Module):
     def __init__(self, embedding_layer, attention_layer):
         super(EmbeddingAndAttention, self).__init__()

@@ -9,7 +9,12 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 import argparse
 import os
-
+from models.models import (
+    RobertabaseLinear1,
+    RobertabaseLinear2,
+    RobertabaseLinear3,
+    RobertabaseLinear4,
+)
 from torch.optim import AdamW
 
 
@@ -37,6 +42,7 @@ parser.add_argument("--path", default="./", type=str)
 parser.add_argument("--batches", default=8, type=int)
 parser.add_argument("--rank", default=100, type=int)
 parser.add_argument("--compressdim", default=-1, type=int)
+parser.add_argument("--type", default=3, type=int)
 task_to_keys = {
     "cola": ("sentence", None),
     "mnli": ("premise", "hypothesis"),
@@ -150,78 +156,139 @@ def main_worker(rank, process_num, args):
     metric_acc = load_metric("accuracy")
     # model
     epochs = args.epochs
-    model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
+    # model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
 
-    embedding = model.roberta.embeddings
-    attention = model.roberta.encoder.layer[0].attention
-    medium = model.roberta.encoder.layer[0].intermediate
-    output_layer = model.roberta.encoder.layer[0].output
-    roberta_layers = model.roberta.encoder.layer[1:]
+    # embedding = model.roberta.embeddings
+    # attention = model.roberta.encoder.layer[0].attention
+    # medium = model.roberta.encoder.layer[0].intermediate
+    # output_layer = model.roberta.encoder.layer[0].output
+    # roberta_layers = model.roberta.encoder.layer[1:]
+    # if args.type == 3:
+    #     part1 = EmbeddingAndAttention([embedding], [attention])
+    #     part2 = CombineLayer([medium], [output_layer], [roberta_layers])
+    #     part3 = model.classifier
+    # elif args.type == 4:
+    #     part1 = model
+    # part1.to(rank)
+    # part2.to(rank)
+    # part3.to(rank)
+    # print(args.rank)
+    # if args.compressdim == -1:
+    #     linear1 = torch.nn.Linear(768, args.rank)
+    #     linear2 = torch.nn.Linear(args.rank, 768)
+    #     linear3 = torch.nn.Linear(768, args.rank)
+    #     linear4 = torch.nn.Linear(args.rank, 768)
+    # else:
+    #     linear1 = torch.nn.Linear(128, args.rank)
+    #     linear2 = torch.nn.Linear(args.rank, 128)
+    #     linear3 = torch.nn.Linear(128, args.rank)
+    #     linear4 = torch.nn.Linear(args.rank, 128)
+    # linear1.load_state_dict(
+    #     torch.load(
+    #         args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear1.pth",
+    #         map_location="cpu",
+    #     )
+    # )
+    # linear2.load_state_dict(
+    #     torch.load(
+    #         args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear2.pth",
+    #         map_location="cpu",
+    #     )
+    # )
+    # linear3.load_state_dict(
+    #     torch.load(
+    #         args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear3.pth",
+    #         map_location="cpu",
+    #     )
+    # )
+    # linear4.load_state_dict(
+    #     torch.load(
+    #         args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear4.pth",
+    #         map_location="cpu",
+    #     )
+    # )
+    if args.type == 1:
+        model = RobertabaseLinear1(None, args.rank, args.compressdim)
+    elif args.type == 2:
+        model = RobertabaseLinear2(None, args.rank, args.compressdim)
+    elif args.type == 3:
+        model = RobertabaseLinear3(None, args.rank, args.compressdim)
+    elif args.type == 4:
+        model = RobertabaseLinear4(None, args.rank, args.compressdim)
+    model.linear1.load_state_dict(
+        torch.load(
+            args.path
+            + str(args.pretrain)
+            + "_"
+            + str(args.rank)
+            + "_"
+            + str(args.type)
+            + "_linear1.pth",
+            map_location="cpu",
+        )
+    )
+    model.linear2.load_state_dict(
+        torch.load(
+            args.path
+            + str(args.pretrain)
+            + "_"
+            + str(args.rank)
+            + "_"
+            + str(args.type)
+            + "_linear2.pth",
+            map_location="cpu",
+        )
+    )
+    model.linear3.load_state_dict(
+        torch.load(
+            args.path
+            + str(args.pretrain)
+            + "_"
+            + str(args.rank)
+            + "_"
+            + str(args.type)
+            + "_linear3.pth",
+            map_location="cpu",
+        )
+    )
+    model.linear4.load_state_dict(
+        torch.load(
+            args.path
+            + str(args.pretrain)
+            + "_"
+            + str(args.rank)
+            + "_"
+            + str(args.type)
+            + "_linear4.pth",
+            map_location="cpu",
+        )
+    )
+    # linear1 = linear1.to(rank)
+    # linear2 = linear2.to(rank)
+    # linear3 = linear3.to(rank)
+    # linear4 = linear4.to(rank)
 
-    part1 = EmbeddingAndAttention([embedding], [attention])
-    part2 = CombineLayer([medium], [output_layer], [roberta_layers])
-    part3 = model.classifier
-    part1.to(rank)
-    part2.to(rank)
-    part3.to(rank)
-    print(args.rank)
-    if args.compressdim == -1:
-        linear1 = torch.nn.Linear(768, args.rank)
-        linear2 = torch.nn.Linear(args.rank, 768)
-        linear3 = torch.nn.Linear(768, args.rank)
-        linear4 = torch.nn.Linear(args.rank, 768)
-    else:
-        linear1 = torch.nn.Linear(128, args.rank)
-        linear2 = torch.nn.Linear(args.rank, 128)
-        linear3 = torch.nn.Linear(128, args.rank)
-        linear4 = torch.nn.Linear(args.rank, 128)
-    linear1.load_state_dict(
-        torch.load(
-            args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear1.pth",
-            map_location="cpu",
-        )
-    )
-    linear2.load_state_dict(
-        torch.load(
-            args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear2.pth",
-            map_location="cpu",
-        )
-    )
-    linear3.load_state_dict(
-        torch.load(
-            args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear3.pth",
-            map_location="cpu",
-        )
-    )
-    linear4.load_state_dict(
-        torch.load(
-            args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear4.pth",
-            map_location="cpu",
-        )
-    )
-    linear1 = linear1.to(rank)
-    linear2 = linear2.to(rank)
-    linear3 = linear3.to(rank)
-    linear4 = linear4.to(rank)
-    part1 = torch.nn.parallel.DistributedDataParallel(part1)
-    part2 = torch.nn.parallel.DistributedDataParallel(part2)
-    part3 = torch.nn.parallel.DistributedDataParallel(part3)
-    linear1 = torch.nn.parallel.DistributedDataParallel(linear1)
-    linear2 = torch.nn.parallel.DistributedDataParallel(linear2)
-    linear3 = torch.nn.parallel.DistributedDataParallel(linear3)
-    linear4 = torch.nn.parallel.DistributedDataParallel(linear4)
-    optimizer = AdamW(
-        [
-            {"params": part1.parameters()},
-            {"params": part2.parameters()},
-            {"params": part3.parameters()},
-            {"params": linear1.parameters(), "lr": args.lr},
-            {"params": linear2.parameters(), "lr": args.lr},
-            {"params": linear3.parameters(), "lr": args.lr},
-            {"params": linear4.parameters(), "lr": args.lr},
-        ],
-        lr=args.lr,
-    )
+    model = model.to(rank)
+    model = torch.nn.parallel.DistributedDataParallel(model)
+    # part2 = torch.nn.parallel.DistributedDataParallel(part2)
+    # part3 = torch.nn.parallel.DistributedDataParallel(part3)
+    # linear1 = torch.nn.parallel.DistributedDataParallel(linear1)
+    # linear2 = torch.nn.parallel.DistributedDataParallel(linear2)
+    # linear3 = torch.nn.parallel.DistributedDataParallel(linear3)
+    # linear4 = torch.nn.parallel.DistributedDataParallel(linear4)
+    # optimizer = AdamW(
+    #     [
+    #         {"params": part1.parameters()},
+    #         {"params": part2.parameters()},
+    #         {"params": part3.parameters()},
+    #         {"params": linear1.parameters(), "lr": args.lr},
+    #         {"params": linear2.parameters(), "lr": args.lr},
+    #         {"params": linear3.parameters(), "lr": args.lr},
+    #         {"params": linear4.parameters(), "lr": args.lr},
+    #     ],
+    #     lr=args.lr,
+    # )
+    optimizer = AdamW(model.parameters(), lr=args.lr)
     lr_scheduler = get_scheduler(
         name="polynomial",
         optimizer=optimizer,
@@ -232,9 +299,10 @@ def main_worker(rank, process_num, args):
     print(len(val_dataloader))
     criterion = nn.CrossEntropyLoss().to(rank)
     for epoch in range(epochs):
-        part1.train()
-        part2.train()
-        part3.train()
+        # part1.train()
+        # part2.train()
+        # part3.train()
+        model.train()
         train_loss = 0.0
         train_acc1 = 0.0
         time_avg = 0.0
@@ -243,43 +311,44 @@ def main_worker(rank, process_num, args):
             start = time.time()
             batch = {k: v.to(rank) for k, v in batch.items()}
             optimizer.zero_grad()
-            batch["attention_mask"] = (
-                torch.reshape(
-                    batch["attention_mask"],
-                    [
-                        int(batch["attention_mask"].shape[0]),
-                        1,
-                        1,
-                        int(batch["attention_mask"].shape[-1]),
-                    ],
-                )
-                .to(rank)
-                .type(torch.float32)
-            )
-            batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
-            outputs = part1(batch["input_ids"], batch["attention_mask"])
+            #     batch["attention_mask"] = (
+            #         torch.reshape(
+            #             batch["attention_mask"],
+            #             [
+            #                 int(batch["attention_mask"].shape[0]),
+            #                 1,
+            #                 1,
+            #                 int(batch["attention_mask"].shape[-1]),
+            #             ],
+            #         )
+            #         .to(rank)
+            #         .type(torch.float32)
+            #     )
+            #     batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
+            #     outputs = part1(batch["input_ids"], batch["attention_mask"])
 
-            if args.compressdim == -1:
-                outputs = linear1(outputs)
-                outputs = linear2(outputs)
-            else:
-                outputs = outputs.permute((0, 2, 1))
-                outputs = linear1(outputs)
-                outputs = linear2(outputs)
-                outputs = outputs.permute((0, 2, 1))
+            #     if args.compressdim == -1:
+            #         outputs = linear1(outputs)
+            #         outputs = linear2(outputs)
+            #     else:
+            #         outputs = outputs.permute((0, 2, 1))
+            #         outputs = linear1(outputs)
+            #         outputs = linear2(outputs)
+            #         outputs = outputs.permute((0, 2, 1))
 
-            outputs = part2(outputs, batch["attention_mask"])
+            #     outputs = part2(outputs, batch["attention_mask"])
 
-            if args.compressdim == -1:
-                outputs = linear3(outputs)
-                outputs = linear4(outputs)
-            else:
-                outputs = outputs.permute((0, 2, 1))
-                outputs = linear3(outputs)
-                outputs = linear4(outputs)
-                outputs = outputs.permute((0, 2, 1))
+            #     if args.compressdim == -1:
+            #         outputs = linear3(outputs)
+            #         outputs = linear4(outputs)
+            #     else:
+            #         outputs = outputs.permute((0, 2, 1))
+            #         outputs = linear3(outputs)
+            #         outputs = linear4(outputs)
+            #         outputs = outputs.permute((0, 2, 1))
 
-            outputs = part3(outputs)
+            #     outputs = part3(outputs)
+            outputs = model(batch["input_ids"], batch["attention_mask"])
             logits = outputs
             loss = criterion(logits, batch["labels"])
             pred = torch.argmax(logits, dim=1)
@@ -302,53 +371,55 @@ def main_worker(rank, process_num, args):
         val_matt = 0.0
         val_acc1 = 0.0
 
-        part1.eval()
-        part2.eval()
-        part3.eval()
+        # part1.eval()
+        # part2.eval()
+        # part3.eval()
+        model.eval()
         metric_mat = load_metric("glue", args.task)
         with torch.no_grad():
             for i, batch in enumerate(val_dataloader):
                 batch = {k: v.to(rank) for k, v in batch.items()}
-                batch["attention_mask"] = (
-                    torch.reshape(
-                        batch["attention_mask"],
-                        [
-                            int(batch["attention_mask"].shape[0]),
-                            1,
-                            1,
-                            int(batch["attention_mask"].shape[-1]),
-                        ],
-                    )
-                    .to(rank)
-                    .type(torch.float32)
-                )
-                batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
-                outputs = part1(batch["input_ids"], batch["attention_mask"])
+                #         batch["attention_mask"] = (
+                #             torch.reshape(
+                #                 batch["attention_mask"],
+                #                 [
+                #                     int(batch["attention_mask"].shape[0]),
+                #                     1,
+                #                     1,
+                #                     int(batch["attention_mask"].shape[-1]),
+                #                 ],
+                #             )
+                #             .to(rank)
+                #             .type(torch.float32)
+                #         )
+                #         batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
+                #         outputs = part1(batch["input_ids"], batch["attention_mask"])
 
-                # print(outputs)
-                # loss = outputs.loss
+                #         # print(outputs)
+                #         # loss = outputs.loss
 
-                if args.compressdim == -1:
-                    outputs = linear1(outputs)
-                    outputs = linear2(outputs)
-                else:
-                    outputs = outputs.permute((0, 2, 1))
-                    outputs = linear1(outputs)
-                    outputs = linear2(outputs)
-                    outputs = outputs.permute((0, 2, 1))
+                #         if args.compressdim == -1:
+                #             outputs = linear1(outputs)
+                #             outputs = linear2(outputs)
+                #         else:
+                #             outputs = outputs.permute((0, 2, 1))
+                #             outputs = linear1(outputs)
+                #             outputs = linear2(outputs)
+                #             outputs = outputs.permute((0, 2, 1))
 
-                outputs = part2(outputs, batch["attention_mask"])
+                #         outputs = part2(outputs, batch["attention_mask"])
 
-                if args.compressdim == -1:
-                    outputs = linear3(outputs)
-                    outputs = linear4(outputs)
-                else:
-                    outputs = outputs.permute((0, 2, 1))
-                    outputs = linear3(outputs)
-                    outputs = linear4(outputs)
-                    outputs = outputs.permute((0, 2, 1))
+                #         if args.compressdim == -1:
+                #             outputs = linear3(outputs)
+                #             outputs = linear4(outputs)
+                #         else:
+                #             outputs = outputs.permute((0, 2, 1))
+                #             outputs = linear3(outputs)
+                #             outputs = linear4(outputs)
+                #             outputs = outputs.permute((0, 2, 1))
 
-                outputs = part3(outputs)
+                #         outputs = part3(outputs)
+                outputs = model(batch["input_ids"], batch["attention_mask"])
                 logits = outputs
                 loss = criterion(logits, batch["labels"])
                 pred = torch.argmax(logits, dim=1)
