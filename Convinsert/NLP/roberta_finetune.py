@@ -36,7 +36,7 @@ parser.add_argument("--pretrain", default="rte", type=str)
 parser.add_argument("--path", default="./", type=str)
 parser.add_argument("--batches", default=8, type=int)
 parser.add_argument("--rank", default=100, type=int)
-
+parser.add_argument("--compressdim", default=-1, type=int)
 task_to_keys = {
     "cola": ("sentence", None),
     "mnli": ("premise", "hypothesis"),
@@ -164,11 +164,17 @@ def main_worker(rank, process_num, args):
     part1.to(rank)
     part2.to(rank)
     part3.to(rank)
-
-    linear1 = torch.nn.Linear(768, args.rank)
-    linear2 = torch.nn.Linear(args.rank, 768)
-    linear3 = torch.nn.Linear(768, args.rank)
-    linear4 = torch.nn.Linear(args.rank, 768)
+    print(args.rank)
+    if args.compressdim == -1:
+        linear1 = torch.nn.Linear(768, args.rank)
+        linear2 = torch.nn.Linear(args.rank, 768)
+        linear3 = torch.nn.Linear(768, args.rank)
+        linear4 = torch.nn.Linear(args.rank, 768)
+    else:
+        linear1 = torch.nn.Linear(128, args.rank)
+        linear2 = torch.nn.Linear(args.rank, 128)
+        linear3 = torch.nn.Linear(128, args.rank)
+        linear4 = torch.nn.Linear(args.rank, 128)
     linear1.load_state_dict(
         torch.load(
             args.path + str(args.pretrain) + "_" + str(args.rank) + "_linear1.pth",
@@ -253,13 +259,25 @@ def main_worker(rank, process_num, args):
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
             outputs = part1(batch["input_ids"], batch["attention_mask"])
 
-            outputs = linear1(outputs)
-            outputs = linear2(outputs)
+            if args.compressdim == -1:
+                outputs = linear1(outputs)
+                outputs = linear2(outputs)
+            else:
+                outputs = outputs.permute((0, 2, 1))
+                outputs = linear1(outputs)
+                outputs = linear2(outputs)
+                outputs = outputs.permute((0, 2, 1))
 
             outputs = part2(outputs, batch["attention_mask"])
 
-            outputs = linear3(outputs)
-            outputs = linear4(outputs)
+            if args.compressdim == -1:
+                outputs = linear3(outputs)
+                outputs = linear4(outputs)
+            else:
+                outputs = outputs.permute((0, 2, 1))
+                outputs = linear3(outputs)
+                outputs = linear4(outputs)
+                outputs = outputs.permute((0, 2, 1))
 
             outputs = part3(outputs)
             logits = outputs
@@ -310,13 +328,25 @@ def main_worker(rank, process_num, args):
                 # print(outputs)
                 # loss = outputs.loss
 
-                outputs = linear1(outputs)
-                outputs = linear2(outputs)
+                if args.compressdim == -1:
+                    outputs = linear1(outputs)
+                    outputs = linear2(outputs)
+                else:
+                    outputs = outputs.permute((0, 2, 1))
+                    outputs = linear1(outputs)
+                    outputs = linear2(outputs)
+                    outputs = outputs.permute((0, 2, 1))
 
                 outputs = part2(outputs, batch["attention_mask"])
 
-                outputs = linear3(outputs)
-                outputs = linear4(outputs)
+                if args.compressdim == -1:
+                    outputs = linear3(outputs)
+                    outputs = linear4(outputs)
+                else:
+                    outputs = outputs.permute((0, 2, 1))
+                    outputs = linear3(outputs)
+                    outputs = linear4(outputs)
+                    outputs = outputs.permute((0, 2, 1))
 
                 outputs = part3(outputs)
                 logits = outputs

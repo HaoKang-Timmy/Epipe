@@ -10,6 +10,7 @@ import torch.distributed as dist
 import argparse
 import os
 from models.models import *
+from dataloader import create_dataloader
 from utils import (
     Fakequantize,
     TopkLayer,
@@ -36,9 +37,10 @@ parser.add_argument("--task", default="rte", type=str)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prun", default=0.0, type=float)
 parser.add_argument("--kmeans", default=0, type=int)
-parser.add_argument("--batches", default=8, type=int)
+parser.add_argument("--batches", default=32, type=int)
 parser.add_argument("--sort", default=0, type=int)
 parser.add_argument("--pca", default=0, type=int)
+parser.add_argument("--type", default=1, type=int)
 parser.add_argument("--linear", default=0, action="store_true")
 parser.add_argument("--sortquant", default=0, action="store_true")
 parser.add_argument("--fp16", default=0, action="store_true")
@@ -47,6 +49,8 @@ parser.add_argument("--powersvd", default=0, type=int)
 parser.add_argument("--powersvd1", default=0, type=int)
 parser.add_argument("--poweriter", default=2, type=int)
 parser.add_argument("--channelsize", default=100, type=int)
+parser.add_argument("--worker", default=4, type=int)
+parser.add_argument("--loader", default=12, type=int)
 task_to_keys = {
     "cola": ("sentence", None),
     "mnli": ("premise", "hypothesis"),
@@ -68,72 +72,28 @@ def main():
 
 def main_worker(rank, process_num, args):
     dist.init_process_group(
-        backend="nccl", init_method="tcp://127.0.0.1:1237", world_size=4, rank=rank
+        backend="nccl",
+        init_method="tcp://127.0.0.1:1237",
+        world_size=args.worker,
+        rank=rank,
     )
     # dataset dataloaer
 
     os.environ["TOKENIZERS_PARALLELISM"] = "true"
-    train_dataset = load_dataset("glue", args.task, split="train")
-    val_dataset = load_dataset("glue", args.task, split="validation")
-    sentence1_key, sentence2_key = task_to_keys[args.task]
-    tokenizer = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
-    # sentence1_key, sentence2_key = task_to_keys["cola"]
-    def encode(examples):
-        if sentence2_key is not None:
-            return tokenizer(
-                examples[sentence1_key],
-                examples[sentence2_key],
-                truncation=True,
-                padding="max_length",
-                max_length=128,
-            )
-        return tokenizer(
-            examples[sentence1_key],
-            truncation=True,
-            padding="max_length",
-            max_length=128,
-        )
-
-    train_dataset = train_dataset.map(encode, batched=True)
-    val_dataset = val_dataset.map(encode, batched=True)
-    val_dataset = val_dataset.map(
-        lambda examples: {"labels": examples["label"]}, batched=True
-    )
-    train_dataset = train_dataset.map(
-        lambda examples: {"labels": examples["label"]}, batched=True
-    )
-    train_dataset.set_format(
-        type="torch", columns=["input_ids", "labels", "attention_mask"]
-    )
-    val_dataset.set_format(
-        type="torch", columns=["input_ids", "labels", "attention_mask"]
-    )
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=8,
-        num_workers=12,
-        pin_memory=True,
-        drop_last=True,
-        shuffle=False,
-        sampler=train_sampler,
-    )
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_size=8,
-        num_workers=12,
-        pin_memory=True,
-        drop_last=True,
-        shuffle=False,
-    )
-
+    train_dataloader, val_dataloader, train_sampler = create_dataloader(args)
     # metric
     metric_mat = load_metric("glue", args.task)
     metric_acc = load_metric("accuracy")
     # model
     epochs = args.epochs
-    model = RobertabaseLinear2(None, args.channelsize, args.eye)
-    # model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
+    if args.type == 1:
+        model = RobertabaseLinear1(None, args.channelsize, args.eye)
+    elif args.type == 2:
+        model = RobertabaseLinear2(None, args.channelsize, args.eye)
+    elif args.type == 3:
+        model = RobertabaseLinear3(None, args.channelsize, args.eye)
+    elif args.type == 4:
+        model = RobertabaseLinear4(None, args.channelsize, args.eye)
     model = model.to(rank)
     optimizer = AdamW(model.parameters(), lr=args.lr)
 

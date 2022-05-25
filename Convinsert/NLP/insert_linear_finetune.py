@@ -20,6 +20,7 @@ parser.add_argument("--epochs", default=5, type=int)
 parser.add_argument("--task", default="rte", type=str)
 parser.add_argument("--batches", default=8, type=int)
 parser.add_argument("--rank", default=100, type=int)
+parser.add_argument("--compressdim", default=-1, type=int)
 
 
 def main():
@@ -50,11 +51,16 @@ def main_worker(rank, process_num, args):
     part1.to(rank)
     part2.to(rank)
     part3.to(rank)
-
-    linear1 = nn.Linear(768, args.rank).to(rank)
-    linear2 = nn.Linear(args.rank, 768).to(rank)
-    linear3 = nn.Linear(768, args.rank).to(rank)
-    linear4 = nn.Linear(args.rank, 768).to(rank)
+    if args.compressdim == -1:
+        linear1 = nn.Linear(768, args.rank).to(rank)
+        linear2 = nn.Linear(args.rank, 768).to(rank)
+        linear3 = nn.Linear(768, args.rank).to(rank)
+        linear4 = nn.Linear(args.rank, 768).to(rank)
+    elif args.compressdim == -2:
+        linear1 = nn.Linear(128, args.rank).to(rank)
+        linear2 = nn.Linear(args.rank, 128).to(rank)
+        linear3 = nn.Linear(128, args.rank).to(rank)
+        linear4 = nn.Linear(args.rank, 128).to(rank)
     linear1 = torch.nn.parallel.DistributedDataParallel(linear1)
     linear2 = torch.nn.parallel.DistributedDataParallel(linear2)
     linear3 = torch.nn.parallel.DistributedDataParallel(linear3)
@@ -76,6 +82,7 @@ def main_worker(rank, process_num, args):
     criterion = nn.MSELoss().to(rank)
     print(len(train_dataloader))
     for epoch in range(epochs):
+        print(epoch)
         part1.eval()
         part2.eval()
         part3.eval()
@@ -97,11 +104,23 @@ def main_worker(rank, process_num, args):
             )
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
             labels1 = part1(batch["input_ids"], batch["attention_mask"])
-            outputs = linear1(labels1)
-            outputs1 = linear2(outputs)
+            if args.compressdim == -1:
+                outputs = linear1(labels1)
+                outputs1 = linear2(outputs)
+            else:
+                input1 = labels1.permute((0, 2, 1))
+                outputs = linear1(input1)
+                outputs1 = linear2(outputs)
+                outputs1 = outputs1.permute((0, 2, 1))
             labels2 = part2(labels1, batch["attention_mask"])
-            outputs = linear3(labels2)
-            outputs2 = linear4(outputs)
+            if args.compressdim == -1:
+                outputs = linear3(labels2)
+                outputs2 = linear4(outputs)
+            else:
+                input2 = labels2.permute((0, 2, 1))
+                outputs = linear3(input2)
+                outputs2 = linear4(outputs)
+                outputs2 = outputs2.permute((0, 2, 1))
             loss1 = criterion(outputs1, labels1)
             loss2 = criterion(outputs2, labels2)
             loss1.backward(retain_graph=True)
