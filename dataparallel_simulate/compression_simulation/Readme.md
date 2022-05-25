@@ -257,7 +257,16 @@ Rank here only compress the last dimension(F) of the input(N,S,F)
 | Condition 3 | F            | Wikitext_v2        | Cola             | 768  | 85.6 |
 | Condition 3 | F            | Cola               | RTE              | 200  | 79.4 |
 | Condition 3 | F            | RTE                | Cola             | 200  | 84.8 |
-|             |              |                    |                  |      |      |
+| Condition 3 | S            | Wikitext_v2        | RTE              | 64   | 79.4 |
+| Condition 3 | S            | Wikitext_v2        | Cola             | 64   | 64.3 |
+| Condition 3 | S            | Wikitext_v2        | RTE              | 128  | 69.4 |
+| Condition 3 | S            | Wikitext_v2        | Cola             | 128  | 84.1 |
+| Condition 4 | F            | Wikitext_v2        | RTE              | 300  | 75.7 |
+| Condition 4 | F            | Wikitext_v2        | Cola             | 300  | 83.9 |
+| Condition 4 | F            | Wikitext_v2        | RTE              | 384  | 78.3 |
+| Condition 4 | F            | Wikitext_v2        | Cola             | 384  | 85.1 |
+| Condition 4 | F            | Wikitext_v2        | RTE              | 768  | 79.4 |
+| Condition 4 | F            | Wikitext_v2        | Cola             | 768  | 85.4 |
 
 
 
