@@ -123,11 +123,20 @@ Only compress the first layer
 
 MobileNetV2 with CIFAR10
 
-| Method                        | Separate Strategy         | Compression Ratio(after/before) | Acc   |
-| ----------------------------- | ------------------------- | ------------------------------- | ----- |
-| Convolution insertion         | firsrt layer, last layers | 0.097                           | 96.01 |
-| Convolution insertion         | firsrt layer, last layers | 0.070                           | 95.85 |
-| Convolution insertion (2sets) | firsrt layer, last layers | 0.038                           | 95.75 |
+Channel: only insert convolution and transpose convolution for compressing and decompressing channels.
+
+Image: only insert convolution and transpose convolution for compressing and decompressing Image.
+
+Mixed: compress and decompress both channel and image
+
+| Method                               | Separate Strategy         | Compression Ratio(after/before) | Acc   |
+| ------------------------------------ | ------------------------- | ------------------------------- | ----- |
+| Sota                                 | firsrt layer, last layers | 1.0                             | 95.84 |
+| Convolution insertion                | firsrt layer, last layers | 1.0                             | 95.99 |
+| Convolution insertion(channel)       | firsrt layer, last layers | 0.26                            | 95.73 |
+| Convolution insertion(image)         | firsrt layer, last layers | 0.097                           | 96.01 |
+| Convolution insertion(mixed)         | firsrt layer, last layers | 0.070                           | 95.85 |
+| Convolution insertion (2sets, mixed) | firsrt layer, last layers | 0.038                           | 95.75 |
 
 ResNet18 with CIFAR10
 
@@ -196,3 +205,59 @@ Roberta-base with Cola
 | Fp16   | 84.9 | 0.635               |
 | Mixed  | 85.0 | 0.641               |
 | Fp32   | 85.2 | 0.648               |
+
+## 10 Linear insertion
+
+Only insert Linear layer in the last could achieve the result.
+
+Also insert the eye matrix into the first layer achieve the result.
+
+NLP models activation memory is with size (N,S,F), Linear insertion only compress one dimention at one time.
+
+| Sever Client Partition | Explanation                                                  |
+| ---------------------- | ------------------------------------------------------------ |
+| Condition 1            | Client: embedding+robertalayer(0),robertalayer(11)+classifier Server:robertalayer(1-10) |
+| Condition 2            | Client: embedding+selfattention,robertalayer(11)+classifier Server:robertalayer(0-10) |
+| Condition 3            | Client: embedding+selfattention,classifier Server:robertalayer(0-11) |
+| Condition 4            | Client: Robertalayer(0)+classifier Server:Robertalayer(1-11) |
+
+RTE
+
+| Partition   | Compress dim | Method                                                       | Acc  |
+| ----------- | ------------ | ------------------------------------------------------------ | ---- |
+| Condition 4 | F            | EYE matrix on both end                                       | 78.3 |
+| Condition 4 | F            | EYE matrix on first part, insert linear(150 rank) at last part | 79.0 |
+| Condition 4 | F            | EYE matrix on first part, insert linear(50 rank) at last part | 78.9 |
+| Condition 3 | F            | EYE matrix on first part, insert linear(50 rank) at last part | 80.8 |
+
+Cola
+
+| Partition   | Compress dim | Method                                                       | Acc  | Matthew correlation |
+| ----------- | ------------ | ------------------------------------------------------------ | ---- | ------------------- |
+| Condition 4 | F            | EYE matrix on both end                                       | 84.9 | 0.637               |
+| Condition 4 | F            | EYE matrix on first part, insert linear(150 rank) at last part | 84.9 | 0.633               |
+| Condition 4 | F            | EYE matrix on first part, insert linear(50 rank) at last part | 85.4 | 0.648               |
+| Condition 3 | F            | EYE matrix on first part, insert linear(50 rank) at last part | 86.0 | 0.660               |
+
+Can not insert linear with random initialize before finetuning. Try to retrain linear in order to perform "eye matrix".
+
+Rank here only compress the last dimension(F) of the input(N,S,F)
+
+| Partition   | Compress dim | Pretrained Dataset | Finetune dataset | Rank | Acc  |
+| ----------- | ------------ | ------------------ | ---------------- | ---- | ---- |
+| Condition 3 | F            | Wikitext_v2        | RTE              | 150  | 52.1 |
+| Condition 3 | F            | Wikitext_v2        | Cola             | 150  | 69.2 |
+| Condition 3 | F            | Wikitext_v2        | RTE              | 200  | 74.6 |
+| Condition 3 | F            | Wikitext_v2        | Cola             | 200  | 69.2 |
+| Condition 3 | F            | Wikitext_v2        | RTE              | 300  | 75.4 |
+| Condition 3 | F            | Wikitext_v2        | Cola             | 300  | 83.9 |
+| Condition 3 | F            | Wikitext_v2        | RTE              | 384  | 78.3 |
+| Condition 3 | F            | Wikitext_v2        | Cola             | 384  | 85.6 |
+| Condition 3 | F            | Wikitext_v2        | RTE              | 768  | 79.2 |
+| Condition 3 | F            | Wikitext_v2        | Cola             | 768  | 85.6 |
+| Condition 3 | F            | Cola               | RTE              | 200  | 79.4 |
+| Condition 3 | F            | RTE                | Cola             | 200  | 84.8 |
+|             |              |                    |                  |      |      |
+
+
+

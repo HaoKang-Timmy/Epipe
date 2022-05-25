@@ -1,3 +1,9 @@
+# Parallelism Pipeline and Compression Algorithm
+
+## Introduction
+
+Parallelism Pipeline is a method to accelerate training speed by dividing batch into minibatches and train these batches parallely. Also, we try to use compression algorithm to  
+
 
 
 # 1. Distributed Pipeline Parallelism Training
