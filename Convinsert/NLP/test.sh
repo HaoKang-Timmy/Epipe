@@ -20,6 +20,26 @@
 # python3 roberta_finetune.py --log ./test_rte_pre_wiki_r300.txt --rank 300 --task rte --pretrain wiki
 # python3 roberta_finetune.py --log ./test_cola_pre_wiki_r300.txt --rank 300 --task cola --pretrain wiki
 # python3 roberta_finetune.py --log ./test_cola_pre_wiki_r300.txt --rank 300 --task cola --pretrain wiki
+python3 insert_linear_finetune.py --log ./tune_wiki_type4_r768.txt --rank 768 --task wiki --type 4
+python3 roberta_finetune.py --log ./test_rte_pre_wiki_type4_r768.txt --rank 768 --task rte --pretrain wiki --type 4
+python3 roberta_finetune.py --log ./test_rte_pre_wiki_type4_r768.txt --rank 768 --task rte --pretrain wiki --type 4
+python3 roberta_finetune.py --log ./test_cola_pre_wiki_type4_r768.txt --rank 768 --task cola --pretrain wiki --type 4
+python3 roberta_finetune.py --log ./test_cola_pre_wiki_type4_r768.txt --rank 768 --task cola --pretrain wiki --type 4
+
+python3 insert_linear_finetune.py --log ./tune_wiki_type4_r384.txt --rank 384 --task wiki --type 4
+python3 roberta_finetune.py --log ./test_rte_pre_wiki_type4_r384.txt --rank 384 --task rte --pretrain wiki --type 4
+python3 roberta_finetune.py --log ./test_rte_pre_wiki_type4_r384.txt --rank 384 --task rte --pretrain wiki --type 4
+python3 roberta_finetune.py --log ./test_cola_pre_wiki_type4_r384.txt --rank 384 --task cola --pretrain wiki --type 4
+python3 roberta_finetune.py --log ./test_cola_pre_wiki_type4_r384.txt --rank 384 --task cola --pretrain wiki --type 4
+
+python3 insert_linear_finetune.py --log ./tune_wiki_type4_r300.txt --rank 300 --task wiki --type 4
+python3 roberta_finetune.py --log ./test_rte_pre_wiki_type4_r300.txt --rank 300 --task rte --pretrain wiki --type 4
+python3 roberta_finetune.py --log ./test_rte_pre_wiki_type4_r300.txt --rank 300 --task rte --pretrain wiki --type 4
+python3 roberta_finetune.py --log ./test_cola_pre_wiki_type4_r300.txt --rank 300 --task cola --pretrain wiki --type 4
+python3 roberta_finetune.py --log ./test_cola_pre_wiki_type4_r300.txt --rank 300 --task cola --pretrain wiki --type 4
+
+
+
 python3 insert_linear_finetune.py --log ./tune_wiki_r2_64.txt --rank 64 --task wiki --compressdim -2
 python3 roberta_finetune.py --log ./test_rte_pre_wiki_r2_64.txt --rank 64 --task rte --pretrain wiki --compressdim -2
 python3 roberta_finetune.py --log ./test_rte_pre_wiki_r2_64.txt --rank 64 --task rte --pretrain wiki --compressdim -2

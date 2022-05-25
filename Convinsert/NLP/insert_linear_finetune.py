@@ -21,6 +21,7 @@ parser.add_argument("--task", default="rte", type=str)
 parser.add_argument("--batches", default=8, type=int)
 parser.add_argument("--rank", default=100, type=int)
 parser.add_argument("--compressdim", default=-1, type=int)
+parser.add_argument("--type", default=3, type=int)
 
 
 def main():
@@ -39,18 +40,28 @@ def main_worker(rank, process_num, args):
     model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
     for param in model.parameters():
         param.require_grad = False
-    embedding = model.roberta.embeddings
-    attention = model.roberta.encoder.layer[0].attention
-    medium = model.roberta.encoder.layer[0].intermediate
-    output_layer = model.roberta.encoder.layer[0].output
-    roberta_layers = model.roberta.encoder.layer[1:]
+    if args.type == 3:
+        embedding = model.roberta.embeddings
+        attention = model.roberta.encoder.layer[0].attention
+        medium = model.roberta.encoder.layer[0].intermediate
+        output_layer = model.roberta.encoder.layer[0].output
+        roberta_layers = model.roberta.encoder.layer[1:]
 
-    part1 = EmbeddingAndAttention([embedding], [attention])
-    part2 = CombineLayer([medium], [output_layer], [roberta_layers])
-    part3 = model.classifier
-    part1.to(rank)
-    part2.to(rank)
-    part3.to(rank)
+        part1 = EmbeddingAndAttention([embedding], [attention])
+        part2 = CombineLayer([medium], [output_layer], [roberta_layers])
+        part3 = model.classifier
+        part1.to(rank)
+        part2.to(rank)
+        part3.to(rank)
+    elif args.type == 4:
+        embedding = model.roberta.embeddings
+        part1 = model.roberta.encoder.layer[0]
+        part2 = NLPSequential([model.roberta.encoder.layer[1:]])
+        part3 = model.classifier
+        embedding = embedding.to(rank)
+        part1.to(rank)
+        part2.to(rank)
+        part3.to(rank)
     if args.compressdim == -1:
         linear1 = nn.Linear(768, args.rank).to(rank)
         linear2 = nn.Linear(args.rank, 768).to(rank)
@@ -83,9 +94,9 @@ def main_worker(rank, process_num, args):
     print(len(train_dataloader))
     for epoch in range(epochs):
         print(epoch)
-        part1.eval()
-        part2.eval()
-        part3.eval()
+        part1.train()
+        part2.train()
+        part3.train()
         train_sampler.set_epoch(epoch)
         for i, batch in enumerate(train_dataloader):
             batch = {k: v.to(rank) for k, v in batch.items()}
@@ -103,7 +114,11 @@ def main_worker(rank, process_num, args):
                 .type(torch.float32)
             )
             batch["attention_mask"] = (1.0 - batch["attention_mask"]) * -1e9
+            if args.type == 4:
+                batch["input_ids"] = embedding(batch["input_ids"])
             labels1 = part1(batch["input_ids"], batch["attention_mask"])
+            if args.type == 4:
+                labels1 = labels1[0]
             if args.compressdim == -1:
                 outputs = linear1(labels1)
                 outputs1 = linear2(outputs)
@@ -133,19 +148,39 @@ def main_worker(rank, process_num, args):
             if i % 300 == 0 and rank == 1:
                 torch.save(
                     linear1.module.state_dict(),
-                    str(args.task) + "_" + str(args.rank) + "_linear1.pth",
+                    str(args.task)
+                    + "_"
+                    + str(args.rank)
+                    + "_"
+                    + str(args.type)
+                    + "_linear1.pth",
                 )
                 torch.save(
                     linear2.module.state_dict(),
-                    str(args.task) + "_" + str(args.rank) + "_linear2.pth",
+                    str(args.task)
+                    + "_"
+                    + str(args.rank)
+                    + "_"
+                    + str(args.type)
+                    + "_linear2.pth",
                 )
                 torch.save(
                     linear3.module.state_dict(),
-                    str(args.task) + "_" + str(args.rank) + "_linear3.pth",
+                    str(args.task)
+                    + "_"
+                    + str(args.rank)
+                    + "_"
+                    + str(args.type)
+                    + "_linear3.pth",
                 )
                 torch.save(
                     linear4.module.state_dict(),
-                    str(args.task) + "_" + str(args.rank) + "_linear4.pth",
+                    str(args.task)
+                    + "_"
+                    + str(args.rank)
+                    + "_"
+                    + str(args.type)
+                    + "_linear4.pth",
                 )
 
 
