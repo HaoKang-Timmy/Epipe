@@ -2,13 +2,19 @@
 
 ## Introduction
 
-Parallelism Pipeline is a method to accelerate training speed by dividing batch into minibatches and train these batches parallely. Also, we try to use compression algorithm to  
+Parallelism Pipeline is a method to accelerate training speed by dividing batches into minibatches and training these batches parallely. Also, we try to use compression algorithms to compress algorithms in order to save bandwidth and get better throughputs.
 
+## Reference
 
+1. Dataparallel tests of compression algorithm https://github.com/timmywanttolearn/gpipe_test/tree/master/dataparallel/compression_simulation
+2. pipeline training https://github.com/timmywanttolearn/gpipe_test/tree/master/pipeline_training
+3. Modified gpipe for single machine https://github.com/timmywanttolearn/gpipe_test/tree/master/torchgpipe
 
 # 1. Distributed Pipeline Parallelism Training
 
-Gpipe training efficiency compares to data-parallelism.
+Parallelism Pipeline training efficiency compares to data-parallelism.
+
+See code at https://github.com/timmywanttolearn/gpipe_test/tree/master/dataparallel/pipeline_vs_dataparallel
 
 ## 1.1 Vision Tasks
 
@@ -33,7 +39,11 @@ Gpipe training efficiency compares to data-parallelism.
 | Pipeline-4gpu     | RTE     | Roberta | 4    | 64(2 chunks) | 4e-5          | 78.15±0.22    | 96.40/s    | 1.27×    |
 | Dataparallel-4gpu | RTE     | Roberta | 4    | 64           | 4e-5          | 78.4±0.21     | 95.53/s    | 1.25     |
 
+We could conclude that Parallelism Pipeline is faster than dataparallel for big models such as Roberta-base.
+
 # 2.Sort Quantization
+
+We invented a fast method of quantization algorithm which has similar effect with k-means algorithms
 
 Here is the pseudocode
 
@@ -70,10 +80,6 @@ Ablation Studys are performed by using pipeline parallelism.
 ## 2.2 Altogether Ablation Study
 
 These tests are all done in the environment of parallelism pipeline.
-
-All bandwidths are detected by nccl_test.
-
-https://github.com/NVIDIA/nccl-tests
 
 ### CIFAR10
 
@@ -149,14 +155,6 @@ Since the activation memory size is the same as the RTE dataset, the bandwidth i
 | 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 12bits       | 0.375             | 63.93±0.22           |
 | 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 8bits        | 0.25              | 63.20±0.12           |
 | 32(4 chunks) | [32,128,768],[32,128,768]           | Sort Quantization 4bits        | 0.125             | 0                    |
-
-# 3 Reproduce
-
-Here is how to reproduce the sort quantization ablation study.
-
-```
-bash ./test.sh
-```
 
 
 

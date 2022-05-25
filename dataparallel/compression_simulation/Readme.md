@@ -38,6 +38,8 @@ NLP tasks with Roberta
 | RTE   | Finetune        | Quantization 8     | 77.5% ~ 0.8%     |
 | RTE   | Finetune        | Quantization 4     | 52.2% ~0.1%      |
 
+Pruning is not a relatively good compression method compared to quantization. Also, it could hardly save bandwidth since it needs to send index and value.
+
 ## 2. Ablation Study of Sort Quantization
 
 Testing CIFAR10 with MobileNetV2 for 80 epochs
@@ -87,10 +89,6 @@ Testing RTE with Roberta-base for 20 epochs. Batch size is 32
 | SVD 48rank  | firsrt two layer, last two layers | 0.125                           | 62.74/s    | 79.4  |
 | SVD 32rank  | firsrt layer, last layers         | 0.083                           | 65.3/s     | 72.4  |
 
-![image-20220425232649080](../../pic/image-20220425232649080.png)
-
-
-
 ## 4 Comparing with K-means
 
 Testing CIFAR10 with MobileNetV2 for 10 epochs
@@ -107,21 +105,11 @@ The batch size here is 64, in order to make it possible for K-means.
 | Sort Quantization 4bits(4splits,2bits) | first three layers and last two layers | 641.4/s    | 93.38% |
 | None                                   | first three layers and last two layers | 659.1/s    | 94.21% |
 
-## 5 Lora Implementation
-
-Dataset : CIFAR10
-
-Backend: MobileNetV2
-
-Only compress the first layer
-
-| Method      | Separate Strategy         | Compression Ratio(after/before) | Acc  |
-| ----------- | ------------------------- | ------------------------------- | ---- |
-| Lora 56rank | firsrt layer, last layers | 0.5                             | 90.3 |
-
 ## 6 Convolution Insertion Implementation
 
 MobileNetV2 with CIFAR10
+
+In here, since MobilenetV2 has activation memory size `[batchsize,32,112,112]`,` [batchsize,1280,7,7]`
 
 Channel: only insert convolution and transpose convolution for compressing and decompressing channels.
 
@@ -129,14 +117,14 @@ Image: only insert convolution and transpose convolution for compressing and dec
 
 Mixed: compress and decompress both channel and image
 
-| Method                               | Separate Strategy         | Compression Ratio(after/before) | Acc   |
-| ------------------------------------ | ------------------------- | ------------------------------- | ----- |
-| Sota                                 | firsrt layer, last layers | 1.0                             | 95.84 |
-| Convolution insertion                | firsrt layer, last layers | 1.0                             | 95.99 |
-| Convolution insertion(channel)       | firsrt layer, last layers | 0.26                            | 95.73 |
-| Convolution insertion(image)         | firsrt layer, last layers | 0.097                           | 96.01 |
-| Convolution insertion(mixed)         | firsrt layer, last layers | 0.070                           | 95.85 |
-| Convolution insertion (2sets, mixed) | firsrt layer, last layers | 0.038                           | 95.75 |
+| Dimention to compress                      | Separate Strategy         | Compression Ratio(after/before) | Acc   |
+| ------------------------------------------ | ------------------------- | ------------------------------- | ----- |
+| Sota                                       | firsrt layer, last layers | 1.0                             | 95.84 |
+| residual memory with full rank             | firsrt layer, last layers | 1.0                             | 95.99 |
+| channel                                    | firsrt layer, last layers | 0.26                            | 95.73 |
+| residual memory                            | firsrt layer, last layers | 0.097                           | 96.01 |
+| channel + residual memory                  | firsrt layer, last layers | 0.070                           | 95.85 |
+| channel + residual memory (2 sets of conv) | firsrt layer, last layers | 0.038                           | 95.75 |
 
 ResNet18 with CIFAR10
 
