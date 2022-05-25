@@ -249,3 +249,35 @@ class RobertabaseLinear4(nn.Module):
 
         output = self.part3(output)
         return output
+
+
+class RobertabaseLinearDecay(nn.Module):
+    def __init__(self, model=None) -> None:
+        super(RobertabaseLinearDecay, self).__init__()
+        if model is None:
+            model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
+
+        embedding = model.roberta.embeddings
+        self.embedding = embedding
+        self.part1 = model.roberta.encoder.layer[0]
+        self.part2 = NLPSequential([model.roberta.encoder.layer[1:]])
+        self.part3 = model.classifier
+        self.matrix1 = torch.nn.Parameter(torch.eye(768))
+        self.matrix2 = torch.nn.Parameter(torch.eye(768))
+        self.matrix3 = torch.nn.Parameter(torch.eye(768))
+        self.matrix4 = torch.nn.Parameter(torch.eye(768))
+        self.step = 0
+
+    def forward(self, input, mask):
+        mask = torch.reshape(mask, [int(mask.shape[0]), 1, 1, int(mask.shape[-1])])
+        mask = (1.0 - mask) * -1e9
+        input = self.embedding(input)
+        output = self.part1(input, mask)
+        output = output[0]
+        output = output @ self.matrix1
+        output = output @ self.matrix2
+        output = self.part2(output, mask)
+        output = output @ self.matrix3
+        output = output @ self.matrix4
+        output = self.part3(output)
+        return output
