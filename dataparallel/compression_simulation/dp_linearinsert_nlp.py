@@ -10,7 +10,7 @@ import torch.distributed as dist
 import argparse
 import os
 from models.models import *
-from dataloader import create_dataloader
+from dataloader import create_dataloader_nlp
 from utils import (
     Fakequantize,
     TopkLayer,

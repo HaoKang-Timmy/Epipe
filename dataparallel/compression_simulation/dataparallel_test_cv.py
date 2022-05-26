@@ -8,6 +8,8 @@ import torch
 import argparse
 import torch.multiprocessing as mp
 import torch.distributed as dist
+from models.models import MobileNetV2Compress
+from dataloader.dataloader import create_dataloader_cv
 from utils import (
     FSQBSVD,
     FSVDBSQ,
@@ -58,7 +60,7 @@ parser.add_argument("--powersvd", default=0, type=int)
 parser.add_argument("--powersvd1", default=0, type=int)
 parser.add_argument("--poweriter", default=2, type=int)
 parser.add_argument("--svd", default=0, type=int)
-
+parser.add_argument("--loader", default=12, type=int)
 
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
@@ -74,107 +76,19 @@ def main_worker(rank, process_num, args):
     dist.init_process_group(
         backend="nccl", init_method="tcp://127.0.0.1:1235", world_size=4, rank=rank
     )
-    transform_train = transforms.Compose(
-        [
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ]
-    )
-    transform_test = transforms.Compose(
-        [
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ]
-    )
-
-    trainset = torchvision.datasets.CIFAR10(
-        root=args.root, train=True, download=True, transform=transform_train
-    )
-    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
-    train_loader = torch.utils.data.DataLoader(
-        trainset,
-        batch_size=args.batches,
-        shuffle=(train_sampler is None),
-        num_workers=12,
-        drop_last=True,
-        sampler=train_sampler,
-        pin_memory=True,
-    )
-
-    testset = torchvision.datasets.CIFAR10(
-        root=args.root, train=False, download=True, transform=transform_test
-    )
-    val_loader = torch.utils.data.DataLoader(
-        testset,
-        batch_size=args.batches,
-        shuffle=False,
-        num_workers=12,
-        drop_last=True,
-        pin_memory=True,
-    )
+    train_loader, val_loader,train_sampler = create_dataloader_cv(args)
     #     pass
-    model = models.mobilenet_v2(pretrained=True)
-    model.classifier[-1] = torch.nn.Linear(1280, 10)
-    # layer1 = nn.Sequential(*[model.features[0:1]])
-    feature = model.features[0].children()
-    conv = next(feature)
-    bn = next(feature)
-    if args.secondlayer == 0:
-        layer1 = nn.Sequential(*[conv, bn])
-        layer2 = nn.Sequential(*[nn.ReLU6(inplace=False), model.features[1:]])
-        layer3 = nn.Sequential(*[Reshape1(), model.classifier])
-    else:
-        layer1 = nn.Sequential(*[model.features[0:1]])
-        layer2 = nn.Sequential(*[model.features[1:]])
-        layer3 = nn.Sequential(*[Reshape1(), model.classifier])
+    model = MobileNetV2Compress(args,rank,[args.batches,32,112,112],[args.batches,1280,7,7])
 
-    layer1 = layer1.to(rank)
-    layer2 = layer2.to(rank)
-    layer3 = layer3.to(rank)
+    model = model.to(rank)
 
-    layer1 = torch.nn.parallel.DistributedDataParallel(layer1)
-    layer2 = torch.nn.parallel.DistributedDataParallel(layer2)
-    layer3 = torch.nn.parallel.DistributedDataParallel(layer3)
-    if args.conv1 != 0:
-        conv2d = torch.nn.Conv2d(32, 32, (4, 4), (4, 4)).to(rank)
-        conv_t = torch.nn.ConvTranspose2d(32, 32, (4, 4), (4, 4)).to(rank)
-    if args.conv2 != 0:
-        conv2d1 = torch.nn.Conv2d(1280, 320, (1, 1)).to(rank)
-
-        conv_t1 = torch.nn.ConvTranspose2d(320, 1280, (1, 1)).to(rank)
-    if args.conv1 == 0 and args.conv2 == 0:
-        optimizer = torch.optim.SGD(
-            [
-                {"params": layer1.parameters()},
-                {"params": layer2.parameters()},
-                {"params": layer3.parameters()},
-            ],
-            lr=args.lr,
-            momentum=0.9,
-        )
-
-    else:
-        optimizer = torch.optim.SGD(
-            [
-                {"params": layer1.parameters()},
-                {"params": layer2.parameters()},
-                {"params": layer3.parameters()},
-                {"params": conv2d.parameters(), "lr": args.lr},
-                # {"params": conv2d1.parameters(), "lr": args.lr},
-                {"params": conv2d1.parameters(), "lr": args.lr},
-                # {"params": conv2d3.parameters(), "lr": args.lr},
-                {"params": conv_t.parameters(), "lr": args.lr},
-                {"params": conv_t1.parameters(), "lr": args.lr},
-                # {"params": conv_t2.parameters(), "lr": args.lr},
-                # {"params": conv_t3.parameters(), "lr": args.lr},
-            ],
-            lr=args.lr,
-            momentum=0.9,
-        )
+    model = torch.nn.parallel.DistributedDataParallel(model)
+ 
+    optimizer = torch.optim.SGD(
+        model.parameters(),
+        lr=args.lr,
+        momentum=0.9,
+    )
     lr_scheduler = get_scheduler(
         name="cosine",
         optimizer=optimizer,
@@ -186,9 +100,7 @@ def main_worker(rank, process_num, args):
     bool = 0
     # optimizer = torch.optim.AdamW(params=model.parameters(), lr=1e-5)
     for epoch in range(args.epochs):
-        layer1.train()
-        layer2.train()
-        layer3.train()
+        model.train()
         train_sampler.set_epoch(epoch)
         train_loss = 0.0
         train_acc1 = 0.0
@@ -199,54 +111,8 @@ def main_worker(rank, process_num, args):
 
             image = image.to(rank, non_blocking=True)
             label = label.to(rank, non_blocking=True)
-
-            outputs = layer1(image)
-            if args.sortquant != 0:
-                outputs = FastQuantization.apply(outputs, args.quant, args.split)
-            elif args.qsq != 0:
-                outputs = FQBSQ.apply(outputs, args.qquant, args.quant, args.split)
-            elif args.svdq != 0:
-                outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
-            elif args.conv1 != 0:
-                outputs = conv2d(outputs)
-                # outputs = conv2d1(outputs)
-                # outputs = conv_t1(outputs)
-                outputs = conv_t(outputs)
-            elif args.channelquant != 0:
-                outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
-            elif args.powersvd != 0:
-                if bool == 0:
-                    # poweriter 3D is better than 4D
-                    svd1 = PowerSVDLayer1(
-                        args.powersvd, list(outputs.shape), args.poweriter
-                    ).to(rank)
-                outputs = svd1(outputs)
-            elif args.svd != 0:
-                outputs = ReshapeSVD.apply(outputs, args.svd)
-            outputs = layer2(outputs)
-
-            if args.sortquant != 0:
-                outputs = FastQuantization.apply(outputs, args.quant, args.split)
-            elif args.qsq != 0:
-                outputs = FSQBQ.apply(outputs, args.qquant, args.quant, args.split)
-            elif args.svdq != 0:
-                outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
-            elif args.conv2 != 0:
-                outputs = conv2d1(outputs)
-                outputs = conv_t1(outputs)
-            elif args.powersvd1 != 0:
-                if bool == 0:
-                    bool = 1
-                    svd2 = PowerSVDLayer1(
-                        args.powersvd1, list(outputs.shape), args.poweriter
-                    ).to(rank)
-                outputs = svd2(outputs)
-            elif args.svd != 0:
-                outputs = ReshapeSVD.apply(outputs, args.svd)
-            outputs = layer3(outputs)
-            # print(outputs)
-            # while(1):
-            #     pass
+            outputs = model(image)
+            
             loss = criterion(outputs, label)
             acc, _ = accuracy(outputs, label, topk=(1, 2))
 
@@ -267,9 +133,7 @@ def main_worker(rank, process_num, args):
         time_avg /= len(train_loader)
         lr_scheduler.step()
 
-        layer1.eval()
-        layer2.eval()
-        layer3.eval()
+        model.eval()
         if rank == 0:
             print("lr:", get_lr(optimizer))
         val_loss = 0.0
@@ -279,65 +143,7 @@ def main_worker(rank, process_num, args):
                 image = image.to(rank, non_blocking=True)
                 label = label.to(rank, non_blocking=True)
 
-                outputs = layer1(image)
-                # if args.sortquant == 0:
-                #     if args.prune != 0:
-                #         outputs = topk_layer(outputs)
-                #         # print("prun")
-                #     if args.avgpool != 0:
-                #         outputs = avgpool2(outputs)
-                #         # print("avg")
-                #     if args.quant != 0:
-                #         outputs = Fakequantize.apply(outputs, args.quant)
-                #         # print("quant")
-                #     if args.avgpool != 0:
-                #         outputs = upsample2(outputs)
-                #         # print("avg")
-                #     if args.pca1 != 0:
-                #         outputs = Fakequantize.apply(outputs, args.pca1)
-                # elif args.sortquant != 0:
-                #     outputs = SortQuantization.apply(outputs, args.quant, args.split)
-                # # outputs,min,step = quant_layer1(outputs)
-                # outputs = dequant_layer1(outputs,min,step,quant_layer1.backward_min,quant_layer1.backward_step)
-                if args.sortquant != 0:
-                    outputs = FastQuantization.apply(outputs, args.quant, args.split)
-                elif args.qsq != 0:
-                    outputs = FQBSQ.apply(outputs, args.qquant, args.quant, args.split)
-                elif args.svdq != 0:
-                    outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
-                elif args.conv1 != 0:
-                    outputs = conv2d(outputs)
-                    # outputs = conv2d1(outputs)
-                    # outputs = conv_t1(outputs)
-                    outputs = conv_t(outputs)
-                elif args.channelquant != 0:
-                    outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
-                elif args.powersvd != 0:
-                    # outputs = PowerPCA.apply(outputs, power1)
-                    # layer = PowerSVDLayer(args.powersvd, list(outputs.shape),args.poweriter)
-                    outputs = svd1(outputs)
-                elif args.svd != 0:
-                    outputs = ReshapeSVD.apply(outputs, args.svd)
-                outputs = layer2(outputs)
-
-                if args.sortquant != 0:
-                    outputs = FastQuantization.apply(outputs, args.quant, args.split)
-                elif args.qsq != 0:
-                    outputs = FSQBQ.apply(outputs, args.qquant, args.quant, args.split)
-                elif args.svdq != 0:
-                    outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
-                elif args.conv2 != 0:
-                    outputs = conv2d1(outputs)
-                    # outputs = conv2d3(outputs)
-                    # outputs = conv_t3(outputs)
-                    outputs = conv_t1(outputs)
-                elif args.powersvd != 0:
-                    # outputs = PowerPCA.apply(outputs, power2)
-                    outputs = svd2(outputs)
-                elif args.svd != 0:
-                    outputs = ReshapeSVD.apply(outputs, args.svd)
-                # outputs = outputs.view(64,1280,7,7)
-                outputs = layer3(outputs)
+                outputs = model(image)
                 loss = criterion(outputs, label)
                 acc, _ = accuracy(outputs, label, topk=(1, 2))
 

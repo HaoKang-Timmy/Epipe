@@ -2,18 +2,6 @@ import torch
 from torch.autograd import Function as F
 import torch.nn as nn
 
-# class DecayLinearFunction(F):
-#     @staticmethod
-#     def forward(ctx,input,weight):
-#         ctx.weight,ctx.input = weight, input
-#         output = input @ weight
-#         return output
-#     @staticmethod
-#     def backward(ctx,grad_output):
-#         weight, input = ctx.weight,ctx.input
-#         grad_input = grad_output @ weight.t()
-#         grad_weight = grad_output.transpose(-1,-2) @ input
-#         return grad_input, grad_weight
 class DecayLinearFirst(nn.Module):
     def __init__(self, in_features, decay_rate, step, step_stop) -> None:
         super(DecayLinearFirst, self).__init__()
