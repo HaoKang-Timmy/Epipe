@@ -9,7 +9,7 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 import argparse
 import os
-from gpipe_test.layer_insertion.NLP.models.models import RobertabaseLinearDecay
+from models.models import RobertabaseLinearDecay
 from models.models import (
     RobertabaseLinear1,
     RobertabaseLinear2,
@@ -41,9 +41,12 @@ parser.add_argument("--task", default="rte", type=str)
 parser.add_argument("--pretrain", default="rte", type=str)
 parser.add_argument("--path", default="./", type=str)
 parser.add_argument("--batches", default=8, type=int)
-parser.add_argument("--rank", default=100, type=int)
+# parser.add_argument("--rank", default=100, type=int)
 parser.add_argument("--compressdim", default=-1, type=int)
 parser.add_argument("--type", default=3, type=int)
+parser.add_argument("--step", default=300, type=int)
+parser.add_argument("--rate", default=5 / 6, type=float)
+parser.add_argument("--stopstep", default=1200, type=int)
 task_to_keys = {
     "cola": ("sentence", None),
     "mnli": ("premise", "hypothesis"),
@@ -56,6 +59,8 @@ task_to_keys = {
     "stsb": ("sentence1", "sentence2"),
     "wnli": ("sentence1", "sentence2"),
 }
+
+torch.nn.Linear
 
 
 class EmbeddingAndAttention(nn.Module):
@@ -157,7 +162,9 @@ def main_worker(rank, process_num, args):
     metric_acc = load_metric("accuracy")
     # model
     epochs = args.epochs
-    model = RobertabaseLinearDecay()
+    model = RobertabaseLinearDecay(
+        rank=rank, step=args.step, rate=args.rate, stop_step=args.stopstep
+    )
 
     model = model.to(rank)
     model = torch.nn.parallel.DistributedDataParallel(model)
@@ -180,6 +187,8 @@ def main_worker(rank, process_num, args):
         time_avg = 0.0
         train_sampler.set_epoch(epoch)
         for i, batch in enumerate(train_dataloader):
+            # if rank == 0:
+            #     print(model.module.decaylinear1.weight)
             start = time.time()
             batch = {k: v.to(rank) for k, v in batch.items()}
             optimizer.zero_grad()
