@@ -62,6 +62,7 @@ parser.add_argument("--poweriter", default=2, type=int)
 parser.add_argument("--svd", default=0, type=int)
 parser.add_argument("--loader", default=12, type=int)
 
+
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group["lr"]
@@ -76,14 +77,16 @@ def main_worker(rank, process_num, args):
     dist.init_process_group(
         backend="nccl", init_method="tcp://127.0.0.1:1235", world_size=4, rank=rank
     )
-    train_loader, val_loader,train_sampler = create_dataloader_cv(args)
+    train_loader, val_loader, train_sampler = create_dataloader_cv(args)
     #     pass
-    model = MobileNetV2Compress(args,rank,[args.batches,32,112,112],[args.batches,1280,7,7])
+    model = MobileNetV2Compress(
+        args, rank, [args.batches, 32, 112, 112], [args.batches, 1280, 7, 7]
+    )
 
     model = model.to(rank)
 
     model = torch.nn.parallel.DistributedDataParallel(model)
- 
+
     optimizer = torch.optim.SGD(
         model.parameters(),
         lr=args.lr,
@@ -112,7 +115,7 @@ def main_worker(rank, process_num, args):
             image = image.to(rank, non_blocking=True)
             label = label.to(rank, non_blocking=True)
             outputs = model(image)
-            
+
             loss = criterion(outputs, label)
             acc, _ = accuracy(outputs, label, topk=(1, 2))
 

@@ -36,7 +36,10 @@ def encode(examples):
             max_length=128,
         )
     return tokenizer(
-        examples[sentence1_key], truncation=True, padding="max_length", max_length=128,
+        examples[sentence1_key],
+        truncation=True,
+        padding="max_length",
+        max_length=128,
     )
 
 

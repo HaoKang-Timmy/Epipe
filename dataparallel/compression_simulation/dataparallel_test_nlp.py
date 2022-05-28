@@ -79,7 +79,10 @@ def main_worker(rank, process_num, args):
 
     model = torch.nn.parallel.DistributedDataParallel(model)
 
-    optimizer = AdamW(model.parameters(), lr=args.lr,)
+    optimizer = AdamW(
+        model.parameters(),
+        lr=args.lr,
+    )
 
     lr_scheduler = get_scheduler(
         name="polynomial",

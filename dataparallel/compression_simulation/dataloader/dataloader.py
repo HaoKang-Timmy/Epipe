@@ -3,6 +3,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
 import torchvision.transforms as transforms
 import torchvision
+
 task_to_keys = {
     "cola": ("sentence", None),
     "mnli": ("premise", "hypothesis"),
@@ -65,7 +66,10 @@ def create_dataloader_nlp(args):
 
         def encode(examples):
             return tokenizer(
-                examples["text"], truncation=True, padding="max_length", max_length=128,
+                examples["text"],
+                truncation=True,
+                padding="max_length",
+                max_length=128,
             )
 
         train_dataset = train_dataset.map(encode, batched=True)
@@ -91,7 +95,8 @@ def create_dataloader_nlp(args):
         shuffle=False,
     )
     return train_dataloader, val_dataloader, train_sampler
-    
+
+
 def create_dataloader_cv(args):
     transform_train = transforms.Compose(
         [

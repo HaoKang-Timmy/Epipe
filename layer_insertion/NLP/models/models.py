@@ -253,7 +253,16 @@ class RobertabaseLinear4(nn.Module):
 
 
 class RobertabaseLinearDecay(nn.Module):
-    def __init__(self, model=None, rank=0, step=200, rate=3 / 4, stop_step=600) -> None:
+    def __init__(
+        self,
+        model=None,
+        rank=0,
+        step=200,
+        rate1=9 / 10,
+        rate2=9 / 10,
+        stop_step=600,
+        dim=1,
+    ) -> None:
         super(RobertabaseLinearDecay, self).__init__()
         if model is None:
             model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
@@ -263,43 +272,45 @@ class RobertabaseLinearDecay(nn.Module):
         self.part1 = model.roberta.encoder.layer[0]
         self.part2 = NLPSequential([model.roberta.encoder.layer[1:]])
         self.part3 = model.classifier
-        # self.matrix1 = torch.eye(768).to(rank)
-        # self.matrix2 = torch.eye(768).to(rank)
-        # self.matrix3 = torch.eye(768).to(rank)
-        # self.matrix4 = torch.eye(768).to(rank)
-        self.decaylinear1 = DecayLinearFirst(768, rate, step, stop_step)
-        self.decaylinear2 = DecayLinearSecond(768, rate, step, stop_step)
-        self.decaylinear3 = DecayLinearFirst(768, rate, step, stop_step)
-        self.decaylinear4 = DecayLinearSecond(768, rate, step, stop_step)
-        # self.iter = 0
-        # self.step = step
-        # self.stop_step = stop_step
-        # self.rate = rate
+        if dim == 1:
+            self.decaylinear1 = DecayLinearFirst(768, rate1, step, stop_step)
+            self.decaylinear2 = DecayLinearSecond(768, rate1, step, stop_step)
+            self.decaylinear3 = DecayLinearFirst(768, rate1, step, stop_step)
+            self.decaylinear4 = DecayLinearSecond(768, rate1, step, stop_step)
+        else:
+            self.decaylinear1 = DecayLinearFirst(768, rate1, step, stop_step)
+            self.decaylinear2 = DecayLinearSecond(768, rate1, step, stop_step)
+            self.decaylinear3 = DecayLinearFirst(768, rate1, step, stop_step)
+            self.decaylinear4 = DecayLinearSecond(768, rate1, step, stop_step)
+            self.decaylinear5 = DecayLinearFirst(128, rate2, step, stop_step)
+            self.decaylinear6 = DecayLinearSecond(128, rate2, step, stop_step)
+            self.decaylinear7 = DecayLinearFirst(128, rate2, step, stop_step)
+            self.decaylinear8 = DecayLinearSecond(128, rate2, step, stop_step)
+        self.dim = dim
 
     def forward(self, input, mask):
-        # if self.training is True:
-        #     self.iter += 1
-        # if self.iter % self.step  == self.step - 1 and self.iter <= self.stop_step:
-        #     print("changing")
-        #     rank = int(self.matrix1.shape[-1]*self.rate)
-        #     self.matrix1 = self.matrix1[:,:rank]
-        #     self.matrix2 = self.matrix2[:rank,:]
-        #     self.matrix3 = self.matrix3[:,:rank]
-        #     self.matrix4 = self.matrix4[:rank,:]
+
         mask = torch.reshape(mask, [int(mask.shape[0]), 1, 1, int(mask.shape[-1])])
         mask = (1.0 - mask) * -1e9
         input = self.embedding(input)
         output = self.part1(input, mask)
         output = output[0]
-        # output = output @ self.matrix1
-        # output = output @ self.matrix2
+
         output = self.decaylinear1(output)
+        if self.dim > 1:
+            output = output.permute((0, 2, 1))
+            output = self.decaylinear5(output)
+            output = self.decaylinear6(output)
+            output = output.permute((0, 2, 1))
         output = self.decaylinear2(output)
 
         output = self.part2(output, mask)
-        # output = output @ self.matrix3
-        # output = output @ self.matrix4
         output = self.decaylinear3(output)
+        if self.dim > 1:
+            output = output.permute((0, 2, 1))
+            output = self.decaylinear7(output)
+            output = self.decaylinear8(output)
+            output = output.permute((0, 2, 1))
         output = self.decaylinear4(output)
         output = self.part3(output)
         return output

@@ -45,7 +45,8 @@ parser.add_argument("--batches", default=8, type=int)
 parser.add_argument("--compressdim", default=-1, type=int)
 parser.add_argument("--type", default=3, type=int)
 parser.add_argument("--step", default=300, type=int)
-parser.add_argument("--rate", default=5 / 6, type=float)
+parser.add_argument("--rate1", default=0.85, type=float)
+parser.add_argument("--rate2", default=0.95, type=float)
 parser.add_argument("--stopstep", default=1200, type=int)
 task_to_keys = {
     "cola": ("sentence", None),
@@ -163,7 +164,12 @@ def main_worker(rank, process_num, args):
     # model
     epochs = args.epochs
     model = RobertabaseLinearDecay(
-        rank=rank, step=args.step, rate=args.rate, stop_step=args.stopstep
+        rank=rank,
+        step=args.step,
+        rate1=args.rate1,
+        rate2=args.rate2,
+        stop_step=args.stopstep,
+        dim=1,
     )
 
     model = model.to(rank)
