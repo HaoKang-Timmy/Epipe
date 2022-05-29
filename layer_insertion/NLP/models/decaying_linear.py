@@ -2,6 +2,11 @@ import torch
 from torch.autograd import Function as F
 import torch.nn as nn
 
+
+def detect_nan(tensor):
+    return torch.any(torch.isnan(tensor))
+
+
 # 3D input only
 # Y = XW.T + B
 class DecaylinearFunctionFirst(F):
@@ -21,7 +26,14 @@ class DecaylinearFunctionFirst(F):
         grad_input = grad_output @ weight
         grad_weight = grad_output.transpose(-1, -2) @ input
         # grad_weight[rank:,:] += -l1 * grad_weight[rank:,:]  / torch.abs(grad_weight[rank:,:])
+        l1_reg = -l1 * grad_weight[rank:, :] / torch.abs(grad_weight[rank:, :])
+        l1_reg = torch.nan_to_num(l1_reg, 0.0, 0.0, 0.0)
+        grad_weight[rank:, :] += l1_reg
         # print("set1",grad_weight)
+        # print(detect_nan(grad_weight))
+        # if detect_nan(grad_weight).item() is True:
+        #     while(1):
+        #         pass
         return grad_input, grad_weight, None, None
 
 
@@ -42,7 +54,14 @@ class DecaylinearFunctionSecond(F):
         grad_input = grad_output @ weight
         grad_weight = grad_output.transpose(-1, -2) @ input
         # grad_weight[:,rank:] += -l1 * grad_weight[:,rank:]  / torch.abs(grad_weight[:,rank:])
+        l1_reg = -l1 * grad_weight[:, rank:] / torch.abs(grad_weight[:, rank:])
+        l1_reg = torch.nan_to_num(l1_reg, 0.0, 0.0, 0.0)
+        grad_weight[:, rank:] += l1_reg
         # print("set2",grad_weight)
+        # print(detect_nan(grad_weight))
+        # if detect_nan(grad_weight).item() is True:
+        #     while(1):
+        #         pass
         return grad_input, grad_weight, None, None
 
 
@@ -56,6 +75,7 @@ class DecayLinearFirst(nn.Module):
         self.iter = 0
         self.rank = in_features
         self.rank1 = int(in_features * decay_rate)
+        print("first layer", self.rank, self.rank1)
 
     # def reset_parameter(self,rank):
     # self.weight = nn.Parameter(self.weight[:rank,:])
@@ -65,11 +85,13 @@ class DecayLinearFirst(nn.Module):
         if self.iter % self.step == self.step - 1 and self.iter <= self.step_stop:
             self.rank = int(self.rank * self.decay_rate)
             if self.iter < self.step_stop - 30:
-                self.rank1 = self.rank1 * self.decay_rate
-            print("changing", self.rank)
+                self.rank1 = int(self.rank1 * self.decay_rate)
+            print("changing10", self.rank)
+            print("changing11", self.rank1)
+
         # return torch.nn.functional.linear(input, self.weight[: self.rank, :])
         return DecaylinearFunctionFirst.apply(
-            input, self.weight[: self.rank, :], self.rank1, 1e-6
+            input, self.weight[: self.rank, :], self.rank1, 1e-2
         )
 
 
@@ -85,6 +107,7 @@ class DecayLinearSecond(nn.Module):
         #     self.weight = nn.Parameter(self.weight[:,:rank])
         self.rank = in_features
         self.rank1 = int(self.rank * decay_rate)
+        print("second layer", self.rank, self.rank1)
 
     def forward(self, input):
         if self.training is True:
@@ -92,10 +115,10 @@ class DecayLinearSecond(nn.Module):
         if self.iter % self.step == self.step - 1 and self.iter <= self.step_stop:
             # rank = int(self.weight.shape[-2]*self.decay_rate)
             self.rank = int(self.rank * self.decay_rate)
-            print("changing", self.rank)
-            print("changing1", self.rank1)
+            print("changing20", self.rank)
+            print("changing21", self.rank1)
             if self.iter < self.step_stop - 30:
-                self.rank1 = self.rank1 * self.decay_rate
+                self.rank1 = int(self.rank1 * self.decay_rate)
         return DecaylinearFunctionSecond.apply(
-            input, self.weight[:, : self.rank], self.rank1, 1e-6
+            input, self.weight[:, : self.rank], self.rank1, 1e-2
         )
