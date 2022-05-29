@@ -6,4 +6,4 @@
 /dist_gpipe
 *.pth
 *.pty
-.DS_Store
+*.DS_Store
