@@ -97,14 +97,20 @@
 # python3 roberta_rankdecay.py --task cola --step 400 --stopstep 3200 --log cola_dynamicliner_r9_s400_t3200.txt --rate1 0.9 --rate2 1.0
 # python3 roberta_rankdecay.py --task cola --step 400 --stopstep 3200 --log cola_dynamicliner_r9_s400_t3200.txt --rate1 0.9 --rate2 1.0
 # python3 roberta_rankdecay.py --task cola --step 600 --stopstep 2400 --log cola_dynamicliner_r56_s600_t2400.txt
-python3 roberta_rankdecay.py --task cola --step 300 --stopstep 2700 --log cola_dynamicliner_test.txt --rate1 1.0
-python3 roberta_rankdecay.py --task cola --step 300 --stopstep 2700 --log cola_dynamicliner_test.txt --rate1 1.0
-python3 roberta_rankdecay.py --task cola --step 300 --stopstep 2700 --log cola_dynamicliner_r910_s300_t2700.txt --rate1 0.9
-python3 roberta_rankdecay.py --task cola --step 300 --stopstep 2700 --log cola_dynamicliner_r910_s300_t2700.txt --rate1 0.9
-python3 roberta_rankdecay.py --task cola --step 100 --stopstep 900 --log cola_dynamicliner_r910_s100_t900.txt --rate1 0.9
-python3 roberta_rankdecay.py --task cola --step 100 --stopstep 900 --log cola_dynamicliner_r910_s100_t900.txt --rate1 0.9
+# python3 roberta_rankdecay.py --task cola --step 300 --stopstep 2700 --log cola_dynamicliner_test.txt --rate1 1.0
+# python3 roberta_rankdecay.py --task cola --step 300 --stopstep 2700 --log cola_dynamicliner_test.txt --rate1 1.0
+# python3 roberta_rankdecay.py --task cola --step 300 --stopstep 2700 --log cola_dynamicliner_r910_s300_t2700.txt --rate1 0.9
+# python3 roberta_rankdecay.py --task cola --step 300 --stopstep 2700 --log cola_dynamicliner_r910_s300_t2700.txt --rate1 0.9
+# python3 roberta_rankdecay.py --task cola --step 100 --stopstep 900 --log cola_dynamicliner_r910_s100_t900.txt --rate1 0.9
+# python3 roberta_rankdecay.py --task cola --step 100 --stopstep 900 --log cola_dynamicliner_r910_s100_t900.txt --rate1 0.9
 
-python3 roberta_rankdecay.py --task cola --step 200 --stopstep 1800 --log cola_dynamicliner_r910_s200_t1800.txt --rate1 0.9
-python3 roberta_rankdecay.py --task cola --step 200 --stopstep 1800 --log cola_dynamicliner_r910_s200_t1800.txt --rate1 0.9
-python3 roberta_rankdecay.py --task cola --step 500 --stopstep 2500 --log cola_dynamicliner_r56_s500_t2500.txt 
-python3 roberta_rankdecay.py --task cola --step 500 --stopstep 2500 --log cola_dynamicliner_r56_s500_t2500.txt 
+# python3 roberta_rankdecay.py --task cola --step 200 --stopstep 1800 --log cola_dynamicliner_r910_s200_t1800.txt --rate1 0.9
+# python3 roberta_rankdecay.py --task cola --step 200 --stopstep 1800 --log cola_dynamicliner_r910_s200_t1800.txt --rate1 0.9
+# python3 roberta_rankdecay.py --task cola --step 500 --stopstep 2500 --log cola_dynamicliner_r56_s500_t2500.txt 
+# python3 roberta_rankdecay.py --task cola --step 500 --stopstep 2500 --log cola_dynamicliner_r56_s500_t2500.txt 
+python3 roberta_rankdecay.py --task cola --step 300 --stopstep 2700 --log cola_dynamicliner_r9_r95_s300_t2700.txt --rate1 0.9 --rate2 0.95
+python3 roberta_rankdecay.py --task cola --step 300 --stopstep 2700 --log cola_dynamicliner_r9_r95_s300_t2700.txt --rate1 0.9 --rate2 0.95
+python3 roberta_rankdecay.py --task cola --step 500 --stopstep 4000 --log cola_dynamicliner_r9_r95_s500_t4000.txt --rate1 0.9 --rate2 0.95
+python3 roberta_rankdecay.py --task cola --step 500 --stopstep 4000 --log cola_dynamicliner_r9_r95_s500_t4000.txt --rate1 0.9 --rate2 0.95
+python3 roberta_rankdecay.py --task cola --step 500 --stopstep 4500 --log cola_dynamicliner_r9_r95_s500_t4500.txt --rate1 0.9 --rate2 0.95
+python3 roberta_rankdecay.py --task cola --step 500 --stopstep 4500 --log cola_dynamicliner_r9_r95_s500_t4500.txt --rate1 0.9 --rate2 0.95

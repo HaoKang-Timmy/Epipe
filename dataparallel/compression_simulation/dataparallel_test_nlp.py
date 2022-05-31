@@ -40,7 +40,6 @@ class nlp_sequential(nn.Module):
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 
 parser.add_argument("--log", default="./my_gpipe", type=str)
-parser.add_argument("--dataset", default="rte", type=str)
 parser.add_argument("--lr", default=2e-5, type=float)
 parser.add_argument("--epochs", default=20, type=int)
 parser.add_argument("--task", default="rte", type=str)
@@ -49,6 +48,8 @@ parser.add_argument("--prun", default=0.0, type=float)
 parser.add_argument("--batches", default=32, type=int)
 parser.add_argument("--sort", default=0, type=int)
 parser.add_argument("--pca", default=0, type=int)
+parser.add_argument("--powerpca", default=0, type=int)
+parser.add_argument("--poweriter", default=2, type=int)
 parser.add_argument("--linear", default=0, type=int)
 parser.add_argument("--worker", default=4, type=int)
 parser.add_argument("--loader", default=12, type=int)
@@ -67,14 +68,14 @@ def main_worker(rank, process_num, args):
     # dataset dataloaer
 
     os.environ["TOKENIZERS_PARALLELISM"] = "true"
-    train_dataloader, val_dataloader, train_sampler = create_dataloader(args)
+    train_dataloader, val_dataloader, train_sampler = create_dataloader_nlp(args)
     # metric
     metric_mat = load_metric("glue", args.task)
     metric_acc = load_metric("accuracy")
     # model
     epochs = args.epochs
 
-    model = Robertawithcompress(args, rank)
+    model = Robertawithcompress(args, rank, args.batches)
     model = model.to(rank)
 
     model = torch.nn.parallel.DistributedDataParallel(model)

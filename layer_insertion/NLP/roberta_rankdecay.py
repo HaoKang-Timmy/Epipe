@@ -169,7 +169,7 @@ def main_worker(rank, process_num, args):
         rate1=args.rate1,
         rate2=args.rate2,
         stop_step=args.stopstep,
-        dim=1,
+        dim=2,
     )
 
     model = model.to(rank)

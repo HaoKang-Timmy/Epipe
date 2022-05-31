@@ -91,7 +91,7 @@ class DecayLinearFirst(nn.Module):
 
         # return torch.nn.functional.linear(input, self.weight[: self.rank, :])
         return DecaylinearFunctionFirst.apply(
-            input, self.weight[: self.rank, :], self.rank1, 1e-2
+            input, self.weight[: self.rank, :], self.rank1, 1e-4
         )
 
 
@@ -120,5 +120,5 @@ class DecayLinearSecond(nn.Module):
             if self.iter < self.step_stop - 30:
                 self.rank1 = int(self.rank1 * self.decay_rate)
         return DecaylinearFunctionSecond.apply(
-            input, self.weight[:, : self.rank], self.rank1, 1e-2
+            input, self.weight[:, : self.rank], self.rank1, 1e-4
         )

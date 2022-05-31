@@ -13,11 +13,12 @@ from torch import autograd
 from fast_pytorch_kmeans import KMeans
 import time
 from functions import *
-from powersgd import PowerSGD
+
+# from powersgd import PowerSGD
 
 
-def PowerPCAFunction(input: torch.tensor, powersgd: PowerSGD):
-    return powersgd._powersgd.aggregate(input)
+# def PowerPCAFunction(input: torch.tensor, powersgd: PowerSGD):
+#     return powersgd._powersgd.aggregate(input)
 
 
 def relative_error(origin, quant):
@@ -722,18 +723,18 @@ class ChannelwiseQuantization(autograd.Function):
         return grad_output, None
 
 
-class PowerPCA(autograd.Function):
-    @staticmethod
-    def forward(ctx, input, powerpca):
-        ctx.powerpca = powerpca
-        list_of_output = PowerPCAFunction(input, powerpca)
-        return torch.stack(list_of_output)
+# class PowerPCA(autograd.Function):
+#     @staticmethod
+#     def forward(ctx, input, powerpca):
+#         ctx.powerpca = powerpca
+#         list_of_output = PowerPCAFunction(input, powerpca)
+#         return torch.stack(list_of_output)
 
-    @staticmethod
-    def backward(ctx, grad_output):
-        powerpca = ctx.powerpca
-        list_of_output = PowerPCAFunction(grad_output, powerpca)
-        return torch.stack(list_of_output), None
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         powerpca = ctx.powerpca
+#         list_of_output = PowerPCAFunction(grad_output, powerpca)
+#         return torch.stack(list_of_output), None
 
 
 class ReshapeSVD(autograd.Function):
@@ -853,58 +854,76 @@ class PowerSVD1(autograd.Function):
 
 
 class PowerSVDLayer1(nn.Module):
-    def __init__(self, rank, shape, iter) -> None:
+    def __init__(self, rank, shape, iter, device) -> None:
         super(PowerSVDLayer1, self).__init__()
-        self.p_buffer = torch.nn.Parameter(
-            torch.randn((int(shape[0]), int(shape[2] * shape[3]), rank))
-        )
-        self.q_buffer = torch.nn.Parameter(
-            torch.randn((int(shape[0]), int(shape[1]), rank))
-        )
-        self.grad_p_buffer = torch.nn.Parameter(
-            torch.randn((int(shape[0]), int(shape[2] * shape[3]), rank))
-        )
-        self.grad_q_buffer = torch.nn.Parameter(
-            torch.randn((int(shape[0]), int(shape[1]), rank))
-        )
+        # self.p_buffer = torch.nn.Parameter(
+        #     torch.randn((int(shape[0]), int(shape[2] * shape[3]), rank))
+        # )
+        # self.q_buffer = torch.nn.Parameter(
+        #     torch.randn((int(shape[0]), int(shape[1]), rank))
+        # )
+        # self.grad_p_buffer = torch.nn.Parameter(
+        #     torch.randn((int(shape[0]), int(shape[2] * shape[3]), rank))
+        # )
+        # self.grad_q_buffer = torch.nn.Parameter(
+        #     torch.randn((int(shape[0]), int(shape[1]), rank))
+        # )
         # print(self.p_buffer.shape,self.q_buffer.shape)
+        self.p_buffer = [
+            torch.randn((int(shape[0]), int(shape[2] * shape[3]), rank)).to(device)
+        ]
+        self.q_buffer = [torch.randn((int(shape[0]), int(shape[1]), rank)).to(device)]
+        self.grad_p_buffer = [
+            torch.randn((int(shape[0]), int(shape[2] * shape[3]), rank)).to(device)
+        ]
+        self.grad_q_buffer = [
+            torch.randn((int(shape[0]), int(shape[1]), rank)).to(device)
+        ]
         self.iter = iter
 
     def forward(self, input):
         return PowerSVD1.apply(
             input,
-            [self.p_buffer],
-            [self.q_buffer],
+            self.p_buffer,
+            self.q_buffer,
             self.iter,
-            [self.grad_p_buffer],
-            [self.grad_q_buffer],
+            self.grad_p_buffer,
+            self.grad_q_buffer,
         )
 
 
 class PowerSVDLayerNLP(nn.Module):
-    def __init__(self, rank, shape, iter) -> None:
+    def __init__(self, rank, shape, iter, device) -> None:
         super(PowerSVDLayerNLP, self).__init__()
-        self.p_buffer = torch.nn.Parameter(
-            torch.randn((int(shape[0]), int(shape[2]), rank))
-        )
-        self.q_buffer = torch.nn.Parameter(
-            torch.randn((int(shape[0]), int(shape[1]), rank))
-        )
-        self.grad_p_buffer = torch.nn.Parameter(
-            torch.randn((int(shape[0]), int(shape[2]), rank))
-        )
-        self.grad_q_buffer = torch.nn.Parameter(
-            torch.randn((int(shape[0]), int(shape[1]), rank))
-        )
+        # self.p_buffer = torch.nn.Parameter(
+        #     torch.randn((int(shape[0]), int(shape[2]), rank))
+        # )
+        # self.q_buffer = torch.nn.Parameter(
+        #     torch.randn((int(shape[0]), int(shape[1]), rank))
+        # )
+        # self.grad_p_buffer = torch.nn.Parameter(
+        #     torch.randn((int(shape[0]), int(shape[2]), rank))
+        # )
+        # self.grad_q_buffer = torch.nn.Parameter(
+        #     torch.randn((int(shape[0]), int(shape[1]), rank))
+        # )
+        self.p_buffer = [torch.randn((int(shape[0]), int(shape[2]), rank)).to(device)]
+        self.q_buffer = [torch.randn((int(shape[0]), int(shape[1]), rank)).to(device)]
+        self.grad_p_buffer = [
+            torch.randn((int(shape[0]), int(shape[2]), rank)).to(device)
+        ]
+        self.grad_q_buffer = [
+            torch.randn((int(shape[0]), int(shape[1]), rank)).to(device)
+        ]
         # print(self.p_buffer.shape,self.q_buffer.shape)
         self.iter = iter
 
     def forward(self, input):
         return PowerSVD1.apply(
             input,
-            [self.p_buffer],
-            [self.q_buffer],
+            self.p_buffer,
+            self.q_buffer,
             self.iter,
-            [self.grad_p_buffer],
-            [self.grad_q_buffer],
+            self.grad_p_buffer,
+            self.grad_q_buffer,
         )

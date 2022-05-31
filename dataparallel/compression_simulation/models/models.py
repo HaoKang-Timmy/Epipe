@@ -3,7 +3,7 @@ import torch.nn as nn
 from transformers import AutoModelForSequenceClassification
 import torchvision.models as models
 import torch.nn.functional as F
-from utils import *
+from .utils import *
 
 
 class Reshape1(nn.Module):
@@ -270,7 +270,7 @@ class RobertabaseLinear4(nn.Module):
 
 
 class Robertawithcompress(nn.Module):
-    def __init__(self, args, rank):
+    def __init__(self, args, device, batchsize):
         super(Robertawithcompress, self).__init__()
         self.args = args
         model = AutoModelForSequenceClassification.from_pretrained("roberta-base")
@@ -283,13 +283,20 @@ class Robertawithcompress(nn.Module):
         self.part2 = CombineLayer([medium], [output_layer], [roberta_layers])
         self.part3 = model.classifier
         if args.linear != 0:
-            self.linear1 = torch.nn.Linear(768, args.linear).to(rank)
-            self.linear2 = torch.nn.Linear(args.linear, 768).to(rank)
-            self.linear3 = torch.nn.Linear(768, args.linear).to(rank)
-            self.linear4 = torch.nn.Linear(args.linear, 768).to(rank)
+            self.linear1 = torch.nn.Linear(768, args.linear).to(device)
+            self.linear2 = torch.nn.Linear(args.linear, 768).to(device)
+            self.linear3 = torch.nn.Linear(768, args.linear).to(device)
+            self.linear4 = torch.nn.Linear(args.linear, 768).to(device)
         if args.prun != 0:
             self.topk_layer1 = TopkLayer(args.prun)
             self.topk_layer2 = TopkLayer(args.prun)
+        if args.powerpca != 0:
+            self.powerpca_layer1 = PowerSVDLayerNLP(
+                args.powerpca, (int(batchsize), 128, 768), args.poweriter, device
+            )
+            self.powerpca_layer2 = PowerSVDLayerNLP(
+                args.powerpca, (int(batchsize), 128, 768), args.poweriter, device
+            )
 
     def forward(self, input, mask):
         args = self.args
@@ -307,6 +314,8 @@ class Robertawithcompress(nn.Module):
             outputs = self.linear2(outputs)
         if args.sortquant != 0:
             outputs = SortQuantization.apply(outputs, args.quant, args.prun, args.sort)
+        if args.powerpca != 0:
+            outputs = self.powerpca_layer1(outputs)
         outputs = self.part2(outputs, mask)
         if args.prun != 0:
             outputs = self.topk_layer2(outputs)
@@ -319,6 +328,8 @@ class Robertawithcompress(nn.Module):
             outputs = self.linear4(outputs)
         if args.sortquant != 0:
             outputs = SortQuantization.apply(outputs, args.quant, args.prun, args.sort)
+        if args.powerpca != 0:
+            outputs = self.powerpca_layer2(outputs)
         outputs = self.part3(outputs)
         return outputs
 
