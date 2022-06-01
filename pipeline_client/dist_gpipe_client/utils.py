@@ -46,16 +46,6 @@ def tensor2tuple(input: torch.tensor):
 def SendTensorCPU(input, settings, train_settings, chunk, edge=False):
     if train_settings["prune"] != 0:
         output = TopkPruning.apply(input, train_settings["prune"])
-    if train_settings["mix"] != 0:
-        output = CompressionClientSend.apply(
-            input,
-            train_settings["pca1"],
-            settings["send_rank"],
-            settings["rank"],
-            train_settings["quant"],
-            train_settings["split"],
-            settings["group_list"][chunk],
-        )
     elif train_settings["pca1"] != 0:
         output = PCASendClient.apply(
             input,
@@ -88,13 +78,14 @@ def SendTensorCPU(input, settings, train_settings, chunk, edge=False):
             input, settings["group_list"][chunk]
         )
     else:
-        # print("client send",settings["send_rank"],settings["rank"])
+        # print("client send",settings["send_rank"],settings["device"])
         output = FSBRFunctionClient.apply(
             input,
             settings["send_rank"],
-            settings["rank"],
+            settings["device"],
             settings["group_list"][chunk],
         )
+        # print("send over")
     return output
 
 
@@ -103,15 +94,15 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
     if settings["send_rank"] == 0 or edge is not False:
         if train_settings["prune"] != 0:
             output = TopkPruning.apply(input, train_settings["prune"])
-        if train_settings["mix"] != 0:
-            output = CompressSendGPU.apply(
-                input,
-                train_settings["pca2"],
-                settings["send_rank"],
-                train_settings["quant"],
-                train_settings["split"],
-                settings["group_list"][chunk],
-            )
+        # if train_settings["mix"] != 0:
+        #     output = CompressSendGPU.apply(
+        #         input,
+        #         train_settings["pca2"],
+        #         settings["send_rank"],
+        #         train_settings["quant"],
+        #         train_settings["split"],
+        #         settings["group_list"][chunk],
+        #     )
         elif train_settings["pca2"] != 0:
             output = PCASendGPU.apply(
                 input,
@@ -159,16 +150,16 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
 def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=False):
     # server client transfer
     if settings["recv_rank"] == 0 or edge is not False:
-        if train_settings["mix"] != 0:
-            output = CompressRecvGPU.apply(
-                input,
-                train_settings["pca1"],
-                settings["recv_rank"],
-                train_settings["quant"],
-                train_settings["split"],
-                settings["group_list"][chunk],
-            )
-        elif train_settings["pca1"] != 0:
+        # if train_settings["mix"] != 0:
+        #     output = CompressRecvGPU.apply(
+        #         input,
+        #         train_settings["pca1"],
+        #         settings["recv_rank"],
+        #         train_settings["quant"],
+        #         train_settings["split"],
+        #         settings["group_list"][chunk],
+        #     )
+        if train_settings["pca1"] != 0:
             output = PCARecvGPU.apply(
                 input,
                 train_settings["pca1"],
@@ -212,17 +203,8 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
 
 
 def RecvTensorCPU(input, settings, train_settings, chunk, edge=False):
-    if train_settings["mix"] != 0:
-        output = CompressionClientRecv.apply(
-            input,
-            train_settings["pca2"],
-            settings["recv_rank"],
-            settings["rank"],
-            train_settings["quant"],
-            train_settings["split"],
-            settings["group_list"][chunk],
-        )
-    elif train_settings["pca2"] != 0:
+
+    if train_settings["pca2"] != 0:
         output = PCARecvClient.apply(
             input,
             train_settings["pca2"],
@@ -252,12 +234,14 @@ def RecvTensorCPU(input, settings, train_settings, chunk, edge=False):
             input, settings["group_list"][chunk]
         )
     else:
+        # print("client recv begin")
         output = FRBSFunctionClient.apply(
             input,
             settings["recv_rank"],
-            settings["rank"],
+            settings["device"],
             settings["group_list"][chunk],
         )
+        # print("client end",settings["recv_rank"],settings["recv_rank"])
     return output
 
 
@@ -299,6 +283,7 @@ def make_dictions(
     client_settings["rank"] = args.rank
     client_settings["backend"] = args.backend
     client_settings["dist_url"] = args.url
+    client_settings["ifconfig"] = args.ifconfig
     client_settings["world_size"] = args.world_size
     client_settings["savepath"] = args.log
     client_settings["send_rank"] = args.ranks[

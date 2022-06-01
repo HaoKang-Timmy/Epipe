@@ -169,7 +169,7 @@ def client_trainer(
             acc1 = acc1 / client_settings["chunks"]
             losses = losses / client_settings["chunks"]
             acc1_avg, losses_avg = acc1 + acc1_avg, losses_avg + losses
-
+            # print("forward finish")
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 if back == len(train_settings["models"]) - 1:
                     # print("client backward send pre",chunk)
@@ -354,7 +354,6 @@ def client_validation(train_settings, client_settings, criterion):
                     for chunk in range(client_settings["chunks"]):
                         if i == 0:
                             output = model(images[chunk])
-
                             output = SendTensorCPU(
                                 output, client_settings, train_settings, chunk, True
                             )
@@ -503,8 +502,8 @@ def client(train_settings, client_settings):
         )
         client_settings["group_list"] = group_list
         print("client", group_list)
-        if train_settings["mixed"] != 0:
-            train_settings["scalar"] = torch.cuda.amp.GradScaler()
+        # if train_settings["mixed"] != 0:
+        #     train_settings["scalar"] = torch.cuda.amp.GradScaler()
         for epoch in range(train_settings["epochs"]):
             print("client:", epoch)
             (

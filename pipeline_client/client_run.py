@@ -29,8 +29,8 @@ parser.add_argument("--world-size", default=2, type=int)
 parser.add_argument("--showperiod", default=10, type=int)
 parser.add_argument("--tasktype", default="cv", type=str)
 parser.add_argument("--root", default="../data", type=str)
-parser.add_argument("ranks", default=[0, 1], type=list)
-parser.add_argument("rank", default=1, type=int)
+parser.add_argument("--ranks", default=[1, 0], type=list)
+parser.add_argument("--rank", default=1, type=int)
 parser.add_argument("--local-rank", default=[0], type=list)
 parser.add_argument("--ifconfig", default="eno1", type=str)
 parser.add_argument("--url", default="tcp://18.25.6.30:23456", type=str)
@@ -53,3 +53,9 @@ def main():
     ]
     train_loader, val_loader = create_dataloader_cv(args)
     model = dist_gpipe_client(args, model, tensor_size, train_loader, val_loader)
+    model.session()
+
+
+if __name__ == "__main__":
+    torch.multiprocessing.set_start_method("spawn")
+    main()

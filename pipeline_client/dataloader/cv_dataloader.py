@@ -1,4 +1,4 @@
-from dist_gpipe_gloo import dist_gpipe, Reshape1
+from dist_gpipe_client import dist_gpipe, Reshape1
 from torchvision.models import mobilenet_v2
 import torch.nn as nn
 import argparse
