@@ -7,7 +7,7 @@ Description: 打开koroFileHeader查看配置 进行设置: https://github.com/O
 FilePath: /research/gpipe_test/dist_gpipe_gloo/dist_gpipe.py
 """
 from .server_utils import server
-from .client_utils import client
+
 from .utils import make_dictions_server
 import torch
 import torch.multiprocessing as mp

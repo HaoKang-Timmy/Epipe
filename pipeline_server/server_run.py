@@ -26,8 +26,8 @@ parser.add_argument("--world-size", default=2, type=int)
 parser.add_argument("--showperiod", default=10, type=int)
 parser.add_argument("--tasktype", default="cv", type=str)
 parser.add_argument("--root", default="../data", type=str)
-parser.add_argument("ranks", default=[0, 1], type=list)
-parser.add_argument("rank", default=0, type=int)
+parser.add_argument("--ranks", default=[0, 1], type=list)
+parser.add_argument("--rank", default=0, type=int)
 parser.add_argument("--local-rank", default=[0], type=list)
 parser.add_argument("--ifconfig", default="enp14s0", type=str)
 parser.add_argument("--url", default="tcp://18.25.6.30:23456", type=str)
@@ -55,6 +55,7 @@ def main():
     model = dist_gpipe_server(
         args, model, args.local_rank, tensor_size, len_trainloader, len_valloader
     )
+    model.session()
 
 
 if __name__ == "__main__":

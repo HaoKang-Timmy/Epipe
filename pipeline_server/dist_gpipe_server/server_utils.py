@@ -83,6 +83,7 @@ def server_trainer(
         for batch_iter in range(train_settings["len_trainloader"]):
             batches = []
             for i, model in enumerate(train_settings["models"]):
+                # print(i)
                 model.train()
                 batch = []
                 for chunk in range(server_settings["chunks"]):
@@ -110,6 +111,7 @@ def server_trainer(
                 # timecount /= chunk
             # torch.cuda.synchronize()
             # forward_time = time.time() - start
+            # print("forward finish")
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 for chunk in range(server_settings["chunks"]):
                     # print("server backward pre",chunk)
