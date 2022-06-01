@@ -82,10 +82,14 @@ class DatasetCollection:
             train = data[data["is_training_img"].isin([1])]
             test = data[data["is_training_img"].isin([0])]
             train_dataset = CUBDataset(
-                self.path, data=train, transform=self.compose["train"],
+                self.path,
+                data=train,
+                transform=self.compose["train"],
             )
             val_dataset = CUBDataset(
-                self.path, data=test, transform=self.compose["val"],
+                self.path,
+                data=test,
+                transform=self.compose["val"],
             )
             return train_dataset, val_dataset
         elif self.type == "CIFAR10":
