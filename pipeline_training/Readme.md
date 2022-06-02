@@ -35,7 +35,9 @@ Here, since CPUs handle SVD faster than GPUs. I perform all PCA encode algorithm
 | CPu,Gpu                 | Conv Insert                | 8     | First layer, last layer         | 48.02MB/s  | 0.36s           | 177.91/s    | 95.85          |
 | Cpu,Gpu                 | Conv Insert(2 sets)        | 8     | First layer, last layer         | 25.81MB/s  | 0.41s           | 156.10/s    | 95.70          |
 
-![image-20220517174627881](../pic/image-20220517174627881.png)
+
+
+![image-20220602124332187](../pic/image-20220602124332187.png)
 
 ## 2 RTE
 
