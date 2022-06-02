@@ -124,7 +124,11 @@ def main_worker(rank, process_num, args):
     #         "./model3_imagenet_cpu.pth"
     #     )
     optimizer = torch.optim.SGD(
-        [{"params": model.parameters()},], lr=args.lr, momentum=0.9,
+        [
+            {"params": model.parameters()},
+        ],
+        lr=args.lr,
+        momentum=0.9,
     )
 
     lr_scheduler = get_scheduler(

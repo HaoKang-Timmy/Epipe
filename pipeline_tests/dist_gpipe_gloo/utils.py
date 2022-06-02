@@ -63,7 +63,10 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
             )
         elif train_settings["quant"] != 0:
             output = QSendGPU.apply(
-                input, train_settings["quant"], settings["send_rank"], settings["rank"],
+                input,
+                train_settings["quant"],
+                settings["send_rank"],
+                settings["rank"],
             )
         else:
             output = FSBRFunction.apply(
@@ -115,7 +118,10 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
             )
         elif train_settings["quant"] != 0:
             output = QrecvGPU.apply(
-                input, train_settings["quant"], settings["recv_rank"], settings["rank"],
+                input,
+                train_settings["quant"],
+                settings["recv_rank"],
+                settings["rank"],
             )
         else:
             output = FRBSFunction.apply(

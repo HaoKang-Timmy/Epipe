@@ -22,10 +22,10 @@ def mobilenet_v2_seperate(args):
     conv = next(feature)
     bn = next(feature)
     if args.convinsert is True:
-        conv1 = nn.Conv2d(32,20,(4,4),(4,4))
-        t_conv1 = nn.ConvTranspose2d(320,1280,(1,1),(1,1))
-        layer1 = [conv, bn,conv1]
-        layer3 = [t_conv1,Reshape1(), model.classifier]
+        conv1 = nn.Conv2d(32, 20, (4, 4), (4, 4))
+        t_conv1 = nn.ConvTranspose2d(320, 1280, (1, 1), (1, 1))
+        layer1 = [conv, bn, conv1]
+        layer3 = [t_conv1, Reshape1(), model.classifier]
     else:
         layer1 = [conv, bn]
         layer2 = [nn.ReLU6(inplace=False), model.features[1:]]

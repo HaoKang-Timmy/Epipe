@@ -262,7 +262,12 @@ def accuracy(output, target, topk=(1,)):
 
 
 def make_dictions_server(
-    args, model, devices, tensor_size, len_trainloader, len_valloader,
+    args,
+    model,
+    devices,
+    tensor_size,
+    len_trainloader,
+    len_valloader,
 ):
     train_settings = {}
     server_settings = {}
