@@ -99,3 +99,6 @@ Mix amplification training may be a good method.
 | CPU,GPU                 | Fast Quantization 6bits | 4     | Condition 3            | 10.43MB/s | 0.99s           | 32.32/s     | 84.76          |
 | CPU,GPU                 | Fast Quantization 6bits | 4     | Condition 3            | 10.27MB/s | 0.89s           | 35.95/s     | 84.66          |
 
+## 3 Reproduce
+
+See `test.sh`

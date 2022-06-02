@@ -258,3 +258,6 @@ Rank here only compress the last dimension(F) of the input(N,S,F)
 
 
 
+## 11 Reproduce
+
+See `test.sh`
