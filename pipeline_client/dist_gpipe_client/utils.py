@@ -68,7 +68,7 @@ def SendTensorCPU(input, settings, train_settings, chunk, edge=False):
             input,
             train_settings["quant"],
             settings["send_rank"],
-            settings["rank"],
+            settings["device"],
             settings["group_list"][chunk],
         )
     # elif train_settings["convinsert"] != 0:
@@ -226,7 +226,7 @@ def RecvTensorCPU(input, settings, train_settings, chunk, edge=False):
             input,
             train_settings["quant"],
             settings["recv_rank"],
-            settings["rank"],
+            settings["device"],
             settings["group_list"][chunk],
         )
     elif train_settings["poweriter2"] != 0:
@@ -310,3 +310,12 @@ def make_dictions(
     train_settings["poweriter1"] = args.poweriter1
     train_settings["poweriter2"] = args.poweriter2
     return client_settings, train_settings
+
+
+import time
+
+
+def time_count():
+    torch.cuda.synchronize()
+    count = time.time()
+    return count

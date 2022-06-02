@@ -20,6 +20,7 @@ from .utils import (
     RecvTensor,
     SendTensorCPU,
     RecvTensorCPU,
+    time_count,
 )
 import os
 
@@ -96,6 +97,7 @@ def client_trainer(
     train_acc1_avg = 0.0
     train_losses_avg = 0.0
     time_per_batch = 0.0
+    time_training = 0.0
     batch_time = 0.0
     bandwidth = torch.tensor([0.0])
     bandwidth_avg = 0.0
