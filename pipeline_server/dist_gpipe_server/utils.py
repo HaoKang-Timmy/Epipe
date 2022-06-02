@@ -126,7 +126,7 @@ def SendTensor(input, settings, train_settings, chunk, edge=False):
             input,
             train_settings["quant"],
             settings["send_rank"],
-            settings["rank"],
+            settings["device"],
             settings["group_list"][chunk],
         )
     elif train_settings["poweriter2"] != 0:
@@ -170,7 +170,7 @@ def RecvTensor(input, settings, train_settings, chunk, edge=False, time_count=Fa
             input,
             train_settings["quant"],
             settings["recv_rank"],
-            settings["rank"],
+            settings["device"],
             settings["group_list"][chunk],
         )
     elif train_settings["poweriter1"] != 0:
@@ -262,12 +262,7 @@ def accuracy(output, target, topk=(1,)):
 
 
 def make_dictions_server(
-    args,
-    model,
-    devices,
-    tensor_size,
-    len_trainloader,
-    len_valloader,
+    args, model, devices, tensor_size, len_trainloader, len_valloader,
 ):
     train_settings = {}
     server_settings = {}
