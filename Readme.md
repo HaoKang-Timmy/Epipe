@@ -7,8 +7,10 @@ Parallelism Pipeline is a method to accelerate training speed by dividing batche
 ## Reference
 
 1. Dataparallel tests of compression algorithm https://github.com/timmywanttolearn/gpipe_test/tree/master/dataparallel/compression_simulation
-2. pipeline training https://github.com/timmywanttolearn/gpipe_test/tree/master/pipeline_training
+2. pipeline training in single machine with compression algorithm https://github.com/timmywanttolearn/gpipe_test/tree/master/pipeline_training
 3. Modified gpipe for single machine https://github.com/timmywanttolearn/gpipe_test/tree/master/torchgpipe
+4. Server version of pipeline parallelism https://github.com/timmywanttolearn/gpipe_test/tree/master/pipeline_server
+5. Client version of pipeline parallelism https://github.com/timmywanttolearn/gpipe_test/tree/master/pipeline_client
 
 # 1. Distributed Pipeline Parallelism Training
 

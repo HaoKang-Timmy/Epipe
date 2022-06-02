@@ -1,7 +1,3 @@
----
-typora-copy-images-to: ../pic
----
-
 # CPU Training
 
 A simulation by using CPUs to train client tasks and one GTX 1080 to train server tasks
