@@ -22,7 +22,7 @@ def mobilenet_v2_seperate(args):
     conv = next(feature)
     bn = next(feature)
     if args.convinsert is True:
-        t_conv1 = nn.ConvTranspose2d(20, 32, (4, 4), (4, 4))
+        t_conv1 = nn.ConvTranspose2d(20, 32, (3, 3), (3, 3))
         conv1 = nn.Conv2d(1280, 320, (1, 1), (1, 1))
         layer2 = [t_conv1, nn.ReLU6(inplace=False), model.features[1:], conv1]
     else:
