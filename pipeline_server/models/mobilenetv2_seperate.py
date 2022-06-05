@@ -29,8 +29,8 @@ def mobilenet_v2_seperate(args):
         layer1 = [conv, bn]
         layer2 = [nn.ReLU6(inplace=False), model.features[1:]]
         layer3 = [Reshape1(), model.classifier]
-    layer1 = nn.Sequential(*layer1)
+    # layer1 = nn.Sequential(*layer1)
     layer2 = nn.Sequential(*layer2)
-    layer3 = nn.Sequential(*layer3)
+    # layer3 = nn.Sequential(*layer3)
     partition = [layer2]
     return partition

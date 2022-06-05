@@ -46,7 +46,7 @@ parser.add_argument("--epochs", default=20, type=int)
 parser.add_argument("--task", default="rte", type=str)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prun", default=0.0, type=float)
-parser.add_argument("--batches", default=32, type=int)
+parser.add_argument("--batches", default=16, type=int)
 parser.add_argument("--sort", default=0, type=int)
 parser.add_argument("--pca", default=0, type=int)
 parser.add_argument("--powerpca", default=0, type=int)
@@ -66,7 +66,6 @@ def main_worker(rank, process_num, args):
     dist.init_process_group(
         backend="nccl", init_method="tcp://127.0.0.1:1237", world_size=4, rank=rank
     )
-    # dataset dataloaer
 
     os.environ["TOKENIZERS_PARALLELISM"] = "true"
     train_dataloader, val_dataloader, train_sampler = create_dataloader_nlp(args)

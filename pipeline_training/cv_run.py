@@ -7,7 +7,7 @@ import torchvision
 import torchvision.transforms as transforms
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
-parser.add_argument("--chunks", default=8, type=int)
+parser.add_argument("--chunks", default=1, type=int)
 parser.add_argument("--log", default="./test.txt", type=str)
 parser.add_argument("--train-method", default="finetune", type=str)
 # parser.add_argument("--warmup", default=0, action="store_true")
@@ -44,10 +44,14 @@ def main():
     feature = model.features[0].children()
     conv = next(feature)
     bn = next(feature)
+    conv1 = nn.Conv2d(32, 20, (4, 4), (4, 4))
+    tconv_1 = nn.ConvTranspose2d(20, 32, (4, 4), (4, 4))
+    conv_2 = nn.Conv2d(1280, 320, (1, 1), (1, 1))
+    tconv_2 = nn.ConvTranspose2d(320, 1280, (1, 1), (1, 1))
     devices = args.devices
-    layer1 = [conv, bn]
-    layer2 = [nn.ReLU6(inplace=False), model.features[1:]]
-    layer3 = [Reshape1(), model.classifier]
+    layer1 = [conv, bn, conv1]
+    layer2 = [tconv_1, nn.ReLU6(inplace=False), model.features[1:], conv_2]
+    layer3 = [tconv_2, Reshape1(), model.classifier]
 
     layer1 = nn.Sequential(*layer1)
     layer2 = nn.Sequential(*layer2)
@@ -108,12 +112,12 @@ def main():
     partition = [[layer1, layer3], [layer2]]
     tensor_size = [
         [
-            (int(args.batches / args.chunks), 32, 112, 112),
-            (int(args.batches / args.chunks), 1280, 7, 7),
+            (int(args.batches / args.chunks), 20, 28, 28),
+            (int(args.batches / args.chunks), 320, 7, 7),
         ],
         [
-            (int(args.batches / args.chunks), 1280, 7, 7),
-            (int(args.batches / args.chunks), 32, 112, 112),
+            (int(args.batches / args.chunks), 320, 7, 7),
+            (int(args.batches / args.chunks), 20, 28, 28),
         ],
     ]
     print(tensor_size)
