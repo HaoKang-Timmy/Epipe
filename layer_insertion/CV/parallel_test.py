@@ -9,7 +9,9 @@ import torch
 import argparse
 import torch.multiprocessing as mp
 import torch.distributed as dist
-from models import *
+from models.models import *
+from models.metric import accuracy
+from dataloaders.dataloaders import create_dataloaders
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 parser.add_argument("--log", default="./test_cifar10_1.txt", type=str)
@@ -19,26 +21,10 @@ parser.add_argument("--epochs", default=40, type=int)
 parser.add_argument("--batches", default=64, type=int)
 parser.add_argument("--nproc", default=4, type=int)
 parser.add_argument("--type", default=0, type=int)
-parser.add_argument("--nworker", default=12, type=int)
+parser.add_argument("--nworker", default=40, type=int)
 parser.add_argument("--root", default="../gpipe_test/data", type=str)
-parser.add_argument("--savepath", default="./models/model1_imagenet_cpu.pth", type=str)
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the accuracy over the k top predictions for the specified values of k"""
-    with torch.no_grad():
-        maxk = max(topk)
-        batch_size = target.size(0)
-
-        _, pred = output.topk(maxk, 1, True, True)
-        pred = pred.t()
-        correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-        res = []
-        for k in topk:
-            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
-            res.append(correct_k.mul_(100.0 / batch_size))
-        return res
+parser.add_argument("--savepath", default="./model", type=str)
+parser.add_argument("--dataset", default="cifar10", type=str)
 
 
 def get_lr(optimizer):
@@ -58,71 +44,21 @@ def main_worker(rank, process_num, args):
         world_size=args.nproc,
         rank=rank,
     )
-    print(args.lr)
-    transform_train = transforms.Compose(
-        [
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ]
-    )
-    transform_test = transforms.Compose(
-        [
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ]
-    )
-
-    trainset = torchvision.datasets.CIFAR10(
-        root=args.root, train=True, download=True, transform=transform_train
-    )
-    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
-    train_loader = torch.utils.data.DataLoader(
-        trainset,
-        batch_size=args.batches,
-        shuffle=(train_sampler is None),
-        num_workers=12,
-        drop_last=True,
-        sampler=train_sampler,
-        pin_memory=True,
-    )
-
-    testset = torchvision.datasets.CIFAR10(
-        root=args.root, train=False, download=True, transform=transform_test
-    )
-    val_loader = torch.utils.data.DataLoader(
-        testset,
-        batch_size=args.batches,
-        shuffle=False,
-        num_workers=12,
-        drop_last=True,
-        pin_memory=True,
-    )
+    train_loader, val_loader, train_sampler = create_dataloaders(args)
     if args.type == 0:
-        model = MobileNetV2withConvInsert()
+        model = MobileNetV2withConvInsert0_bn()
     elif args.type == 1:
         model = MobileNetV2withConvInsert1_bn()
-    elif args.type == 2:
-        model = MobileNetV2withConvInsert2()
-    elif args.type == 3:
-        model = MobileNetV2withConvInsert3_bn()
-    # device = torch.device('cpu')
-    # model.load_state_dict(torch.load(args.savepath))
-    # model.mobilenetv2_part3[-1] = torch.nn.Linear(1280,10)
-    model.load_state_dict(torch.load(args.savepath, map_location="cpu"))
+    for i, conv in enumerate(model.convsets):
+        path = args.savepath + str(args.type) + "conv" + str(i) + ".pth"
+
+        conv.load_state_dict(torch.load(path, map_location="cpu"))
+
+    # model.load_state_dict(torch.load(args.savepath, map_location="cpu"))
     model.mobilenetv2_part3[-1] = torch.nn.Linear(1280, 10)
     model = model.to(rank)
     model = torch.nn.parallel.DistributedDataParallel(model)
 
-    # if rank == 0:
-    #     model = model.to("cpu")
-    #     torch.save(
-    #         model.module.state_dict(),
-    #         "./model3_imagenet_cpu.pth"
-    #     )
     optimizer = torch.optim.SGD(
         [
             {"params": model.parameters()},
@@ -138,9 +74,6 @@ def main_worker(rank, process_num, args):
         num_training_steps=args.epochs,
     )
     criterion = nn.CrossEntropyLoss().to(rank)
-    # if rank == 0:
-    #     print('save test')
-    #     torch.save(model.state_dict(),args.savepath+str(args.type)+"cifar10")
     best_acc = 0.0
     for epoch in range(args.epochs):
         model.train()

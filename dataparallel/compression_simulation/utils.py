@@ -10,14 +10,16 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from torch import autograd
-from fast_pytorch_kmeans import KMeans
+
+# from fast_pytorch_kmeans import KMeans
 import time
 from functions import *
-from powersgd import PowerSGD
+
+# from powersgd import PowerSGD
 
 
-def PowerPCAFunction(input: torch.tensor, powersgd: PowerSGD):
-    return powersgd._powersgd.aggregate(input)
+# def PowerPCAFunction(input: torch.tensor, powersgd: PowerSGD):
+#     return powersgd._powersgd.aggregate(input)
 
 
 def relative_error(origin, quant):
@@ -402,14 +404,14 @@ class KMeansFunction(autograd.Function):
         return labels, None, None, None
 
 
-class KMeansLayer(nn.Module):
-    def __init__(self, bits, device) -> None:
-        super(KMeansLayer, self).__init__()
-        self.kmeans = KMeans(n_clusters=2**bits, mode="euclidean", device=device)
-        self.bits = bits
+# class KMeansLayer(nn.Module):
+#     def __init__(self, bits, device) -> None:
+#         super(KMeansLayer, self).__init__()
+#         self.kmeans = KMeans(n_clusters=2**bits, mode="euclidean", device=device)
+#         self.bits = bits
 
-    def forward(self, input):
-        return KMeansFunction.apply(input, self.kmeans, self.bits)
+#     def forward(self, input):
+#         return KMeansFunction.apply(input, self.kmeans, self.bits)
 
 
 class PCAQuantize(autograd.Function):
@@ -633,24 +635,24 @@ def FastDequantizationCPU(recv: torch.tensor, bits, split_bits, min_step, grad_o
     return grad_output
 
 
-class FastQuantization(autograd.Function):
-    @staticmethod
-    def forward(ctx, input, bits, split_bits):
-        ctx.bits, ctx.split_bits = bits, split_bits
-        min_step = torch.rand([2**split_bits, 2]).to(input.get_device())
-        min_step, output = FastQuantizationCPU(input, bits, split_bits, min_step)
-        input = FastDequantizationCPU(output, bits, split_bits, min_step, input)
-        return input
+# class FastQuantization(autograd.Function):
+#     @staticmethod
+#     def forward(ctx, input, bits, split_bits):
+#         ctx.bits, ctx.split_bits = bits, split_bits
+#         min_step = torch.rand([2**split_bits, 2]).to(input.get_device())
+#         min_step, output = FastQuantizationCPU(input, bits, split_bits, min_step)
+#         input = FastDequantizationCPU(output, bits, split_bits, min_step, input)
+#         return input
 
-    @staticmethod
-    def backward(ctx, grad_output):
-        bits, split_bits = ctx.bits, ctx.split_bits
-        min_step = torch.rand([2**split_bits, 2]).to(grad_output.get_device())
-        min_step, output = FastQuantizationCPU(grad_output, bits, split_bits, min_step)
-        grad_output = FastDequantizationCPU(
-            output, bits, split_bits, min_step, grad_output
-        )
-        return grad_output, None, None
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         bits, split_bits = ctx.bits, ctx.split_bits
+#         min_step = torch.rand([2**split_bits, 2]).to(grad_output.get_device())
+#         min_step, output = FastQuantizationCPU(grad_output, bits, split_bits, min_step)
+#         grad_output = FastDequantizationCPU(
+#             output, bits, split_bits, min_step, grad_output
+#         )
+#         return grad_output, None, None
 
 
 class EmbeddingAndAttention(nn.Module):
@@ -722,18 +724,18 @@ class ChannelwiseQuantization(autograd.Function):
         return grad_output, None
 
 
-class PowerPCA(autograd.Function):
-    @staticmethod
-    def forward(ctx, input, powerpca):
-        ctx.powerpca = powerpca
-        list_of_output = PowerPCAFunction(input, powerpca)
-        return torch.stack(list_of_output)
+# class PowerPCA(autograd.Function):
+#     @staticmethod
+#     def forward(ctx, input, powerpca):
+#         ctx.powerpca = powerpca
+#         list_of_output = PowerPCAFunction(input, powerpca)
+#         return torch.stack(list_of_output)
 
-    @staticmethod
-    def backward(ctx, grad_output):
-        powerpca = ctx.powerpca
-        list_of_output = PowerPCAFunction(grad_output, powerpca)
-        return torch.stack(list_of_output), None
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         powerpca = ctx.powerpca
+#         list_of_output = PowerPCAFunction(grad_output, powerpca)
+#         return torch.stack(list_of_output), None
 
 
 class ReshapeSVD(autograd.Function):

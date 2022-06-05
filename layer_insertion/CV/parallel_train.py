@@ -1,3 +1,4 @@
+from venv import create
 from numpy import RankWarning
 import torchvision.models as models
 import torch.nn as nn
@@ -9,36 +10,23 @@ import torch
 import argparse
 import torch.multiprocessing as mp
 import torch.distributed as dist
-from models import *
+from models.models import *
+from models.optimizer import create_optimizer
+from models.metric import accuracy
+from dataloaders.dataloaders import create_dataloaders
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 parser.add_argument("--log", default="./test.txt", type=str)
 parser.add_argument("--pretrained", default=0, action="store_true")
 parser.add_argument("--lr", default=0.01, type=float)
-parser.add_argument("--epochs", default=15, type=int)
-parser.add_argument("--batches", default=70, type=int)
+parser.add_argument("--epochs", default=10, type=int)
+parser.add_argument("--batches", default=120, type=int)
 parser.add_argument("--nproc", default=4, type=int)
 parser.add_argument("--type", default=0, type=int)
-parser.add_argument("--nworker", default=12, type=int)
-parser.add_argument("--root", default="../../data", type=str)
+parser.add_argument("--nworker", default=40, type=int)
+parser.add_argument("--root", default="/dataset/imagenet", type=str)
 parser.add_argument("--savepath", default="./model.pth", type=str)
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the accuracy over the k top predictions for the specified values of k"""
-    with torch.no_grad():
-        maxk = max(topk)
-        batch_size = target.size(0)
-
-        _, pred = output.topk(maxk, 1, True, True)
-        pred = pred.t()
-        correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-        res = []
-        for k in topk:
-            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
-            res.append(correct_k.mul_(100.0 / batch_size))
-        return res
+parser.add_argument("--dataset", default="imagenet", type=str)
 
 
 def get_lr(optimizer):
@@ -59,91 +47,19 @@ def main_worker(rank, process_num, args):
         rank=rank,
     )
     args.lr = args.batches * process_num / 256 * args.lr
-    print(args.lr)
-    transform_train = transforms.Compose(
-        [
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-        ]
-    )
-    transform_test = transforms.Compose(
-        [
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-        ]
-    )
-
-    trainset = torchvision.datasets.ImageNet(
-        root=args.root, split="train", transform=transform_train
-    )
-    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
-    train_loader = torch.utils.data.DataLoader(
-        trainset,
-        batch_size=args.batches,
-        shuffle=(train_sampler is None),
-        num_workers=args.nworker,
-        drop_last=True,
-        sampler=train_sampler,
-        pin_memory=True,
-    )
-
-    testset = torchvision.datasets.ImageNet(
-        root=args.root, split="val", transform=transform_test
-    )
-    val_loader = torch.utils.data.DataLoader(
-        testset,
-        batch_size=args.batches,
-        shuffle=False,
-        num_workers=args.nworker,
-        drop_last=True,
-        pin_memory=True,
-    )
-    #     pass
+    train_loader, val_loader, train_sampler = create_dataloaders(args)
     if args.type == 0:
-        model = MobileNetV2withConvInsert()
+        model = MobileNetV2withConvInsert0_bn()
     elif args.type == 1:
         model = MobileNetV2withConvInsert1_bn()
-    elif args.type == 2:
-        model = MobileNetV2withConvInsert2()
-    elif args.type == 3:
-        model = MobileNetV2withConvInsert3_bn()
-    device = torch.device("cpu")
-    # model.load_state_dict(torch.load(args.savepath+str(args.type),map_location=device))
     model = model.to(rank)
+    optimizer = create_optimizer(args, model)
 
-    print(model)
-    if args.type != 2:
-        optimizer = torch.optim.SGD(
-            [
-                {"params": model.conv1.parameters()},
-                {"params": model.conv2.parameters()},
-                {"params": model.t_conv1.parameters()},
-                {"params": model.t_conv2.parameters()},
-            ],
-            lr=args.lr,
-            momentum=0.9,
-        )
-    else:
-        optimizer = torch.optim.SGD(
-            [
-                {"params": model.conv2.parameters()},
-                {"params": model.t_conv1.parameters()},
-                {"params": model.t_conv3.parameters()},
-                {"params": model.conv3.parameters()},
-                {"params": model.t_conv2.parameters()},
-            ],
-            lr=args.lr,
-            momentum=0.9,
-        )
     model = torch.nn.parallel.DistributedDataParallel(model)
     lr_scheduler = get_scheduler(
         name="cosine",
         optimizer=optimizer,
-        num_warmup_steps=0,
+        num_warmup_steps=2,
         num_training_steps=args.epochs,
     )
     criterion = nn.CrossEntropyLoss().to(rank)
@@ -205,9 +121,11 @@ def main_worker(rank, process_num, args):
             if best_acc < val_acc1:
                 best_acc = val_acc1
                 if rank == 0:
-                    torch.save(
-                        model.module.state_dict(), args.savepath + str(args.type)
-                    )
+                    for i, conv in enumerate(model.module.convsets):
+                        torch.save(
+                            conv.state_dict(),
+                            args.savepath + str(args.type) + "conv" + str(i),
+                        )
             if rank == 0:
                 print(
                     "epoch:",

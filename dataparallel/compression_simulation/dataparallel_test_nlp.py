@@ -13,14 +13,14 @@ from utils import (
     Fakequantize,
     TopkLayer,
     SortQuantization,
-    KMeansLayer,
+    # KMeansLayer,
     PCAQuantize,
     combine_classifier,
     combine_embeding,
     CombineLayer,
     EmbeddingAndAttention,
 )
-from torch.optim import AdamW
+from torch.optim import Adam
 from dataloader.dataloader import create_dataloader_nlp
 from models.models import Robertawithcompress
 
@@ -39,8 +39,9 @@ class nlp_sequential(nn.Module):
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 
-parser.add_argument("--log", default="./my_gpipe", type=str)
+parser.add_argument("--log", default="./test_hg.txt", type=str)
 parser.add_argument("--lr", default=2e-5, type=float)
+parser.add_argument("--wd", default=0.001, type=float)
 parser.add_argument("--epochs", default=20, type=int)
 parser.add_argument("--task", default="rte", type=str)
 parser.add_argument("--quant", default=0, type=int)
@@ -80,15 +81,18 @@ def main_worker(rank, process_num, args):
 
     model = torch.nn.parallel.DistributedDataParallel(model)
 
-    optimizer = AdamW(
+    optimizer = Adam(
         model.parameters(),
         lr=args.lr,
+        weight_decay=args.wd,
+        eps=1e-06,
+        betas=(0.9, 0.98),
     )
 
     lr_scheduler = get_scheduler(
         name="polynomial",
         optimizer=optimizer,
-        num_warmup_steps=200,
+        num_warmup_steps=320,
         num_training_steps=epochs * len(train_dataloader),
     )
     print(len(train_dataloader))

@@ -10,7 +10,8 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from torch import autograd
-from fast_pytorch_kmeans import KMeans
+
+# from fast_pytorch_kmeans import KMeans
 import time
 from functions import *
 
