@@ -368,7 +368,6 @@ def FastQuantization(input, bits, split_bits, min_step, downsample_rate=1):
 def PowerSVD(input: torch.tensor, q_buffer: list, p_buffer: list, n_iter):
     shape = input.shape
     input = input.view(int(input.shape[0]), int(input.shape[1]), -1)
-
     for i in range(n_iter):
         if i == n_iter - 1:
             p_buffer[0] = torch.linalg.qr(p_buffer[0]).Q

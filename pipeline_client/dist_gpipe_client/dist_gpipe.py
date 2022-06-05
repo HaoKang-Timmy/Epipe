@@ -16,10 +16,6 @@ class dist_gpipe_client:
         )
         self.client_settings = client_settings
         self.client_train_settings = client_train_settings
-        # print("client settings",self.client_settings)
-        # print("server settings",self.server_settings_list)
-        # print("client train settings",self.client_train_settings)
-        # print("server train settings",self.server_train_settings_list)
 
     def session(self):
         processes = []

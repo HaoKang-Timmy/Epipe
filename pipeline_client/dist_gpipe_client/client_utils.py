@@ -137,11 +137,9 @@ def client_trainer(
                         # print(end)
                     else:
                         # some = time.time()
-                        input = (
-                            torch.zeros(client_settings["recv_size"])
-                            # .to(client_settings["device"])
-                            .requires_grad_()
-                        )
+                        input = torch.zeros(
+                            client_settings["recv_size"]
+                        ).requires_grad_()
                         # print("client, pre_recv",chunk)
                         # input = input.view([client_settings["recv_size"][0],client_settings["recv_size"][1],49])
                         input = RecvTensorCPU(
