@@ -8,4 +8,4 @@
 *.pty
 *.DS_Store
 *.yaml
-/report/*.md
+report/*.md
