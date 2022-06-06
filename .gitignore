@@ -7,3 +7,4 @@
 *.pth
 *.pty
 *.DS_Store
+*.yaml

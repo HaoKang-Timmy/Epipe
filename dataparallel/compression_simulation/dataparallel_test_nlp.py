@@ -46,7 +46,7 @@ parser.add_argument("--epochs", default=20, type=int)
 parser.add_argument("--task", default="rte", type=str)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prun", default=0.0, type=float)
-parser.add_argument("--batches", default=16, type=int)
+parser.add_argument("--batches", default=32, type=int)
 parser.add_argument("--sort", default=0, type=int)
 parser.add_argument("--pca", default=0, type=int)
 parser.add_argument("--powerpca", default=0, type=int)
@@ -84,8 +84,8 @@ def main_worker(rank, process_num, args):
         model.parameters(),
         lr=args.lr,
         weight_decay=args.wd,
-        eps=1e-06,
-        betas=(0.9, 0.98),
+        # eps=1e-06,
+        # betas=(0.9, 0.98),
     )
 
     lr_scheduler = get_scheduler(
