@@ -19,7 +19,12 @@ class dist_gpipe_server:
     ) -> None:
 
         server_settings, server_train_settings = make_dictions_server(
-            args, model, device, tensor_size, len_trainloader, len_valloader,
+            args,
+            model,
+            device,
+            tensor_size,
+            len_trainloader,
+            len_valloader,
         )
         self.server_settings = server_settings
         self.server_train_settings = server_train_settings
@@ -33,7 +38,8 @@ class dist_gpipe_server:
         processes = []
 
         p = mp.Process(
-            target=server, args=(self.server_train_settings, self.server_settings),
+            target=server,
+            args=(self.server_train_settings, self.server_settings),
         )
         p.start()
         processes.append(p)
