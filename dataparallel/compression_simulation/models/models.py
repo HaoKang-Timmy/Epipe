@@ -336,7 +336,7 @@ class Robertawithcompress(nn.Module):
 
 class MobileNetV2Compress(nn.Module):
     def __init__(self, args, rank, shape1=None, shape2=None):
-        super(MobileNetV2Compress,self).__init__()
+        super(MobileNetV2Compress, self).__init__()
         model = models.mobilenet_v2(pretrained=True)
         model.classifier[-1] = torch.nn.Linear(1280, 10)
         feature = model.features[0].children()
@@ -363,9 +363,9 @@ class MobileNetV2Compress(nn.Module):
             self.svd1 = PowerSVDLayer1(args.powerrank, list(shape1), args.poweriter).to(
                 self.rank
             )
-            self.svd2 = PowerSVDLayer1(args.powerrank1, list(shape2), args.poweriter).to(
-                self.rank
-            )
+            self.svd2 = PowerSVDLayer1(
+                args.powerrank1, list(shape2), args.poweriter
+            ).to(self.rank)
 
     def forward(self, input):
         outputs = self.part1(input)

@@ -46,14 +46,17 @@ def get_lr(optimizer):
 def main():
     args = parser.parse_args()
     config = create_config(args)
-    f = open((args.c+"exp.yaml"),"a")
+    f = open((args.c + "exp.yaml"), "a")
     f.write(config.__str__())
     mp.spawn(main_worker, nprocs=args.worker, args=(args.worker, args))
 
 
 def main_worker(rank, process_num, args):
     dist.init_process_group(
-        backend="nccl", init_method="tcp://127.0.0.1:1235", world_size=args.worker, rank=rank
+        backend="nccl",
+        init_method="tcp://127.0.0.1:1235",
+        world_size=args.worker,
+        rank=rank,
     )
     train_loader, val_loader, train_sampler = create_dataloader_cv(args)
     #     pass
@@ -65,11 +68,7 @@ def main_worker(rank, process_num, args):
 
     model = torch.nn.parallel.DistributedDataParallel(model)
 
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=args.lr,
-        momentum=args.momentum,
-    )
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum,)
     lr_scheduler = get_scheduler(
         name="cosine",
         optimizer=optimizer,

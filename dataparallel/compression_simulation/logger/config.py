@@ -1,4 +1,6 @@
 from yacs.config import CfgNode as CN
+
+
 def create_config(args):
     _C = CN()
     _C.SYSTEM = CN()
@@ -21,6 +23,3 @@ def create_config(args):
     _C.TRAIN.PARAM.POWERITER = args.poweriter
     _C.TRAIN.PARAM.SVD = args.svd
     return _C.clone()
-    
-
-    
