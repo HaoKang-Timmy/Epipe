@@ -10,57 +10,32 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 from models.models import MobileNetV2Compress
 from dataloader.dataloader import create_dataloader_cv
-from utils import (
-    FSQBSVD,
-    FSVDBSQ,
-    accuracy,
-    Reshape1,
-    QuantizationLayer,
-    DequantizationLayer,
-    Fakequantize,
-    TopkLayer,
-    SortQuantization,
-    Fakequantize,
-    FQBSQ,
-    FastQuantization,
-    FSQBQ,
-    ChannelwiseQuantization,
-    PowerPCA,
-    ReshapeSVD,
-    PowerSVDLayer,
-    PowerSVDLayer1,
-)
-from powersgd import PowerSGD, Config, optimizer_step
+from logger.config import create_config
+from utils import accuracy
+
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 parser.add_argument("--log", default="./test.txt", type=str)
-parser.add_argument("--pretrained", default=0, action="store_true")
-parser.add_argument("--warmup", default=0, action="store_true")
 parser.add_argument("--lr", default=0.01, type=float)
+parser.add_argument("--momentum", default=0.9, type=float)
 parser.add_argument("--epochs", default=40, type=int)
 parser.add_argument("--batches", default=64, type=int)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prune", default=0.0, type=float)
-parser.add_argument("--avgpool", default=0, action="store_true")
-parser.add_argument("--secondlayer", default=0, action="store_true")
 parser.add_argument("--split", default=0, type=int)
+parser.add_argument("--c", default="./", type=str)
 parser.add_argument("--sortquant", default=0, action="store_true")
-parser.add_argument("--qsq", default=0, action="store_true")
-parser.add_argument("--svdq", default=0, action="store_true")
-parser.add_argument("--kmeans", default=0, type=int)
-parser.add_argument("--qquant", default=0, type=int)
-parser.add_argument("--channelquant", default=0, type=int)
-parser.add_argument("--pca1", default=0, type=int)
-parser.add_argument("--pca2", default=0, type=int)
+parser.add_argument("--secondlayer", default=0, action="store_true")
 parser.add_argument("--root", default="../../data", type=str)
 parser.add_argument("--conv1", default=0, action="store_true")
 parser.add_argument("--conv2", default=0, action="store_true")
 parser.add_argument("--conv1kernel", default=0, type=tuple)
-parser.add_argument("--powersvd", default=0, type=int)
-parser.add_argument("--powersvd1", default=0, type=int)
+parser.add_argument("--powerrank", default=0, type=int)
+parser.add_argument("--powerrank1", default=0, type=int)
 parser.add_argument("--poweriter", default=2, type=int)
 parser.add_argument("--svd", default=0, type=int)
 parser.add_argument("--loader", default=12, type=int)
+parser.add_argument("--worker", default=4, type=int)
 
 
 def get_lr(optimizer):
@@ -70,12 +45,15 @@ def get_lr(optimizer):
 
 def main():
     args = parser.parse_args()
-    mp.spawn(main_worker, nprocs=4, args=(4, args))
+    config = create_config(args)
+    f = open((args.c+"exp.yaml"),"a")
+    f.write(config.__str__())
+    mp.spawn(main_worker, nprocs=args.worker, args=(args.worker, args))
 
 
 def main_worker(rank, process_num, args):
     dist.init_process_group(
-        backend="nccl", init_method="tcp://127.0.0.1:1235", world_size=4, rank=rank
+        backend="nccl", init_method="tcp://127.0.0.1:1235", world_size=args.worker, rank=rank
     )
     train_loader, val_loader, train_sampler = create_dataloader_cv(args)
     #     pass
@@ -90,7 +68,7 @@ def main_worker(rank, process_num, args):
     optimizer = torch.optim.SGD(
         model.parameters(),
         lr=args.lr,
-        momentum=0.9,
+        momentum=args.momentum,
     )
     lr_scheduler = get_scheduler(
         name="cosine",

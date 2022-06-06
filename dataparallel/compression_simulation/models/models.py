@@ -336,6 +336,7 @@ class Robertawithcompress(nn.Module):
 
 class MobileNetV2Compress(nn.Module):
     def __init__(self, args, rank, shape1=None, shape2=None):
+        super(MobileNetV2Compress,self).__init__()
         model = models.mobilenet_v2(pretrained=True)
         model.classifier[-1] = torch.nn.Linear(1280, 10)
         feature = model.features[0].children()
@@ -358,11 +359,11 @@ class MobileNetV2Compress(nn.Module):
         self.args = args
         self.bool = 0
         self.rank = rank
-        if args.powersvd != 0:
-            self.svd1 = PowerSVDLayer1(args.powersvd, list(shape1), args.poweriter).to(
+        if args.powerrank != 0:
+            self.svd1 = PowerSVDLayer1(args.powerrank, list(shape1), args.poweriter).to(
                 self.rank
             )
-            self.svd2 = PowerSVDLayer1(args.powersvd, list(shape2), args.poweriter).to(
+            self.svd2 = PowerSVDLayer1(args.powerrank1, list(shape2), args.poweriter).to(
                 self.rank
             )
 
@@ -371,18 +372,14 @@ class MobileNetV2Compress(nn.Module):
         args = self.args
         if args.sortquant != 0:
             outputs = FastQuantization.apply(outputs, args.quant, args.split)
-        elif args.qsq != 0:
-            outputs = FQBSQ.apply(outputs, args.qquant, args.quant, args.split)
-        elif args.svdq != 0:
-            outputs = FSVDBSQ.apply(outputs, args.pca1, args.quant, args.split)
         elif args.conv1 != 0:
             outputs = self.conv2d(outputs)
             # outputs = conv2d1(outputs)
             # outputs = conv_t1(outputs)
             outputs = self.conv_t(outputs)
-        elif args.channelquant != 0:
-            outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
-        elif args.powersvd != 0:
+        # elif args.channelquant != 0:
+        #     outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
+        elif args.powerrank != 0:
 
             outputs = self.svd1(outputs)
         elif args.svd != 0:
@@ -390,14 +387,10 @@ class MobileNetV2Compress(nn.Module):
         outputs = self.part2(outputs)
         if args.sortquant != 0:
             outputs = FastQuantization.apply(outputs, args.quant, args.split)
-        elif args.qsq != 0:
-            outputs = FSQBQ.apply(outputs, args.qquant, args.quant, args.split)
-        elif args.svdq != 0:
-            outputs = FSQBSVD.apply(outputs, args.pca2, args.quant, args.split)
         elif args.conv2 != 0:
             outputs = self.conv2d1(outputs)
             outputs = self.conv_t1(outputs)
-        elif args.powersvd1 != 0:
+        elif args.powerrank1 != 0:
 
             outputs = self.svd2(outputs)
         elif args.svd != 0:
