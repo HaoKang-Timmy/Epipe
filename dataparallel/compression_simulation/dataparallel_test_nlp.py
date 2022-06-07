@@ -41,8 +41,8 @@ parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 
 parser.add_argument("--log", default="./test_hg.txt", type=str)
 parser.add_argument("--lr", default=2e-5, type=float)
-parser.add_argument("--wd", default=0.001, type=float)
-parser.add_argument("--epochs", default=20, type=int)
+parser.add_argument("--wd", default=0.0001, type=float)
+parser.add_argument("--epochs", default=40, type=int)
 parser.add_argument("--task", default="rte", type=str)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prun", default=0.0, type=float)
@@ -55,6 +55,7 @@ parser.add_argument("--linear", default=0, type=int)
 parser.add_argument("--worker", default=4, type=int)
 parser.add_argument("--loader", default=12, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
+parser.add_argument("--mix", default=0, action="store_true")
 
 
 def main():
