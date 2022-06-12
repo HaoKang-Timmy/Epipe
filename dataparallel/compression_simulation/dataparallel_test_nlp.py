@@ -10,17 +10,6 @@ import torch.distributed as dist
 import argparse
 import os
 from trainer.trainer import TrainerNLP
-from utils import (
-    Fakequantize,
-    TopkLayer,
-    SortQuantization,
-    # KMeansLayer,
-    PCAQuantize,
-    combine_classifier,
-    combine_embeding,
-    CombineLayer,
-    EmbeddingAndAttention,
-)
 from torch.optim import Adam
 from dataloader.dataloader import create_dataloader_nlp
 from models.models import Robertawithcompress

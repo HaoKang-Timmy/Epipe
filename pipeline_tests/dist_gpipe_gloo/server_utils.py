@@ -68,6 +68,7 @@ def server_trainer(
                     input = RecvTensor(
                         input, server_settings, train_settings, chunk, False, timecount
                     )
+
                     # print("server",server_settings['rank'],"recv",server_settings['recv_rank'],input.shape)
                     output = model(input)
 

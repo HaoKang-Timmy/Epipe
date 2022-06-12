@@ -80,6 +80,7 @@ def server_trainer(
 ):
     if train_settings["tasktype"] == "cv":
         timerecv_avg = 0.0
+        time_server = 0.0
         timecount = torch.tensor([0.0])
         for batch_iter in range(train_settings["len_trainloader"]):
             batches = []
@@ -95,10 +96,10 @@ def server_trainer(
                         .to(server_settings["device"])
                         .requires_grad_()
                     )
-
                     input = RecvTensor(
                         input, server_settings, train_settings, chunk, False, timecount
                     )
+                    server_begin = time.time()
                     # print("server, recv", chunk)
                     # print("server",server_settings['rank'],"recv",server_settings['recv_rank'],input.shape)
                     output = model(input)
@@ -107,7 +108,10 @@ def server_trainer(
                     # print("server, send", chunk)
                     # print("server",server_settings['rank'],"send",server_settings['send_rank'],output.shape)
                     timerecv_avg += timecount.item()
+
                     # output = output.cpu()
+                    server_end = time.time()
+                    time_server += server_end - server_begin
                     batch.append(output)
                 batches.append(batch)
                 # timecount /= chunk
@@ -130,9 +134,8 @@ def server_trainer(
 
             optimizer.step()
             optimizer.zero_grad()
-        timerecv_avg = (
-            timerecv_avg / train_settings["len_trainloader"] / server_settings["chunks"]
-        )
+        time_server /= train_settings["len_trainloader"]
+        print("server", time_server)
         # print("server avg bandwidth:", timerecv_avg)
     else:
         timerecv_avg = 0.0

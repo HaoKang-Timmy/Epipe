@@ -94,40 +94,43 @@ def client_trainer(
     batch_time = 0.0
     bandwidth = torch.tensor([0.0])
     bandwidth_avg = 0.0
-
+    part1_time = 0.0
+    part2_time = 0.0
+    forward_time = 0.0
     if train_settings["tasktype"] == "cv":
         start = time.time()
         for batch_iter, (images, targets) in enumerate(train_settings["train_loader"]):
 
             # images = images.to(client_settings["device"], non_blocking=True)
             # targets = targets.to(client_settings["device"], non_blocking=True)
+
             images = images.chunk(client_settings["chunks"])
             targets = targets.chunk(client_settings["chunks"])
             batches = []
             acc1 = 0.0
             losses = 0.0
+            forward_start = time.time()
             for i, model in enumerate(train_settings["models"]):
                 batch = []
                 model.train()
                 for chunk in range(client_settings["chunks"]):
 
                     if i == 0:
-                        # print("client begin")
-                        # some = time.time()
+                        part1_start = time.time()
                         output = model(images[chunk])
-                        # print("client first layer time:", time.time() - some)
-                        # start = time.time()
-                        # some = time.time()
-                        # print("client finish")
                         output = SendTensorCPU(
                             output, client_settings, train_settings, chunk
                         )
+                        part1_end = time.time()
+                        part1_time += part1_end - part1_start
+
                         # print("client send")
                         # print("client sortquant time:", time.time() - some)
                         # print("client, send",chunk)
                         # print("client",client_settings['rank'],"send",output.shape)
                         # end = time.time() - start
                         # print(end)
+
                     else:
                         # some = time.time()
                         input = (
@@ -140,6 +143,7 @@ def client_trainer(
                         input = RecvTensorCPU(
                             input, client_settings, train_settings, chunk, True,
                         )
+                        part2_start = time.time()
                         # input.view(client_settings["recv_size"])
                         # print("client, recv",chunk)
                         # print("client",client_settings['rank'],"recv",input.shape)
@@ -153,14 +157,16 @@ def client_trainer(
                         # print(output)
                         losses += output.item()
                         acc1 = acc1 + acc.item()
-                        bandwidth_avg += bandwidth.item()
+                        part2_end = time.time()
+                        part2_time += part2_end - part2_start
                     batch.append(output)
                 batches.append(batch)
             # bandwidth /= client_settings["chunks"]
             acc1 = acc1 / client_settings["chunks"]
             losses = losses / client_settings["chunks"]
             acc1_avg, losses_avg = acc1 + acc1_avg, losses_avg + losses
-
+            forward_end = time.time()
+            forward_time += forward_end - forward_start
             for back in range(len(train_settings["models"]) - 1, -1, -1):
                 if back == len(train_settings["models"]) - 1:
                     # print("client backward send pre",chunk)
@@ -190,10 +196,14 @@ def client_trainer(
             time_per_batch += batch_time
             start = time.time()
         time_per_batch = time_per_batch / len(train_settings["train_loader"])
+        part1_time /= len(train_settings["train_loader"])
+        part2_time /= len(train_settings["train_loader"])
+        forward_time /= len(train_settings["train_loader"])
         train_acc1_avg, train_losses_avg = (
             acc1_avg / len(train_settings["train_loader"]),
             losses_avg / len(train_settings["train_loader"]),
         )
+        print(part1_time, part2_time, forward_time)
         bandwidth_avg = (
             bandwidth_avg
             / len(train_settings["train_loader"])
