@@ -1,4 +1,4 @@
-# Parallelism Pipeline and Compression Algorithm
+# Epipe: Efficient Pipeline Parallelism with compression algorithm
 
 ## Introduction
 
