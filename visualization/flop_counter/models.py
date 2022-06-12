@@ -56,13 +56,13 @@ class MobileNetV2withConvInsert1(nn.Module):
 
 class MobileNetV2withConvInsert2(nn.Module):
     def __init__(self) -> None:
-        super(MobileNetV2withConvInsert3, self).__init__()
+        super(MobileNetV2withConvInsert2, self).__init__()
         self.mobilenetv2_part1 = models.mobilenet_v2(pretrained=True).features[0]
         self.conv1 = nn.Conv2d(32, 20, (3, 3), (3, 3))
         self.t_conv1 = nn.ConvTranspose2d(20, 32, (3, 3), (3, 3))
         self.mobilenetv2_part2 = models.mobilenet_v2(pretrained=True).features[1:]
-        self.conv2 = nn.Conv2d(1280, 360, (1, 1))
-        self.t_conv2 = nn.ConvTranspose2d(360, 1280, (1, 1))
+        self.conv2 = nn.Conv2d(1280, 320, (1, 1))
+        self.t_conv2 = nn.ConvTranspose2d(320, 1280, (1, 1))
         self.reshape = Reshape1()
         self.mobilenetv2_part3 = models.mobilenet_v2(pretrained=True).classifier
 

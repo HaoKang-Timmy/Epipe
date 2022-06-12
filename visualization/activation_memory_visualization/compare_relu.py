@@ -1,16 +1,8 @@
-"""
-Author: Beta Cat 466904389@qq.com
-Date: 2022-05-09 19:12:02
-LastEditors: Beta Cat 466904389@qq.com
-LastEditTime: 2022-05-09 19:38:12
-FilePath: /research/gpipe_test/activation_memory_visualization/compare_relu.py
-Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-"""
 import torchvision.models as models
 import torchvision.transforms as transforms
 import torchvision
 import torch.nn as nn
-
+import seaborn as sns
 # model
 model = models.mobilenet_v2(pretrained=True)
 part1 = model.features[0]
@@ -46,27 +38,49 @@ output3 = output3.view(-1).detach().numpy()
 output4 = part4(image)
 output4 = output4.view(-1).detach().numpy()
 import matplotlib.pyplot as plt
-
+import numpy as np
+from scipy import stats
 plt.subplot(2, 2, 1)
-plt.hist(output1, bins=50, density=True)
-plt.title("distribution(first layer)")
-plt.xlabel("value")
-plt.ylabel("number of values")
+
+data = sns.histplot(output1,bins = 100)
+plt.title("activation memory distribution(conv+bn+relu)")
+plt.xlabel("(a) activation memory value")
+plt.ylabel("count of values")
 
 plt.subplot(2, 2, 2)
-plt.hist(output2, bins=50, density=True)
-plt.title("distribution(sencondlast layer)")
-plt.xlabel("value")
-plt.ylabel("number of values")
+data = sns.histplot(output3,bins = 100)
+plt.title("activation memory distribution(conv+bn)")
+plt.xlabel("(b) activation memory value")
+plt.ylabel("count of values")
+
+
 plt.subplot(2, 2, 3)
-plt.hist(output3, bins=50, density=True)
-plt.title("distribution(without relu)")
-plt.xlabel("value")
-plt.ylabel("number of values")
+hist, bin_edge = np.histogram(output1)
+cdf = np.cumsum(hist/sum(hist))
+plt.xlabel("(c) weight value")
+plt.ylabel("cummulative distribution")
+plt.title("activation memory CDF(conv+bn+relu)")
+# plt.xlim([output1.min(),output1.max()])
+plt.plot(bin_edge[1:],cdf,label = "CDF")
+plt.legend()
 plt.subplot(2, 2, 4)
-plt.hist(output4, bins=50, density=True)
-plt.title("distribution(without relu)")
-plt.xlabel("value")
-plt.ylabel("number of values")
+hist, bin_edge = np.histogram(output3)
+cdf = np.cumsum(hist/sum(hist))
+plt.xlabel("(d) weight value")
+plt.ylabel("cummulative distribution")
+plt.title("activation memory CDF(conv+bn)")
+# plt.xlim([output3.min(),output3.max()])
+plt.plot(bin_edge[1:],cdf,label = "CDF")
+# plt.hist(output2, bins=100, density=True)
+# plt.title("distribution(sencondlast layer)")
+# plt.xlabel("value")
+# plt.ylabel("number of values")
+
+# plt.subplot(2, 2, 4)
+# plt.hist(output4, bins=100, density=True)
+# plt.title("distribution(without relu)")
+# plt.xlabel("value")
+# plt.ylabel("number of values")
+plt.legend()
 plt.tight_layout()
 plt.show()
