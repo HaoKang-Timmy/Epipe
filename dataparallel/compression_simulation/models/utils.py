@@ -1,11 +1,3 @@
-"""
-Author: your name
-Date: 2022-03-26 01:32:34
-LastEditTime: 2022-04-08 10:25:58
-LastEditors: Please set LastEditors
-Description: 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-FilePath: /research/gpipe_test/test/utils.py
-"""
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -13,7 +5,7 @@ from torch import autograd
 
 # from fast_pytorch_kmeans import KMeans
 import time
-from functions import *
+from .functions import *
 
 # from powersgd import PowerSGD
 
@@ -128,13 +120,7 @@ class QuantizationLayer(nn.Module):
 class Dequantization(autograd.Function):
     @staticmethod
     def forward(
-        ctx,
-        input,
-        bits,
-        min,
-        step,
-        backward_min,
-        backward_step,
+        ctx, input, bits, min, step, backward_min, backward_step,
     ):
         ctx.bits, ctx.backward_min, ctx.backward_step = (
             bits,
@@ -209,9 +195,9 @@ class FQBSQ(autograd.Function):
         shape = grad_backward.shape
         grad_backward = grad_backward.view(-1)
         src, index = torch.sort(grad_backward, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
-        for i in range(2**split_bits):
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
+        for i in range(2 ** split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
@@ -230,10 +216,10 @@ class FSQBQ(autograd.Function):
         shape = input.shape
         input = input.view(-1)
         src, index = torch.sort(input, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
         # print(src1[1])
-        for i in range(2**split_bits):
+        for i in range(2 ** split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
@@ -303,10 +289,10 @@ class SortQuantization(autograd.Function):
         # quantization src1
         # print(src.shape)
         src, index = torch.sort(input, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
         # print(src1[1])
-        for i in range(2**split_bits):
+        for i in range(2 ** split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
@@ -341,9 +327,9 @@ class SortQuantization(autograd.Function):
         shape = grad_backward.shape
         grad_backward = grad_backward.view(-1)
         src, index = torch.sort(grad_backward, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
-        for i in range(2**split_bits):
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
+        for i in range(2 ** split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
@@ -381,7 +367,7 @@ class KMeansFunction(autograd.Function):
         labels, centers = kmeans.fit_predict(input)
         centers = centers.view(-1)
         labels = labels.type(torch.cuda.FloatTensor)
-        for i in range(2**bits):
+        for i in range(2 ** bits):
             labels[labels == i] = centers[i]
         labels = labels.view(shape)
         labels = labels.requires_grad_()
@@ -396,7 +382,7 @@ class KMeansFunction(autograd.Function):
         labels, centers = kmeans.fit_predict(grad_output)
         centers = centers.view(-1)
         labels = labels.type(torch.cuda.FloatTensor)
-        for i in range(2**bits):
+        for i in range(2 ** bits):
             labels[labels == i] = centers[i]
         labels = labels.view(shape)
         grad_output = grad_output.view(shape)
@@ -407,7 +393,7 @@ class KMeansFunction(autograd.Function):
 class KMeansLayer(nn.Module):
     def __init__(self, bits, device) -> None:
         super(KMeansLayer, self).__init__()
-        self.kmeans = KMeans(n_clusters=2**bits, mode="euclidean", device=device)
+        self.kmeans = KMeans(n_clusters=2 ** bits, mode="euclidean", device=device)
         self.bits = bits
 
     def forward(self, input):
@@ -526,9 +512,9 @@ class FSVDBSQ(autograd.Function):
         shape = grad_output.shape
         grad_output = grad_output.view(-1)
         src, index = torch.sort(grad_output, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
-        for i in range(2**split_bits):
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
+        for i in range(2 ** split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
@@ -550,10 +536,10 @@ class FSQBSVD(autograd.Function):
         shape = input.shape
         input = input.view(-1)
         src, index = torch.sort(input, dim=0)
-        index = torch.tensor_split(index, 2**split_bits)
-        src = torch.tensor_split(src, 2**split_bits)
+        index = torch.tensor_split(index, 2 ** split_bits)
+        src = torch.tensor_split(src, 2 ** split_bits)
         # print(src1[1])
-        for i in range(2**split_bits):
+        for i in range(2 ** split_bits):
             min, max = src[i].min(), src[i].max()
             if min != max:
                 step = (max - min) / (pow(2, bits) - 1)
@@ -596,7 +582,7 @@ def FastDequantizationCPU(recv: torch.tensor, bits, split_bits, min_step, grad_o
     if bits + split_bits > 8 and bits + split_bits <= 16:
         recv = recv.view(dtype=torch.int16)
     recv = recv.type(torch.long)
-    for i in range(2**split_bits):
+    for i in range(2 ** split_bits):
         if bits + split_bits == 8 or bits + split_bits == 16:
             upperbound = -pow(2, bits + split_bits - 1) + pow(2, bits) * (i + 1)
             lowerbound = -pow(2, bits + split_bits - 1) + pow(2, bits) * i
@@ -639,7 +625,7 @@ class FastQuantization(autograd.Function):
     @staticmethod
     def forward(ctx, input, bits, split_bits):
         ctx.bits, ctx.split_bits = bits, split_bits
-        min_step = torch.rand([2**split_bits, 2]).to(input.get_device())
+        min_step = torch.rand([2 ** split_bits, 2]).to(input.get_device())
         min_step, output = FastQuantizationCPU(input, bits, split_bits, min_step)
         input = FastDequantizationCPU(output, bits, split_bits, min_step, input)
         return input
@@ -647,7 +633,7 @@ class FastQuantization(autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         bits, split_bits = ctx.bits, ctx.split_bits
-        min_step = torch.rand([2**split_bits, 2]).to(grad_output.get_device())
+        min_step = torch.rand([2 ** split_bits, 2]).to(grad_output.get_device())
         min_step, output = FastQuantizationCPU(grad_output, bits, split_bits, min_step)
         grad_output = FastDequantizationCPU(
             output, bits, split_bits, min_step, grad_output
@@ -695,7 +681,7 @@ class ChannelwiseQuantization(autograd.Function):
         max, index = trans.max(dim=1)
         min = min.view(-1, 1)
         max = max.view(-1, 1)
-        step = (max - min) / (2**bits)
+        step = (max - min) / (2 ** bits)
         trans[:, ...] = torch.floor((trans[:, ...] - min[:]) / step[:])
         trans[:, ...] = trans[:, ...] * step[:] + min[:]
         trans = trans.reshape(shape)
@@ -714,7 +700,7 @@ class ChannelwiseQuantization(autograd.Function):
         max, index = trans.max(dim=1)
         min = min.view(-1, 1)
         max = max.view(-1, 1)
-        step = (max - min) / (2**bits)
+        step = (max - min) / (2 ** bits)
         trans[:, ...] = torch.floor((trans[:, ...] - min[:]) / step[:])
         trans[:, ...] = trans[:, ...] * step[:] + min[:]
         trans = trans.reshape(shape)

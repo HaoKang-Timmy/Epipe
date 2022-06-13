@@ -9,17 +9,7 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 import argparse
 import os
-from utils import (
-    Fakequantize,
-    TopkLayer,
-    SortQuantization,
-    # KMeansLayer,
-    PCAQuantize,
-    combine_classifier,
-    combine_embeding,
-    CombineLayer,
-    EmbeddingAndAttention,
-)
+from trainer.trainer import TrainerNLP
 from torch.optim import Adam
 from dataloader.dataloader import create_dataloader_nlp
 from models.models import Robertawithcompress
@@ -42,7 +32,7 @@ parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 parser.add_argument("--log", default="./test_hg.txt", type=str)
 parser.add_argument("--lr", default=2e-5, type=float)
 parser.add_argument("--wd", default=0.0001, type=float)
-parser.add_argument("--epochs", default=40, type=int)
+parser.add_argument("--epochs", default=20, type=int)
 parser.add_argument("--task", default="rte", type=str)
 parser.add_argument("--quant", default=0, type=int)
 parser.add_argument("--prun", default=0.0, type=float)
@@ -98,94 +88,20 @@ def main_worker(rank, process_num, args):
     print(len(train_dataloader))
     print(len(val_dataloader))
     criterion = nn.CrossEntropyLoss().to(rank)
-    for epoch in range(epochs):
-        model.train()
-        train_loss = 0.0
-        train_acc1 = 0.0
-        time_avg = 0.0
-        train_sampler.set_epoch(epoch)
-        for i, batch in enumerate(train_dataloader):
-            start = time.time()
-            batch = {k: v.to(rank) for k, v in batch.items()}
-            optimizer.zero_grad()
-
-            outputs = model(batch["input_ids"], batch["attention_mask"])
-            logits = outputs
-            loss = criterion(logits, batch["labels"])
-            pred = torch.argmax(logits, dim=1)
-            acc = metric_acc.compute(predictions=pred, references=batch["labels"])
-            loss.backward()
-            optimizer.step()
-            lr_scheduler.step()
-            train_loss += loss.item()
-            train_acc1 += acc["accuracy"]
-
-            end = time.time() - start
-            time_avg += end
-            if i % 20 == 0 and rank == 1:
-                print("train_loss", loss.item(), "train_acc", acc["accuracy"])
-        train_loss /= len(train_dataloader)
-        train_acc1 /= len(train_dataloader)
-        time_avg /= len(train_dataloader)
-        lr_scheduler.step()
-        val_loss = 0.0
-        val_matt = 0.0
-        val_acc1 = 0.0
-
-        model.eval()
-        metric_mat = load_metric("glue", args.task)
-        with torch.no_grad():
-            for i, batch in enumerate(val_dataloader):
-                batch = {k: v.to(rank) for k, v in batch.items()}
-
-                outputs = model(batch["input_ids"], batch["attention_mask"])
-                logits = outputs
-                loss = criterion(logits, batch["labels"])
-                pred = torch.argmax(logits, dim=1)
-                acc = metric_acc.compute(predictions=pred, references=batch["labels"])
-                metric_mat.add_batch(predictions=pred, references=batch["labels"])
-                val_loss += loss.item()
-                val_acc1 += acc["accuracy"]
-                if i % 20 == 0 and rank == 1:
-                    print("val_loss", loss.item(), "val_acc", acc["accuracy"], "matt")
-            val_loss /= len(val_dataloader)
-            val_acc1 /= len(val_dataloader)
-            val_matt = metric_mat.compute()
-
-        if rank == 1:
-            print(
-                "epoch:",
-                epoch,
-                "train_loss",
-                train_loss,
-                "train_acc",
-                train_acc1,
-                "val_loss",
-                val_loss,
-                "val_acc",
-                val_acc1,
-                "matt",
-                val_matt,
-            )
-            file_save = open(args.log, mode="a")
-            file_save.write(
-                "\n"
-                + "step:"
-                + str(epoch)
-                + "  loss_train:"
-                + str(train_loss)
-                + "  acc1_train:"
-                + str(train_acc1)
-                + "  loss_val:"
-                + str(val_loss)
-                + "  acc1_val:"
-                + str(val_acc1)
-                + "  time_per_batch:"
-                + str(time_avg)
-                + "  matthew:"
-                + str(val_matt)
-            )
-            file_save.close()
+    trainer = TrainerNLP(
+        model,
+        criterion,
+        metric_mat,
+        optimizer,
+        train_dataloader,
+        val_dataloader,
+        lr_scheduler,
+        rank,
+        train_sampler,
+        args,
+        metric_acc,
+    )
+    trainer.traineval()
 
 
 if __name__ == "__main__":

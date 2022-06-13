@@ -268,11 +268,7 @@ def accuracy(output, target, topk=(1,)):
 
 
 def make_dictions(
-    args,
-    model_list,
-    tensor_size,
-    train_loader,
-    val_loader,
+    args, model_list, tensor_size, train_loader, val_loader,
 ):
     train_settings = {}
     client_settings = {}

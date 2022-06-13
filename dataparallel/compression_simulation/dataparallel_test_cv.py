@@ -69,11 +69,7 @@ def main_worker(rank, process_num, args):
 
     model = torch.nn.parallel.DistributedDataParallel(model)
 
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=args.lr,
-        momentum=args.momentum,
-    )
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum,)
     lr_scheduler = get_scheduler(
         name="cosine",
         optimizer=optimizer,
