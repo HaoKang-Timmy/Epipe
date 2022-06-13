@@ -29,7 +29,10 @@ def main():
 
 def main_worker(rank, nprocess, chunk):
     dist.init_process_group(
-        backend="nccl", init_method="tcp://127.0.0.1:1234", world_size=2, rank=rank,
+        backend="nccl",
+        init_method="tcp://127.0.0.1:1234",
+        world_size=2,
+        rank=rank,
     )
     model = mobilenet_v2(pretrained=True)
     model.classifier[-1] = nn.Linear(1280, 10)

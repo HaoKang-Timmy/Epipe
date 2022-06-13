@@ -86,13 +86,14 @@
 # python3 dataparallel_test_nlp_fp16.py --log ./rte_fp32_powersvd48.txt --powersvd 48 --powersvd1 48 
 # python3 dataparallel_test_nlp_fp16.py --task rte --log rte_eye.txt --eye
 # python3 dataparallel_test_nlp_fp16.py --task cola --log cola_eye.txt --eye
-python3 dataparallel_test_nlp_fp16.py --task rte --log rte_last2_insert50.txt --channelsize 50
-python3 dataparallel_test_nlp_fp16.py --task cola --log cola_last2_insert50.txt --channelsize 50
-# python3 dataparallel_test_nlp_fp16.py --task rte --log rte_eye.txt --eye
-# python3 dataparallel_test_nlp_fp16.py --task cola --log cola_eye.txt --eye
-python3 dataparallel_test_nlp_fp16.py --task rte --log rte_last2_insert50.txt --channelsize 50
-python3 dataparallel_test_nlp_fp16.py --task cola --log cola_last2_insert50.txt --channelsize 50
-python3 dataparallel_test_nlp_fp16.py --task rte --log rte_last2_insert100.txt --channelsize 100
-python3 dataparallel_test_nlp_fp16.py --task cola --log cola_last2_insert100.txt --channelsize 100
+# python3 dataparallel_test_nlp_fp16.py --task rte --log rte_last2_insert50.txt --channelsize 50
+# python3 dataparallel_test_nlp_fp16.py --task cola --log cola_last2_insert50.txt --channelsize 50
+# # python3 dataparallel_test_nlp_fp16.py --task rte --log rte_eye.txt --eye
+# # python3 dataparallel_test_nlp_fp16.py --task cola --log cola_eye.txt --eye
+# python3 dataparallel_test_nlp_fp16.py --task rte --log rte_last2_insert50.txt --channelsize 50
+# python3 dataparallel_test_nlp_fp16.py --task cola --log cola_last2_insert50.txt --channelsize 50
+# python3 dataparallel_test_nlp_fp16.py --task rte --log rte_last2_insert100.txt --channelsize 100
+# python3 dataparallel_test_nlp_fp16.py --task cola --log cola_last2_insert100.txt --channelsize 100
+python3 dataparallel_test_cv.py --powerrank 2 --powerrank1 7 --log cifar10_iter27.txt
 
 

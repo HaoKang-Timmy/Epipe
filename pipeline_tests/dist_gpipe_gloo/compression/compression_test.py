@@ -194,7 +194,11 @@ class QSendGPU(autograd.Function):
             send_rank,
             rank,
         )
-        (output, min, step,) = QuantizationGPU(input, bits)
+        (
+            output,
+            min,
+            step,
+        ) = QuantizationGPU(input, bits)
         # print("quant send",output)
         ctx.min, ctx.step = min, step
         ctx.input = output
@@ -321,18 +325,18 @@ class SortQuantGPU(autograd.Function):
         src, index = torch.sort(input, dim=0)
         # print(src.shape)
         # index = index.chunk(2 ** split_bits,)
-        index = torch.tensor_split(index, 2 ** split_bits)
-        src = torch.tensor_split(src, 2 ** split_bits)
+        index = torch.tensor_split(index, 2**split_bits)
+        src = torch.tensor_split(src, 2**split_bits)
         # src = src.chunk(2 ** split_bits + 1)
         # print(src)
-        min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
+        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
         # ctx.min_step = min_step
         if bits + split_bits <= 8:
             output = input.type(torch.int8)
         else:
             output = input.type(torch.int16)
         output = output.view(-1)
-        for i in range(2 ** split_bits):
+        for i in range(2**split_bits):
             if bits + split_bits == 8 or bits + split_bits == 16:
                 # print(i)
                 min, max = src[i].min(), src[i].max()
@@ -387,15 +391,15 @@ class SortQuantGPU(autograd.Function):
             recv = grad_output.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2 ** split_bits, 2]).to(grad_output.get_device())
+        min_step = torch.zeros([2**split_bits, 2]).to(grad_output.get_device())
         dist.recv(min_step, recv_rank)
         dist.recv(recv, recv_rank)
         if bits + split_bits > 8 and bits + split_bits <= 16:
             recv = recv.view(dtype=torch.int16)
         src, index = torch.sort(recv, dim=0)
-        index = torch.tensor_split(index, 2 ** split_bits)
-        src = torch.tensor_split(src, 2 ** split_bits)
-        for i in range(2 ** split_bits):
+        index = torch.tensor_split(index, 2**split_bits)
+        src = torch.tensor_split(src, 2**split_bits)
+        for i in range(2**split_bits):
             temp_src = src[i].type(torch.float32)
             if bits + split_bits == 8 or bits + split_bits == 16:
                 if min_step[i, 1] == 0:
@@ -435,7 +439,7 @@ class SortDeQuantGPU(autograd.Function):
             recv = input.type(torch.int16)
             recv = recv.view(torch.int8)
 
-        min_step = torch.zeros([2 ** split_bits, 2]).to(input.get_device())
+        min_step = torch.zeros([2**split_bits, 2]).to(input.get_device())
         ctx.min_step = min_step
         # min_step = torch.zeros([2 ** split_bits,2]).to(input.get_device())
         dist.recv(min_step, recv_rank)
@@ -447,9 +451,9 @@ class SortDeQuantGPU(autograd.Function):
         # recv =recv.view(-1)#New
         src, index = torch.sort(recv, dim=0)
 
-        index = torch.tensor_split(index, 2 ** split_bits)
-        src = torch.tensor_split(src, 2 ** split_bits)
-        for i in range(2 ** split_bits):
+        index = torch.tensor_split(index, 2**split_bits)
+        src = torch.tensor_split(src, 2**split_bits)
+        for i in range(2**split_bits):
             temp_src = src[i].type(torch.float32)
             # print("1",temp_src)
             if bits + split_bits == 8 or bits + split_bits == 16:
@@ -484,15 +488,15 @@ class SortDeQuantGPU(autograd.Function):
         shape = grad_output.shape
         grad_output = grad_output.view(-1)
         src, index = torch.sort(grad_output, dim=0)
-        index = torch.tensor_split(index, 2 ** split_bits)
-        src = torch.tensor_split(src, 2 ** split_bits)
+        index = torch.tensor_split(index, 2**split_bits)
+        src = torch.tensor_split(src, 2**split_bits)
         min_step = ctx.min_step
         if bits + split_bits <= 8:
             output = grad_output.type(torch.int8)
         else:
             output = grad_output.type(torch.int16)
         output = output.view(-1)
-        for i in range(2 ** split_bits):
+        for i in range(2**split_bits):
             if bits + split_bits == 8 or bits + split_bits == 16:
                 # print(i)
                 min, max = src[i].min(), src[i].max()

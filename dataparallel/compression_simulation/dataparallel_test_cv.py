@@ -35,7 +35,7 @@ parser.add_argument("--powerrank", default=0, type=int)
 parser.add_argument("--powerrank1", default=0, type=int)
 parser.add_argument("--poweriter", default=2, type=int)
 parser.add_argument("--svd", default=0, type=int)
-parser.add_argument("--loader", default=12, type=int)
+parser.add_argument("--loader", default=40, type=int)
 parser.add_argument("--worker", default=4, type=int)
 
 
@@ -47,7 +47,7 @@ def get_lr(optimizer):
 def main():
     args = parser.parse_args()
     config = create_config(args)
-    f = open((args.c + "exp.yaml"), "a")
+    f = open((args.c + args.log[:-4] + ".yaml"), "a")
     f.write(config.__str__())
     mp.spawn(main_worker, nprocs=args.worker, args=(args.worker, args))
 
@@ -69,7 +69,11 @@ def main_worker(rank, process_num, args):
 
     model = torch.nn.parallel.DistributedDataParallel(model)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum,)
+    optimizer = torch.optim.SGD(
+        model.parameters(),
+        lr=args.lr,
+        momentum=args.momentum,
+    )
     lr_scheduler = get_scheduler(
         name="cosine",
         optimizer=optimizer,

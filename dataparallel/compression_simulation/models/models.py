@@ -360,11 +360,11 @@ class MobileNetV2Compress(nn.Module):
         self.bool = 0
         self.rank = rank
         if args.powerrank != 0:
-            self.svd1 = PowerSVDLayer1(args.powerrank, list(shape1), args.poweriter).to(
-                self.rank
-            )
+            self.svd1 = PowerSVDLayer1(
+                args.powerrank, list(shape1), args.poweriter, rank
+            ).to(self.rank)
             self.svd2 = PowerSVDLayer1(
-                args.powerrank1, list(shape2), args.poweriter
+                args.powerrank1, list(shape2), args.poweriter, rank
             ).to(self.rank)
 
     def forward(self, input):

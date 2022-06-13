@@ -13,7 +13,7 @@ def FastQuantizationCPU(input, bits, split_bits, min_step):
     else:
         output = input.type(torch.int16)
     for i in range(2**split_bits):
-    
+
         if i == 2**split_bits - 1:
             kthvalue = input.max()
         else:
