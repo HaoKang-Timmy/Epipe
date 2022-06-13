@@ -88,12 +88,36 @@
 # python3 dataparallel_test_nlp_fp16.py --task cola --log cola_eye.txt --eye
 # python3 dataparallel_test_nlp_fp16.py --task rte --log rte_last2_insert50.txt --channelsize 50
 # python3 dataparallel_test_nlp_fp16.py --task cola --log cola_last2_insert50.txt --channelsize 50
+<<<<<<< Updated upstream
 # # python3 dataparallel_test_nlp_fp16.py --task rte --log rte_eye.txt --eye
 # # python3 dataparallel_test_nlp_fp16.py --task cola --log cola_eye.txt --eye
+=======
+# python3 dataparallel_test_nlp_fp16.py --task rte --log rte_eye.txt --eye
+# python3 dataparallel_test_nlp_fp16.py --task cola --log cola_eye.txt --eye
+>>>>>>> Stashed changes
 # python3 dataparallel_test_nlp_fp16.py --task rte --log rte_last2_insert50.txt --channelsize 50
 # python3 dataparallel_test_nlp_fp16.py --task cola --log cola_last2_insert50.txt --channelsize 50
 # python3 dataparallel_test_nlp_fp16.py --task rte --log rte_last2_insert100.txt --channelsize 100
 # python3 dataparallel_test_nlp_fp16.py --task cola --log cola_last2_insert100.txt --channelsize 100
+<<<<<<< Updated upstream
 python3 dataparallel_test_cv.py --powerrank 2 --powerrank1 7 --log cifar10_iter27.txt
+=======
+python3 dataparallel_test_nlp.py  --prun 0.5 --log cola_prun0.5.txt
+python3 dataparallel_test_nlp.py  --prun 0.3 --log cola_prun0.3.txt
+python3 dataparallel_test_nlp.py  --prun 0.2 --log cola_prun0.2.txt
+python3 dataparallel_test_nlp.py  --prun 0.1 --log cola_prun0.1.txt
+python3 dataparallel_test_nlp.py  --quant 16 --log cola_quant16.txt
+python3 dataparallel_test_nlp.py  --quant 12 --log cola_quant12.txt
+python3 dataparallel_test_nlp.py  --quant 8 --log cola_quant8.txt
+python3 dataparallel_test_nlp.py  --quant 6 --log cola_quant6.txt
+>>>>>>> Stashed changes
 
+python3 dataparallel_test_nlp.py  --prun 0.5 --log cola_prun0.5.txt
+python3 dataparallel_test_nlp.py  --prun 0.3 --log cola_prun0.3.txt
+python3 dataparallel_test_nlp.py  --prun 0.2 --log cola_prun0.2.txt
+python3 dataparallel_test_nlp.py  --prun 0.1 --log cola_prun0.1.txt
+python3 dataparallel_test_nlp.py  --quant 16 --log cola_quant16.txt
+python3 dataparallel_test_nlp.py  --quant 12 --log cola_quant12.txt
+python3 dataparallel_test_nlp.py  --quant 8 --log cola_quant8.txt
+python3 dataparallel_test_nlp.py  --quant 6 --log cola_quant6.txt
 
