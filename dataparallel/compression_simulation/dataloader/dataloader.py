@@ -66,10 +66,7 @@ def create_dataloader_nlp(args):
 
         def encode(examples):
             return tokenizer(
-                examples["text"],
-                truncation=True,
-                padding="max_length",
-                max_length=128,
+                examples["text"], truncation=True, padding="max_length", max_length=128,
             )
 
         train_dataset = train_dataset.map(encode, batched=True)
@@ -114,9 +111,27 @@ def create_dataloader_cv(args):
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         ]
     )
-    trainset = torchvision.datasets.CIFAR10(
-        root=args.root, train=True, download=True, transform=transform_train
-    )
+    if args.task == "CIFAR10":
+        trainset = torchvision.datasets.CIFAR10(
+            root=args.root, train=True, download=True, transform=transform_train
+        )
+        testset = torchvision.datasets.CIFAR10(
+            root=args.root, train=False, download=True, transform=transform_test
+        )
+    elif args.task == "CIFAR100":
+        trainset = torchvision.datasets.CIFAR100(
+            root=args.root, train=True, download=True, transform=transform_train
+        )
+        testset = torchvision.datasets.CIFAR100(
+            root=args.root, train=False, download=True, transform=transform_test
+        )
+    elif args.task == "FOOD101":
+        trainset = torchvision.datasets.Food101(
+            root=args.root, split="train", download=True, transform=transform_train
+        )
+        testset = torchvision.datasets.Food101(
+            root=args.root, split="test", download=True, transform=transform_test
+        )
     train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
     train_loader = torch.utils.data.DataLoader(
         trainset,
@@ -127,9 +142,7 @@ def create_dataloader_cv(args):
         sampler=train_sampler,
         pin_memory=True,
     )
-    testset = torchvision.datasets.CIFAR10(
-        root=args.root, train=False, download=True, transform=transform_test
-    )
+
     val_loader = torch.utils.data.DataLoader(
         testset,
         batch_size=args.batches,

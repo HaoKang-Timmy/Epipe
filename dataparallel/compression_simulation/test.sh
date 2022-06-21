@@ -1,24 +1,16 @@
-# python3 dataparallel_test_cv.py --pca1 12 --log ./cifar10_pca12.txt
-# python3 dataparallel_test_cv.py --pca1 6 --log ./cifar10_pca6.txt
-# python3 dataparallel_test_cv.py --pca1 14 --log ./cifar10_pca14.txt
-# python3 dataparallel_test_cv.py --pca1 4 --log ./cifar10_pca4.txt
-# python3 dataparallel_test_cv.py --sortquant --quant 12 --split 4 --log ./cifar10_q12s4.txt
-# python3 dataparallel_test_cv.py --sortquant --quant 9 --split 3 --log ./cifar10_q9s3.txt
-# python3 dataparallel_test_cv.py --sortquant --quant 6 --split 2 --log ./cifar10_q6s2.txt
-# python3 dataparallel_test_cv.py --sortquant --quant 3 --split 1 --log ./cifar10_q3s1.txt
-# python3 dataparallel_test_nlp.py --sortquant --quant 12 --split 4 --log ./rte_q12s4.txt
-# python3 dataparallel_test_nlp.py --sortquant --quant 9 --split 3 --log ./rte_q9s3.txt
-# python3 dataparallel_test_nlp.py --sortquant --quant 6 --split 2 --log ./rte_q6s2.txt
-# python3 dataparallel_test_nlp.py --sortquant --quant 3 --split 1 --log ./rte_q3s1.txt
-# python3 dataparallel_test_nlp.py --log rte_pca100.txt --pca 64
-# python3 dataparallel_test_nlp.py --log rte_pca100.txt --pca 128
-# python3 mix_test.py --pca1 12 --sortquant --quant 6 --split 2 --log ./CIFAR10_pca12_q6s2.txt
-# python3 mix_test.py --pca1 12 --sortquant --quant 4 --split 4 --log ./CIFAR10_pca12_q4s4.txt
-# python3 mix_test.py --pca1 14 --sortquant --quant 4 --split 4 --log ./CIFAR10_pca14_q4s4.txt
-# python3 mix_test.py --pca1 14 --sortquant --quant 6 --split 2 --log ./CIFAR10_pca14_q6s2.txt
-# python3 dataparallel_test_cv.py --log ./test_quant10_2l2l_withoutrelu.txt --quant 10
-# python3 dataparallel_test_cv.py --log ./test_quant10_1l1l_relu.txt --quant 10 --secondlayer
 
+# <<<<<<< HEAD
+# python3 dataparallel_test_cv.py --task FOOD101 --prune 0.5 --log ./log/FOOD101_prune0.5.txt
+# python3 dataparallel_test_cv.py --task FOOD101 --prune 0.4 --log ./log/FOOD101_prune0.4.txt
+# python3 dataparallel_test_cv.py --task FOOD101 --prune 0.3 --log ./log/FOOD101_prune0.3.txt
+# python3 dataparallel_test_cv.py --task FOOD101 --prune 0.2 --log ./log/FOOD101_prune0.2.txt
+# python3 dataparallel_test_cv.py --task FOOD101 --prune 0.1 --log ./log/FOOD101_prune0.1.txt
+# python3 dataparallel_test_cv.py --task FOOD101 --prune 0.05 --log ./log/FOOD101_prune0.05.txt
+# python3 dataparallel_test_cv.py --task FOOD101 --quant 16 --log ./log/FOOD101_quant16.txt
+# python3 dataparallel_test_cv.py --task FOOD101 --quant 12 --log ./log/FOOD101_quant12.txt
+# python3 dataparallel_test_cv.py --task FOOD101 --quant 11 --log ./log/FOOD101_quant11.txt
+# python3 dataparallel_test_cv.py --task FOOD101 --quant 10 --log ./log/FOOD101_quant10.txt
+# =======
 
 # python3 dataparallel_test_cv.py --log ./test_quant12_2l2l.txt --quant 12
 # python3 dataparallel_test_cv.py --log ./test_quant9_1l1l_relu.txt --quant 9
@@ -88,12 +80,45 @@
 # python3 dataparallel_test_nlp_fp16.py --task cola --log cola_eye.txt --eye
 # python3 dataparallel_test_nlp_fp16.py --task rte --log rte_last2_insert50.txt --channelsize 50
 # python3 dataparallel_test_nlp_fp16.py --task cola --log cola_last2_insert50.txt --channelsize 50
+<<<<<<< Updated upstream
 # # python3 dataparallel_test_nlp_fp16.py --task rte --log rte_eye.txt --eye
 # # python3 dataparallel_test_nlp_fp16.py --task cola --log cola_eye.txt --eye
+=======
+# python3 dataparallel_test_nlp_fp16.py --task rte --log rte_eye.txt --eye
+# python3 dataparallel_test_nlp_fp16.py --task cola --log cola_eye.txt --eye
+>>>>>>> Stashed changes
 # python3 dataparallel_test_nlp_fp16.py --task rte --log rte_last2_insert50.txt --channelsize 50
 # python3 dataparallel_test_nlp_fp16.py --task cola --log cola_last2_insert50.txt --channelsize 50
 # python3 dataparallel_test_nlp_fp16.py --task rte --log rte_last2_insert100.txt --channelsize 100
 # python3 dataparallel_test_nlp_fp16.py --task cola --log cola_last2_insert100.txt --channelsize 100
+<<<<<<< Updated upstream
 python3 dataparallel_test_cv.py --powerrank 2 --powerrank1 7 --log cifar10_iter27.txt
+=======
+python3 dataparallel_test_nlp.py  --prun 0.5 --log cola_prun0.5.txt
+python3 dataparallel_test_nlp.py  --prun 0.3 --log cola_prun0.3.txt
+python3 dataparallel_test_nlp.py  --prun 0.2 --log cola_prun0.2.txt
+python3 dataparallel_test_nlp.py  --prun 0.1 --log cola_prun0.1.txt
+python3 dataparallel_test_nlp.py  --quant 16 --log cola_quant16.txt
+python3 dataparallel_test_nlp.py  --quant 12 --log cola_quant12.txt
+python3 dataparallel_test_nlp.py  --quant 8 --log cola_quant8.txt
+python3 dataparallel_test_nlp.py  --quant 6 --log cola_quant6.txt
+>>>>>>> Stashed changes
 
+python3 dataparallel_test_nlp.py  --prun 0.5 --log cola_prun0.5.txt
+python3 dataparallel_test_nlp.py  --prun 0.3 --log cola_prun0.3.txt
+python3 dataparallel_test_nlp.py  --prun 0.2 --log cola_prun0.2.txt
+python3 dataparallel_test_nlp.py  --prun 0.1 --log cola_prun0.1.txt
+python3 dataparallel_test_nlp.py  --quant 16 --log cola_quant16.txt
+python3 dataparallel_test_nlp.py  --quant 12 --log cola_quant12.txt
+python3 dataparallel_test_nlp.py  --quant 8 --log cola_quant8.txt
+python3 dataparallel_test_nlp.py  --quant 6 --log cola_quant6.txt
+
+python3 dataparallel_test_nlp.py  --prun 0.5 --log cola_prun0.5.txt
+python3 dataparallel_test_nlp.py  --prun 0.3 --log cola_prun0.3.txt
+python3 dataparallel_test_nlp.py  --prun 0.2 --log cola_prun0.2.txt
+python3 dataparallel_test_nlp.py  --prun 0.1 --log cola_prun0.1.txt
+python3 dataparallel_test_nlp.py  --quant 16 --log cola_quant16.txt
+python3 dataparallel_test_nlp.py  --quant 12 --log cola_quant12.txt
+python3 dataparallel_test_nlp.py  --quant 8 --log cola_quant8.txt
+python3 dataparallel_test_nlp.py  --quant 6 --log cola_quant6.txt
 

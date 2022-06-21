@@ -49,6 +49,18 @@ def main_worker(rank, process_num, args):
         model = MobileNetV2withConvInsert0_bn()
     elif args.type == 1:
         model = MobileNetV2withConvInsert1_bn()
+    elif args.type == 2:
+        model = MobileNetV2withConvInsert2_bn()
+    elif args.type == 3:
+        model = MobileNetV2withConvInsert3_bn()
+    elif args.type == 4:
+        model = MobileNetV2withConvInsert4_bn()
+    elif args.type == 5:
+        model = MobileNetV2withConvInsert5_bn()
+    elif args.type == 6:
+        model = MobileNetV2withConvInsert6_bn()
+    elif args.type == 7:
+        model = MobileNetV2withConvInsert7_bn()
     for i, conv in enumerate(model.convsets):
         path = args.savepath + str(args.type) + "conv" + str(i) + ".pth"
 
@@ -60,11 +72,7 @@ def main_worker(rank, process_num, args):
     model = torch.nn.parallel.DistributedDataParallel(model)
 
     optimizer = torch.optim.SGD(
-        [
-            {"params": model.parameters()},
-        ],
-        lr=args.lr,
-        momentum=0.9,
+        [{"params": model.parameters()},], lr=args.lr, momentum=0.9,
     )
 
     lr_scheduler = get_scheduler(

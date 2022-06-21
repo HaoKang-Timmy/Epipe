@@ -287,9 +287,9 @@ class Robertawithcompress(nn.Module):
             self.linear2 = torch.nn.Linear(args.linear, 768).to(device)
             self.linear3 = torch.nn.Linear(768, args.linear).to(device)
             self.linear4 = torch.nn.Linear(args.linear, 768).to(device)
-        if args.prun != 0:
-            self.topk_layer1 = TopkLayer(args.prun)
-            self.topk_layer2 = TopkLayer(args.prun)
+        if args.prune != 0:
+            self.topk_layer1 = TopkLayer(args.prune)
+            self.topk_layer2 = TopkLayer(args.prune)
         if args.powerpca != 0:
             self.powerpca_layer1 = PowerSVDLayerNLP(
                 args.powerpca, (int(batchsize), 128, 768), args.poweriter, device
@@ -338,7 +338,12 @@ class MobileNetV2Compress(nn.Module):
     def __init__(self, args, rank, shape1=None, shape2=None):
         super(MobileNetV2Compress, self).__init__()
         model = models.mobilenet_v2(pretrained=True)
-        model.classifier[-1] = torch.nn.Linear(1280, 10)
+        if args.task == "CIFAR10":
+            model.classifier[-1] = torch.nn.Linear(1280, 10)
+        elif args.task == "CIFAR100":
+            model.classifier[-1] = torch.nn.Linear(1280, 100)
+        elif args.task == "FOOD101":
+            model.classifier[-1] = torch.nn.Linear(1280, 101)
         feature = model.features[0].children()
         conv = next(feature)
         bn = next(feature)
@@ -356,6 +361,9 @@ class MobileNetV2Compress(nn.Module):
         if args.conv2 != 0:
             self.conv2d1 = torch.nn.Conv2d(1280, 320, (1, 1))
             self.conv_t1 = torch.nn.ConvTranspose2d(320, 1280, (1, 1))
+        if args.prune != 0:
+            self.topk_layer1 = TopkLayer(args.prune)
+            self.topk_layer2 = TopkLayer(args.prune)
         self.args = args
         self.bool = 0
         self.rank = rank
@@ -370,6 +378,7 @@ class MobileNetV2Compress(nn.Module):
     def forward(self, input):
         outputs = self.part1(input)
         args = self.args
+
         if args.sortquant != 0:
             outputs = FastQuantization.apply(outputs, args.quant, args.split)
         elif args.conv1 != 0:
@@ -377,6 +386,10 @@ class MobileNetV2Compress(nn.Module):
             # outputs = conv2d1(outputs)
             # outputs = conv_t1(outputs)
             outputs = self.conv_t(outputs)
+        elif args.quant != 0:
+            outputs = Fakequantize.apply(outputs, args.quant)
+        elif args.prune != 0:
+            outputs = self.topk_layer1(outputs)
         # elif args.channelquant != 0:
         #     outputs = ChannelwiseQuantization.apply(outputs, args.channelquant)
         elif args.powerrank != 0:
@@ -395,5 +408,9 @@ class MobileNetV2Compress(nn.Module):
             outputs = self.svd2(outputs)
         elif args.svd != 0:
             outputs = ReshapeSVD.apply(outputs, args.svd)
+        elif args.quant != 0:
+            outputs = Fakequantize.apply(outputs, args.quant)
+        elif args.prune != 0:
+            outputs = self.topk_layer2(outputs)
         outputs = self.part3(outputs)
         return outputs

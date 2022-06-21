@@ -16,6 +16,7 @@ from trainer.trainer import TrainerCV
 
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 parser.add_argument("--log", default="./test.txt", type=str)
+parser.add_argument("--task", default="CIFAR10", type=str)
 parser.add_argument("--lr", default=0.01, type=float)
 parser.add_argument("--momentum", default=0.9, type=float)
 parser.add_argument("--epochs", default=40, type=int)
@@ -69,11 +70,7 @@ def main_worker(rank, process_num, args):
 
     model = torch.nn.parallel.DistributedDataParallel(model)
 
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=args.lr,
-        momentum=args.momentum,
-    )
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum,)
     lr_scheduler = get_scheduler(
         name="cosine",
         optimizer=optimizer,

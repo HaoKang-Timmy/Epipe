@@ -25,7 +25,7 @@ parser.add_argument("--nproc", default=4, type=int)
 parser.add_argument("--type", default=0, type=int)
 parser.add_argument("--nworker", default=40, type=int)
 parser.add_argument("--root", default="/dataset/imagenet", type=str)
-parser.add_argument("--savepath", default="./model.pth", type=str)
+parser.add_argument("--savepath", default="./model", type=str)
 parser.add_argument("--dataset", default="imagenet", type=str)
 
 
@@ -52,6 +52,19 @@ def main_worker(rank, process_num, args):
         model = MobileNetV2withConvInsert0_bn()
     elif args.type == 1:
         model = MobileNetV2withConvInsert1_bn()
+    elif args.type == 2:
+        model = MobileNetV2withConvInsert2_bn()
+    elif args.type == 3:
+        model = MobileNetV2withConvInsert3_bn()
+    # double insertion
+    elif args.type == 4:
+        model = MobileNetV2withConvInsert4_bn()
+    elif args.type == 5:
+        model = MobileNetV2withConvInsert5_bn()
+    elif args.type == 6:
+        model = MobileNetV2withConvInsert6_bn()
+    elif args.type == 7:
+        model = MobileNetV2withConvInsert7_bn()
     model = model.to(rank)
     optimizer = create_optimizer(args, model)
 
@@ -100,64 +113,64 @@ def main_worker(rank, process_num, args):
         model.eval()
         if rank == 0:
             print("lr:", get_lr(optimizer))
-        val_loss = 0.0
-        val_acc1 = 0.0
-        if epoch % 2 == 0 or epoch == 19:
-            with torch.no_grad():
-                for i, (image, label) in enumerate(val_loader):
-                    image = image.to(rank, non_blocking=True)
-                    label = label.to(rank, non_blocking=True)
+        # val_loss = 0.0
+        # val_acc1 = 0.0
+        # if epoch % 2 == 0 or epoch == 19:
+        #     with torch.no_grad():
+        #         for i, (image, label) in enumerate(val_loader):
+        #             image = image.to(rank, non_blocking=True)
+        #             label = label.to(rank, non_blocking=True)
 
-                    outputs = model(image)
-                    loss = criterion(outputs, label)
-                    acc, _ = accuracy(outputs, label, topk=(1, 2))
+        #             outputs = model(image)
+        #             loss = criterion(outputs, label)
+        #             acc, _ = accuracy(outputs, label, topk=(1, 2))
 
-                    val_loss += loss.item()
-                    val_acc1 += acc.item()
-                    if i % 20 == 0 and rank == 0:
-                        print("val_loss", loss.item(), "val_acc", acc.item())
-                val_loss /= len(val_loader)
-                val_acc1 /= len(val_loader)
-            if best_acc < val_acc1:
-                best_acc = val_acc1
-                if rank == 0:
-                    for i, conv in enumerate(model.module.convsets):
-                        torch.save(
-                            conv.state_dict(),
-                            args.savepath + str(args.type) + "conv" + str(i),
-                        )
-            if rank == 0:
-                print(
-                    "epoch:",
-                    epoch,
-                    "train_loss",
-                    train_loss,
-                    "train_acc",
-                    train_acc1,
-                    "val_loss",
-                    val_loss,
-                    "val_acc",
-                    val_acc1,
+        #             val_loss += loss.item()
+        #             val_acc1 += acc.item()
+        #             if i % 20 == 0 and rank == 0:
+        #                 print("val_loss", loss.item(), "val_acc", acc.item())
+        #         val_loss /= len(val_loader)
+        #         val_acc1 /= len(val_loader)
+        #     if best_acc < val_acc1:
+        #         best_acc = val_acc1
+        if rank == 0:
+            for i, conv in enumerate(model.module.convsets):
+                torch.save(
+                    conv.state_dict(),
+                    args.savepath + str(args.type) + "conv" + str(i) + ".pth",
                 )
-                file_save = open(args.log, mode="a")
-                file_save.write(
-                    "\n"
-                    + "step:"
-                    + str(epoch)
-                    + "  loss_train:"
-                    + str(train_loss)
-                    + "  acc1_train:"
-                    + str(train_acc1)
-                    + "  loss_val:"
-                    + str(val_loss)
-                    + "  acc1_val:"
-                    + str(val_acc1)
-                    + "  time_per_batch:"
-                    + str(time_avg)
-                    + "  lr:"
-                    # + str(get_lr(optimizer))
-                )
-                file_save.close()
+        if rank == 0:
+            print(
+                "epoch:",
+                epoch,
+                "train_loss",
+                train_loss,
+                "train_acc",
+                train_acc1,
+                # "val_loss",
+                # val_loss,
+                # "val_acc",
+                # val_acc1,
+            )
+        file_save = open(args.log, mode="a")
+        file_save.write(
+            "\n"
+            + "step:"
+            + str(epoch)
+            + "  loss_train:"
+            + str(train_loss)
+            + "  acc1_train:"
+            + str(train_acc1)
+            + "  loss_val:"
+            # + str(val_loss)
+            # + "  acc1_val:"
+            # + str(val_acc1)
+            + "  time_per_batch:"
+            + str(time_avg)
+            + "  lr:"
+            # + str(get_lr(optimizer))
+        )
+        file_save.close()
 
 
 if __name__ == "__main__":

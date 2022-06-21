@@ -1,6 +1,6 @@
 import torch
 import time
-
+import torch.cuda.amp as amp
 
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
@@ -163,6 +163,7 @@ class TrainerNLP(BaseTrainer):
         lr_scheduler = self.lr_scheduler
         val_loader = self.val_loader
         train_sampler = self.train_sampler
+        scaler = amp.GradScaler()
         for epoch in range(args.epochs):
             model.train()
             train_loss = 0.0
@@ -174,13 +175,17 @@ class TrainerNLP(BaseTrainer):
                 start = time.time()
                 batch = {k: v.to(device) for k, v in batch.items()}
                 optimizer.zero_grad()
-                outputs = model(batch["input_ids"], batch["attention_mask"])
-                logits = outputs
-                loss = criterion(logits, batch["labels"])
+                with amp.autocast():
+                    outputs = model(batch["input_ids"], batch["attention_mask"])
+                    logits = outputs
+                    loss = criterion(logits, batch["labels"])
                 pred = torch.argmax(logits, dim=1)
                 acc = metric_acc.compute(predictions=pred, references=batch["labels"])
-                loss.backward()
-                optimizer.step()
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+                # loss.backward()
+                # optimizer.step()
                 lr_scheduler.step()
                 train_loss += loss.item()
                 train_acc1 += acc["accuracy"]
