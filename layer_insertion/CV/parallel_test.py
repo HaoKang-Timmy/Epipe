@@ -23,7 +23,7 @@ parser.add_argument("--nproc", default=4, type=int)
 parser.add_argument("--type", default=0, type=int)
 parser.add_argument("--nworker", default=40, type=int)
 parser.add_argument("--root", default="../gpipe_test/data", type=str)
-parser.add_argument("--savepath", default="./model", type=str)
+parser.add_argument("--savepath", default="./parameters/mobilenetv2/model", type=str)
 parser.add_argument("--dataset", default="cifar10", type=str)
 
 
