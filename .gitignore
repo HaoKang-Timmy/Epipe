@@ -4,7 +4,7 @@
 /log
 /code(noapi)
 /dist_gpipe
-*.pth
+
 *.pty
 *.DS_Store
 *.yaml
