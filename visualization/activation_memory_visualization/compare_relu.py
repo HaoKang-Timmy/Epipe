@@ -1,3 +1,11 @@
+'''
+Author: Beta Cat 466904389@qq.com
+Date: 2022-06-14 01:24:39
+LastEditors: Beta Cat 466904389@qq.com
+LastEditTime: 2022-06-28 23:49:38
+FilePath: /research/gpipe_test/visualization/activation_memory_visualization/compare_relu.py
+Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+'''
 import torchvision.models as models
 import torchvision.transforms as transforms
 import torchvision
@@ -41,63 +49,36 @@ output4 = output4.view(-1).detach().numpy()
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
-
+# print(output1.size)
 plt.subplot(2, 2, 1)
 
-<<<<<<< Updated upstream
-data = sns.histplot(output1, bins=100)
-plt.title("activation memory distribution(conv+bn+relu)")
-plt.xlabel("(a) activation memory value")
-plt.ylabel("count of values")
-
-plt.subplot(2, 2, 2)
-data = sns.histplot(output3, bins=100)
-plt.title("activation memory distribution(conv+bn)")
-plt.xlabel("(b) activation memory value")
-plt.ylabel("count of values")
-=======
 data = sns.histplot(output1,bins = 100)
-plt.title("Activation Memory Distribution(conv+bn+relu)")
-plt.xlabel("(a) Activation Memory Value")
+plt.title("Activation Value Distribution(conv+bn+relu)")
+plt.xlabel("(a) Activation Value")
 plt.ylabel("Count of Values")
 
 plt.subplot(2, 2, 2)
 data = sns.histplot(output3,bins = 100)
-plt.title("Activation Memory Distribution(conv+bn)")
-plt.xlabel("(b) Activation Memory Value")
+plt.title("Activation Value Distribution(conv+bn)")
+plt.xlabel("(b) Activation Value")
 plt.ylabel("Count of Values")
->>>>>>> Stashed changes
 
 
 plt.subplot(2, 2, 3)
 hist, bin_edge = np.histogram(output1)
-<<<<<<< Updated upstream
-cdf = np.cumsum(hist / sum(hist))
-plt.xlabel("(c) weight value")
-plt.ylabel("cummulative distribution")
-plt.title("activation memory CDF(conv+bn+relu)")
-=======
 cdf = np.cumsum(hist/sum(hist))
-plt.xlabel("(c) Activation Memory Value")
+plt.xlabel("(c) Activation Value")
 plt.ylabel("Cummulative Distribution")
-plt.title("Activation Memory CDF(conv+bn+relu)")
->>>>>>> Stashed changes
+plt.title("Activation CDF(conv+bn+relu)")
 # plt.xlim([output1.min(),output1.max()])
 plt.plot(bin_edge[1:], cdf, label="CDF")
-plt.legend()
+# plt.legend()
 plt.subplot(2, 2, 4)
 hist, bin_edge = np.histogram(output3)
-<<<<<<< Updated upstream
-cdf = np.cumsum(hist / sum(hist))
-plt.xlabel("(d) weight value")
-plt.ylabel("cummulative distribution")
-plt.title("activation memory CDF(conv+bn)")
-=======
 cdf = np.cumsum(hist/sum(hist))
-plt.xlabel("(d) Activation Memory Value")
+plt.xlabel("(d) Activation Value")
 plt.ylabel("Cummulative Distribution")
-plt.title("Activation Memory CDF(conv+bn)")
->>>>>>> Stashed changes
+plt.title("Activation CDF(conv+bn)")
 # plt.xlim([output3.min(),output3.max()])
 plt.plot(bin_edge[1:], cdf, label="CDF")
 # plt.hist(output2, bins=100, density=True)
@@ -110,6 +91,6 @@ plt.plot(bin_edge[1:], cdf, label="CDF")
 # plt.title("distribution(without relu)")
 # plt.xlabel("value")
 # plt.ylabel("number of values")
-plt.legend()
+# plt.legend()
 plt.tight_layout()
 plt.show()
