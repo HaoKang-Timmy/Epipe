@@ -1,3 +1,11 @@
+'''
+Author: Beta Cat 466904389@qq.com
+Date: 2022-07-14 20:38:58
+LastEditors: Beta Cat 466904389@qq.com
+LastEditTime: 2022-07-15 14:09:36
+FilePath: /research/gpipe_test/dataparallel/compression_simulation/dataparallel_test_cv.py
+Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+'''
 import torchvision.models as models
 import torch.nn as nn
 import time
@@ -27,7 +35,6 @@ parser.add_argument("--prune", default=0.0, type=float)
 parser.add_argument("--split", default=0, type=int)
 parser.add_argument("--c", default="./", type=str)
 parser.add_argument("--sortquant", default=0, action="store_true")
-parser.add_argument("--secondlayer", default=0, action="store_true")
 parser.add_argument("--root", default="../../data", type=str)
 parser.add_argument("--conv1", default=0, action="store_true")
 parser.add_argument("--conv2", default=0, action="store_true")
@@ -61,7 +68,7 @@ def main_worker(rank, process_num, args):
         rank=rank,
     )
     train_loader, val_loader, train_sampler = create_dataloader_cv(args)
-    #     pass
+    #     activation size
     model = MobileNetV2Compress(
         args, rank, [args.batches, 32, 112, 112], [args.batches, 1280, 7, 7]
     )

@@ -347,14 +347,9 @@ class MobileNetV2Compress(nn.Module):
         feature = model.features[0].children()
         conv = next(feature)
         bn = next(feature)
-        if args.secondlayer == 0:
-            self.part1 = nn.Sequential(*[conv, bn])
-            self.part2 = nn.Sequential(*[nn.ReLU6(inplace=False), model.features[1:]])
-            self.part3 = nn.Sequential(*[Reshape1(), model.classifier])
-        else:
-            self.part1 = nn.Sequential(*[model.features[0:1]])
-            self.part2 = nn.Sequential(*[model.features[1:]])
-            self.part3 = nn.Sequential(*[Reshape1(), model.classifier])
+        self.part1 = nn.Sequential(*[model.features[0:1]])
+        self.part2 = nn.Sequential(*[model.features[1:]])
+        self.part3 = nn.Sequential(*[Reshape1(), model.classifier])
         if args.conv1 != 0:
             self.conv2d = torch.nn.Conv2d(32, 32, (4, 4), (4, 4))
             self.conv_t = torch.nn.ConvTranspose2d(32, 32, (4, 4), (4, 4))
