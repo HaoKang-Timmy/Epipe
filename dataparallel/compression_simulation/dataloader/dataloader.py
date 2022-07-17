@@ -20,7 +20,7 @@ task_to_keys = {
 
 def create_dataloader_nlp(args):
     tokenizer = AutoTokenizer.from_pretrained("roberta-base", use_fast=True)
-    args.batches = int(args.batches / args.worker)
+    args.batches = int(args.batches / args.nproc)
     if args.task != "wiki":
         train_dataset = load_dataset("glue", args.task, split="train")
         val_dataset = load_dataset("glue", args.task, split="validation")
@@ -77,7 +77,7 @@ def create_dataloader_nlp(args):
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.batches,
-        num_workers=args.loader,
+        num_workers=args.nworker,
         pin_memory=True,
         drop_last=True,
         shuffle=False,
@@ -86,7 +86,7 @@ def create_dataloader_nlp(args):
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=args.batches,
-        num_workers=args.loader,
+        num_workers=args.nworker,
         pin_memory=True,
         drop_last=True,
         shuffle=False,
@@ -95,6 +95,7 @@ def create_dataloader_nlp(args):
 
 
 def create_dataloader_cv(args):
+    args.batches = int(args.batches / args.nproc)
     transform_train = transforms.Compose(
         [
             transforms.RandomResizedCrop(224),
@@ -137,7 +138,7 @@ def create_dataloader_cv(args):
         trainset,
         batch_size=args.batches,
         shuffle=(train_sampler is None),
-        num_workers=args.loader,
+        num_workers=args.nworker,
         drop_last=True,
         sampler=train_sampler,
         pin_memory=True,
@@ -147,7 +148,7 @@ def create_dataloader_cv(args):
         testset,
         batch_size=args.batches,
         shuffle=False,
-        num_workers=args.loader,
+        num_workers=args.nworker,
         drop_last=True,
         pin_memory=True,
     )

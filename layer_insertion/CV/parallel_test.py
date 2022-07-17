@@ -13,6 +13,7 @@ from models.models import *
 from models.metric import accuracy
 from dataloaders.dataloaders import create_dataloaders
 from .trainer.trainer import TrainerCV
+
 parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
 parser.add_argument("--log", default="./test_cifar10_1.txt", type=str)
 parser.add_argument("--pretrained", default=0, action="store_true")
@@ -24,7 +25,7 @@ parser.add_argument("--type", default=0, type=int)
 parser.add_argument("--nworker", default=40, type=int)
 parser.add_argument("--root", default="../gpipe_test/data", type=str)
 parser.add_argument("--savepath", default="./parameters/mobilenetv2/model", type=str)
-parser.add_argument("--dataset", default="cifar10", type=str)
+parser.add_argument("--dataset", default="CIFAR10", type=str)
 
 
 def get_lr(optimizer):
@@ -94,9 +95,9 @@ def main_worker(rank, process_num, args):
         rank,
         train_sampler,
         args,
-        
     )
     trainer.traineval()
+
 
 if __name__ == "__main__":
     main()

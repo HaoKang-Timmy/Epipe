@@ -15,6 +15,7 @@ class Reshape1(nn.Module):
         out = out.view(out.size(0), -1)
         return out
 
+
 class MobileNetOrigin(nn.Module):
     def __init__(self) -> None:
         super(MobileNetOrigin, self).__init__()
@@ -27,12 +28,15 @@ class MobileNetOrigin(nn.Module):
             *[nn.ReLU6(inplace=False), model.features[1:]]
         )
         self.mobilenetv2_part3 = models.mobilenet_v2(pretrained=True).classifier
+
     def forward(self, input):
         output = self.mobilenetv2_part1(input)
         output = self.mobilenetv2_part2(output)
         output = self.reshape(output)
         output = self.mobilenetv2_part3(output)
         return output
+
+
 class MobileNetV2withConvInsert0_bn(nn.Module):
     def __init__(self) -> None:
         super(MobileNetV2withConvInsert0_bn, self).__init__()

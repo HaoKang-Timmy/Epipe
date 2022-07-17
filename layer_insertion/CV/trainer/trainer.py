@@ -1,6 +1,7 @@
 import torch
 import time
 
+
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group["lr"]
@@ -15,8 +16,8 @@ class BaseTrainer:
         self.optimizer = opt
         self.train_loader = train_loader
         self.val_loader = val_loader
-        
-        
+
+
 class TrainerCV(BaseTrainer):
     def __init__(
         self,
@@ -35,7 +36,8 @@ class TrainerCV(BaseTrainer):
         self.lr_scheduler = lr_scheduler
         self.device = device
         self.train_sampler = train_sampler
-    #in order to speed up training processes, we do not do evaluation here.
+
+    # in order to speed up training processes, we do not do evaluation here.
     def train(self):
         args = self.args
         train_loader = self.train_loader
@@ -76,20 +78,14 @@ class TrainerCV(BaseTrainer):
             train_acc1 /= len(train_loader)
             time_avg /= len(train_loader)
             lr_scheduler.step()
-            
+
             with torch.no_grad():
-                
+
                 if device == 0:
                     print("lr:", get_lr(optimizer))
-                    print(
-                        "epoch:",
-                        epoch,
-                        "train_loss",
-                        train_loss,
-                        "train_acc"
-                    )
+                    print("epoch:", epoch, "train_loss", train_loss, "train_acc")
                     for i, conv in enumerate(model.module.convsets):
-                            torch.save(
+                        torch.save(
                             conv.state_dict(),
                             args.savepath + str(args.type) + "conv" + str(i) + ".pth",
                         )
@@ -108,6 +104,7 @@ class TrainerCV(BaseTrainer):
                         + str(get_lr(optimizer))
                     )
                     file_save.close()
+
     def traineval(self):
         args = self.args
         train_loader = self.train_loader

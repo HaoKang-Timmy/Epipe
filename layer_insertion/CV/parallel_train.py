@@ -1,3 +1,11 @@
+"""
+Author: Beta Cat 466904389@qq.com
+Date: 2022-07-14 20:38:58
+LastEditors: Beta Cat 466904389@qq.com
+LastEditTime: 2022-07-16 22:40:36
+FilePath: /research/gpipe_test/layer_insertion/CV/parallel_train.py
+Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+"""
 from venv import create
 from numpy import RankWarning
 import torchvision.models as models
@@ -27,7 +35,7 @@ parser.add_argument("--type", default=0, type=int)
 parser.add_argument("--nworker", default=40, type=int)
 parser.add_argument("--root", default="/dataset/imagenet", type=str)
 parser.add_argument("--savepath", default="./model", type=str)
-parser.add_argument("--dataset", default="imagenet", type=str)
+parser.add_argument("--dataset", default="IMAGENET", type=str)
 
 
 def get_lr(optimizer):
@@ -88,9 +96,9 @@ def main_worker(rank, process_num, args):
         rank,
         train_sampler,
         args,
-        
     )
     trainer.train()
+
 
 if __name__ == "__main__":
     main()

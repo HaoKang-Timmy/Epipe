@@ -1,3 +1,11 @@
+"""
+Author: Beta Cat 466904389@qq.com
+Date: 2022-07-14 20:38:58
+LastEditors: Beta Cat 466904389@qq.com
+LastEditTime: 2022-07-18 02:50:30
+FilePath: /research/gpipe_test/dataparallel/compression_simulation/dataparallel_test_nlp.py
+Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+"""
 import torch.nn as nn
 import time
 import torch
@@ -30,15 +38,15 @@ parser.add_argument("--pca", default=0, type=int)
 parser.add_argument("--powerpca", default=0, type=int)
 parser.add_argument("--poweriter", default=2, type=int)
 parser.add_argument("--linear", default=0, type=int)
-parser.add_argument("--worker", default=4, type=int)
-parser.add_argument("--loader", default=12, type=int)
+parser.add_argument("--nproc", default=4, type=int)
+parser.add_argument("--nworker", default=12, type=int)
 parser.add_argument("--sortquant", default=0, action="store_true")
 parser.add_argument("--mix", default=0, action="store_true")
 
 
 def main():
     args = parser.parse_args()
-    mp.spawn(main_worker, nprocs=4, args=(4, args))
+    mp.spawn(main_worker, nprocs=args.nproc, args=(args.nproc, args))
 
 
 def main_worker(rank, process_num, args):

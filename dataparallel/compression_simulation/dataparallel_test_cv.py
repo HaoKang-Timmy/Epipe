@@ -1,11 +1,11 @@
-'''
+"""
 Author: Beta Cat 466904389@qq.com
 Date: 2022-07-14 20:38:58
 LastEditors: Beta Cat 466904389@qq.com
-LastEditTime: 2022-07-15 14:09:36
+LastEditTime: 2022-07-18 02:41:37
 FilePath: /research/gpipe_test/dataparallel/compression_simulation/dataparallel_test_cv.py
 Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-'''
+"""
 import torchvision.models as models
 import torch.nn as nn
 import time
@@ -43,8 +43,8 @@ parser.add_argument("--powerrank", default=0, type=int)
 parser.add_argument("--powerrank1", default=0, type=int)
 parser.add_argument("--poweriter", default=2, type=int)
 parser.add_argument("--svd", default=0, type=int)
-parser.add_argument("--loader", default=40, type=int)
-parser.add_argument("--worker", default=4, type=int)
+parser.add_argument("--nworker", default=40, type=int)
+parser.add_argument("--nproc", default=4, type=int)
 
 
 def get_lr(optimizer):
@@ -57,14 +57,14 @@ def main():
     config = create_config(args)
     f = open((args.c + args.log[:-4] + ".yaml"), "a")
     f.write(config.__str__())
-    mp.spawn(main_worker, nprocs=args.worker, args=(args.worker, args))
+    mp.spawn(main_worker, nprocs=args.nproc, args=(args.nproc, args))
 
 
 def main_worker(rank, process_num, args):
     dist.init_process_group(
         backend="nccl",
         init_method="tcp://127.0.0.1:1235",
-        world_size=args.worker,
+        world_size=args.nproc,
         rank=rank,
     )
     train_loader, val_loader, train_sampler = create_dataloader_cv(args)
