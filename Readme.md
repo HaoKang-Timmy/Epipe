@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Parallelism Pipeline is a method to accelerate training speed by dividing batches into minibatches and training these batches parallely. Also, we try to use compression algorithms to compress algorithms in order to save bandwidth and get better throughputs.
+Parallelism Pipeline is a method to accelerate training speed by dividing batches into minibatches and training these batches parallely. Also, we try to use compression algorithms to compress activations and gradients being sent and received in order to save bandwidth and get better throughputs.
 
 ## Reference
 
